@@ -1,1 +1,53 @@
-
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ephesians / 에베소서</title>
+<style>
+body{font-family:Georgia,serif;max-width:1100px;margin:0 auto;padding:16px}
+h1{text-align:center;font-size:22px;margin-bottom:4px}
+.sub{text-align:center;color:#777;font-size:13px;margin-bottom:16px}
+.tabs{display:flex;justify-content:center;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:6px 18px;border-radius:20px;border:1px solid #ccc;background:#f5f5f5;color:#333;cursor:pointer;font-size:14px;font-family:inherit}
+.on{background:#3b5998;color:#fff;font-weight:700;border-color:#3b5998}
+.hdr{display:grid;grid-template-columns:44px 1fr 1fr;border-bottom:2px solid #c0392b;padding-bottom:4px;margin-bottom:4px;font-weight:700;font-size:13px}
+.hkr{color:#c0392b;text-align:center}
+.hesv{color:#3b5998;text-align:center}
+.row{display:grid;grid-template-columns:44px 1fr 1fr;border-bottom:1px solid #eee;align-items:start}
+.row:nth-child(even){background:#f9f9f9}
+.vn{padding:8px 2px;text-align:center;font-size:11px;color:#aaa;font-weight:700}
+.kr{padding:8px 12px 8px 6px;font-size:14px;line-height:1.75;color:#2c0a0a;border-right:1px solid #ddd}
+.esv{padding:8px 6px 8px 12px;font-size:14px;line-height:1.65;color:#1a1a2e}
+.loading{text-align:center;padding:40px;color:#888;font-size:15px}
+.foot{text-align:center;font-size:11px;color:#aaa;margin-top:16px}
+</style>
+</head>
+<body>
+<h1>Ephesians / 에베소서</h1>
+<p class="sub">개역개정 | ESV</p>
+<div class="tabs" id="tabs"></div>
+<div class="hdr"><div></div><div class="hkr">개역개정</div><div class="hesv">ESV</div></div>
+<div id="verses"></div>
+<p class="foot">ESV &copy; Crossway &nbsp;&middot;&nbsp; 개역개정 &copy; 대한성서공회</p>
+<script>
+var active=1,cache={},counts={1:23,2:22,3:21,4:32,5:33,6:24};
+function renderTabs(){var h="";for(var i=1;i<=6;i++){h+="<button class='tab"+(i===active?" on":"")+"' onclick='go("+i+")'>Ch."+i+"</button>";}document.getElementById("tabs").innerHTML=h;}
+function go(n){active=n;renderTabs();if(cache[n]){renderVerses(cache[n]);return;}loadChapter(n);}
+function renderVerses(verses){var h="";for(var i=0;i<verses.length;i++){var v=verses[i];h+="<div class='row'><div class='vn'>"+active+":"+v.v+"</div><div class='kr'>"+v.kr+"</div><div class='esv'>"+v.esv+"</div></div>";}document.getElementById("verses").innerHTML=h;}
+async function loadChapter(n){
+document.getElementById("verses").innerHTML="<div class='loading'>Loading chapter "+n+"...</div>";
+var prompt="Give me Ephesians chapter "+n+" verses 1 through "+counts[n]+" as a JSON array. Each element must have: v (verse number as integer), kr (Korean 개역개정 text), esv (ESV English text). Return ONLY the raw JSON array, no explanation, no markdown, no code fences.";
+try{
+var res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,messages:[{role:"user",content:prompt}]})});
+var data=await res.json();
+var text=data.content[0].text.trim().replace(/^```json|^```|```$/gm,"").trim();
+var parsed=JSON.parse(text);
+cache[n]=parsed;
+renderVerses(parsed);
+}catch(e){document.getElementById("verses").innerHTML="<div class='loading'>Error loading. Please try again.</div>";}
+}
+renderTabs();loadChapter(1);
+</script>
+</body>
+</html>
