@@ -148,7 +148,7 @@ footer { border-top: 1px solid #e8e5e0; color: #bbb; background: var(--bg); font
 .mob-sheet.hidden { display: none; }
 .mob-sheet-drag { width: 100%; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent; }
 .mob-sheet-drag::after { content: ""; display: block; width: 40px; height: 4px; background: #d0cdc8; border-radius: 2px; }
-.mob-sheet-inner {
+.mob-sheet-inner { position: relative;
   background: var(--bg); border-radius: 16px 16px 0 0;
   width: 100%; max-height: 85vh;
   display: flex; flex-direction: column;
@@ -256,10 +256,11 @@ footer { border-top: 1px solid #e8e5e0; color: #bbb; background: var(--bg); font
 </nav>
 
 <!-- Mobile passage picker sheet -->
-<div id="mob-sheet" class="mob-sheet hidden" onclick="mobSheetBgClick(event)">
+<div id="mob-sheet" class="mob-sheet hidden" onclick="mobSheetBgClick(event)" ontouchstart="window._bkSY=event.touches[0].clientY" ontouchend="var _dy=event.changedTouches[0].clientY-window._bkSY;if(_dy>80&&event.target===this)mobCloseSheet()">
   <div class="mob-sheet-inner" id="mob-sheet-inner">
-    <div class="mob-sheet-drag" id="mob-drag-pill" ontouchstart="window._pillSY=event.touches[0].clientY;window._pillActive=true" ontouchmove="if(window._pillActive&&event.touches[0].clientY-window._pillSY>60){window._pillActive=false;mobCloseSheet()}" ontouchend="window._pillActive=false"></div>
-    <div class="mob-sheet-hdr" id="mob-sheet-hdr" ontouchstart="window._pillSY=event.touches[0].clientY;window._pillActive=true" ontouchmove="if(window._pillActive&&event.touches[0].clientY-window._pillSY>60){window._pillActive=false;mobCloseSheet()}" ontouchend="window._pillActive=false">
+    <div id="mob-swipe-zone" style="position:absolute;top:0;left:0;right:0;height:80px;z-index:10;touch-action:none" ontouchstart="window._szSY=event.touches[0].clientY" ontouchmove="var _d=event.touches[0].clientY-window._szSY;if(_d>60)mobCloseSheet()"></div>
+    <div class="mob-sheet-drag" id="mob-drag-pill"></div>
+    <div class="mob-sheet-hdr" id="mob-sheet-hdr">
       <span id="mob-sheet-title">Select passage</span>
       <button class="mob-sheet-close" onclick="mobCloseSheet()">✕</button>
     </div>
