@@ -258,8 +258,8 @@ footer { border-top: 1px solid #e8e5e0; color: #bbb; background: var(--bg); font
 <!-- Mobile passage picker sheet -->
 <div id="mob-sheet" class="mob-sheet hidden" onclick="mobSheetBgClick(event)">
   <div class="mob-sheet-inner" id="mob-sheet-inner">
-    <div class="mob-sheet-drag" id="mob-drag-pill" ontouchstart="this._sy=event.touches[0].clientY" ontouchend="if(event.changedTouches[0].clientY-this._sy>60)mobCloseSheet()"></div>
-    <div class="mob-sheet-hdr" id="mob-sheet-hdr" ontouchstart="this._sy=event.touches[0].clientY" ontouchend="if(event.changedTouches[0].clientY-this._sy>60)mobCloseSheet()">
+    <div class="mob-sheet-drag" id="mob-drag-pill" ontouchstart="window._pillSY=event.touches[0].clientY;window._pillActive=true" ontouchmove="if(window._pillActive&&event.touches[0].clientY-window._pillSY>60){window._pillActive=false;mobCloseSheet()}" ontouchend="window._pillActive=false"></div>
+    <div class="mob-sheet-hdr" id="mob-sheet-hdr" ontouchstart="window._pillSY=event.touches[0].clientY;window._pillActive=true" ontouchmove="if(window._pillActive&&event.touches[0].clientY-window._pillSY>60){window._pillActive=false;mobCloseSheet()}" ontouchend="window._pillActive=false">
       <span id="mob-sheet-title">Select passage</span>
       <button class="mob-sheet-close" onclick="mobCloseSheet()">✕</button>
     </div>
