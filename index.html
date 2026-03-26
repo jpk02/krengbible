@@ -184,6 +184,12 @@ let bi=42,ci=3,fs=15,pendingBook=null,loaded=false;
     var dy=e.touches[0].clientY - swy;
     if(dy > 0) sheetInner.style.transform='translateY('+Math.min(dy,300)+'px)';
   },{passive:true});
+  function resetSheet(){
+    swActive=false;
+    sheetInner.style.transition='transform 0.2s ease';
+    sheetInner.style.transform='';
+    setTimeout(function(){ sheetInner.style.transition=''; },200);
+  }
   sheetInner.addEventListener('touchend',function(e){
     if(!swActive) return;
     swActive=false;
@@ -191,13 +197,12 @@ let bi=42,ci=3,fs=15,pendingBook=null,loaded=false;
     if(dy > 150){
       sheetInner.style.transition='transform 0.2s ease';
       sheetInner.style.transform='translateY(100%)';
-      setTimeout(function(){ sheetInner.style.transform=''; sheetInner.style.transition=''; sheetClose(); }, 200);
+      setTimeout(function(){ sheetInner.style.transform=''; sheetInner.style.transition=''; sheetClose(); },200);
     } else {
-      sheetInner.style.transition='transform 0.2s ease';
-      sheetInner.style.transform='';
-      setTimeout(function(){ sheetInner.style.transition=''; }, 200);
+      resetSheet();
     }
   },{passive:true});
+  sheetInner.addEventListener('touchcancel',function(){ resetSheet(); },{passive:true});
 })();
 function applyFs(){
   document.documentElement.style.setProperty('--fs',fs+'px');
