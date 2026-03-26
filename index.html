@@ -10,61 +10,26 @@
 html, body { height: 100%; }
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #fff;
-  color: #111;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  background: #fff; color: #111;
+  display: flex; flex-direction: column; height: 100%;
   -webkit-font-smoothing: antialiased;
 }
-
 header {
-  height: 48px;
-  border-bottom: 1px solid #f0f0f0;
-  padding: 0 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  background: #fff;
+  height: 48px; border-bottom: 1px solid #f0f0f0;
+  padding: 0 20px; display: flex; align-items: center;
+  justify-content: space-between; flex-shrink: 0;
 }
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #111;
-  letter-spacing: -0.01em;
-}
+.logo { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: #111; letter-spacing: -0.01em; }
 .logo-div { color: #ccc; font-weight: 300; }
 .logo-en { color: #888; font-weight: 400; }
-.hright { display: flex; align-items: center; gap: 8px; }
-.badge {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 11px; color: #999;
-  background: #f5f5f5; border-radius: 20px;
-  padding: 3px 9px;
-}
-.dot { width: 5px; height: 5px; border-radius: 50%; background: #ddd; }
-.dot.ok { background: #22c55e; }
-.dot.bad { background: #f87171; }
-.btn-ghost {
-  font: 12px/1 'Inter', sans-serif;
-  color: #666; background: transparent;
-  border: 1px solid #e5e5e5; border-radius: 6px;
-  padding: 5px 11px; cursor: pointer;
-  transition: all 0.1s;
-}
-.btn-ghost:hover { border-color: #ccc; color: #111; }
 
 #esv-banner {
   background: #fafafa; border-bottom: 1px solid #f0f0f0;
-  padding: 10px 20px; display: flex; align-items: center;
+  padding: 10px 20px; display: none; align-items: center;
   gap: 10px; flex-shrink: 0; flex-wrap: wrap;
   font-size: 12px; color: #666;
 }
-#esv-banner.hidden { display: none; }
+#esv-banner.show { display: flex; }
 #esv-banner a { color: #2563eb; text-decoration: none; }
 #esv-banner a:hover { text-decoration: underline; }
 #esv-banner input {
@@ -74,58 +39,62 @@ header {
   transition: border-color 0.15s; background: #fff;
 }
 #esv-banner input:focus { border-color: #2563eb; }
-#esv-banner button {
+#esv-banner .save-btn {
   background: #111; border: none; border-radius: 6px;
   color: #fff; cursor: pointer; font: 12px 'Inter', sans-serif;
-  padding: 5px 14px; transition: opacity 0.15s;
+  padding: 5px 14px;
 }
-#esv-banner button:hover { opacity: 0.75; }
 
 nav {
   height: 44px; border-bottom: 1px solid #f0f0f0;
   padding: 0 20px; display: flex; align-items: center;
-  gap: 6px; flex-shrink: 0; background: #fff; flex-wrap: wrap;
+  gap: 6px; flex-shrink: 0; flex-wrap: wrap;
 }
+.nl { font-size: 11px; color: #bbb; }
 select {
-  appearance: none; background: #fff;
-  border: 1px solid #e5e5e5; border-radius: 6px;
-  color: #111; cursor: pointer; font: 13px 'Inter', sans-serif;
-  padding: 5px 26px 5px 10px;
+  appearance: none; background: #fff; border: 1px solid #e5e5e5;
+  border-radius: 6px; color: #111; cursor: pointer;
+  font: 13px 'Inter', sans-serif; padding: 5px 26px 5px 10px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23aaa' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 8px center;
   outline: none; transition: border-color 0.15s;
 }
 select:focus { border-color: #111; }
-#bk { min-width: 180px; }
-#ch { min-width: 64px; }
+#bk { min-width: 180px; } #ch { min-width: 64px; }
 .btn-read {
   background: #111; border: none; border-radius: 6px;
   color: #fff; cursor: pointer; font: 13px/1 'Inter', sans-serif;
-  font-weight: 500; padding: 6px 18px;
-  transition: opacity 0.15s; letter-spacing: -0.01em;
+  font-weight: 500; padding: 6px 18px; letter-spacing: -0.01em;
 }
 .btn-read:hover { opacity: 0.75; }
 .btn-read:disabled { opacity: 0.3; cursor: not-allowed; }
 .btn-nav {
   background: #fff; border: 1px solid #e5e5e5; border-radius: 6px;
   color: #666; cursor: pointer; font-size: 14px;
-  padding: 5px 11px; line-height: 1; transition: all 0.1s;
+  padding: 5px 11px; line-height: 1; transition: background 0.1s;
 }
 .btn-nav:hover { background: #f5f5f5; }
 .btn-nav:disabled { opacity: 0.3; cursor: not-allowed; }
-.nl { font-size: 11px; color: #bbb; }
 .fctl { margin-left: auto; display: flex; align-items: center; gap: 3px; }
 .fctl > span { font-size: 11px; color: #bbb; margin-right: 2px; }
 .fbtn {
   background: #fff; border: 1px solid #e5e5e5; border-radius: 5px;
   color: #888; cursor: pointer; font-size: 11px;
   width: 24px; height: 24px; display: flex;
-  align-items: center; justify-content: center; transition: all 0.1s;
+  align-items: center; justify-content: center;
 }
 .fbtn:hover { background: #f5f5f5; }
 
 main { flex: 1; display: flex; overflow: hidden; min-height: 0; }
-.col { flex: 1; overflow-y: auto; padding: 32px 28px 48px; min-width: 0; }
+
+/* Single scroll container */
+.scroll-wrap {
+  flex: 1; overflow-y: auto; display: flex;
+}
+.scroll-wrap::-webkit-scrollbar { width: 3px; }
+.scroll-wrap::-webkit-scrollbar-thumb { background: #f0f0f0; border-radius: 3px; }
+
+.col { flex: 1; padding: 32px 28px 48px; min-width: 0; }
 .col.ko { border-right: 1px solid #f0f0f0; }
 
 .col-hdr {
@@ -136,53 +105,29 @@ main { flex: 1; display: flex; overflow: hidden; min-height: 0; }
 .cref { font-size: 12px; color: #999; }
 
 .ch-title { font-size: 18px; font-weight: 500; color: #111; margin-bottom: 24px; letter-spacing: -0.02em; }
-.col.ko .ch-title { font-family: 'Noto Sans KR', sans-serif; font-weight: 500; }
+.col.ko .ch-title { font-family: 'Noto Sans KR', sans-serif; }
 
-.shead {
-  font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
-  text-transform: uppercase; color: #ccc; margin: 24px 0 8px;
-}
-.verse { display: flex; gap: 12px; padding: 4px 0; }
-.verse:hover { background: #fafafa; margin: 0 -8px; padding: 4px 8px; border-radius: 4px; }
-.vn {
-  color: #ddd; font-size: 10px; font-weight: 500;
-  min-width: 18px; text-align: right; padding-top: 5px;
-  flex-shrink: 0; font-variant-numeric: tabular-nums;
-}
+.shead { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #ccc; margin: 24px 0 8px; }
+.verse { display: flex; gap: 12px; padding: 4px 0; border-radius: 4px; transition: background 0.1s; }
+.verse:hover { background: #fafafa; margin: 0 -8px; padding: 4px 8px; }
+.vn { color: #ddd; font-size: 10px; font-weight: 500; min-width: 18px; text-align: right; padding-top: 5px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .vt { line-height: 1.85; flex: 1; color: #1a1a1a; }
 .col.ko .vt { font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 300; word-break: keep-all; }
-.col.en .vt { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 300; }
+.col.en .vt { font-size: 15px; font-weight: 300; }
 
-.ph {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 8px; padding: 72px 20px; color: #ccc; text-align: center;
-}
-.ph p { font-size: 13px; line-height: 1.6; color: #bbb; }
+.ph { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 72px 20px; color: #bbb; text-align: center; }
+.ph p { font-size: 13px; line-height: 1.6; }
 
 .ldg-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 64px 20px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.spinner {
-  width: 20px; height: 20px; border-radius: 50%;
-  border: 2px solid #f0f0f0; border-top-color: #111;
-  animation: spin 0.6s linear infinite;
-}
+.spinner { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #f0f0f0; border-top-color: #111; animation: spin 0.6s linear infinite; }
 .ldg-txt { font-size: 12px; color: #bbb; }
-.errbox {
-  background: #fff5f5; border: 1px solid #fecaca; border-radius: 6px;
-  color: #dc2626; padding: 10px 14px; font-size: 13px; line-height: 1.5; margin: 8px 0;
-}
+.errbox { background: #fff5f5; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; padding: 10px 14px; font-size: 13px; line-height: 1.5; margin: 8px 0; }
 
-footer {
-  border-top: 1px solid #f0f0f0; color: #ccc;
-  font-size: 10px; padding: 8px 20px; text-align: center;
-  flex-shrink: 0; letter-spacing: 0.02em;
-}
-
-.col::-webkit-scrollbar { width: 3px; }
-.col::-webkit-scrollbar-thumb { background: #f0f0f0; border-radius: 3px; }
+footer { border-top: 1px solid #f0f0f0; color: #ccc; font-size: 10px; padding: 8px 20px; text-align: center; flex-shrink: 0; }
 
 @media (max-width: 640px) {
-  main { flex-direction: column; }
+  .scroll-wrap { flex-direction: column; }
   .col.ko { border-right: none; border-bottom: 1px solid #f0f0f0; }
   .col { padding: 20px 16px 36px; }
   .fctl { margin-left: 0; }
@@ -197,15 +142,12 @@ footer {
     <span class="logo-div">/</span>
     <span class="logo-en">English Standard Version</span>
   </div>
-  <div class="hright">
-    <button class="btn-ghost" onclick="document.getElementById('esv-banner').classList.remove('hidden')" id="esv-key-btn" style="display:none">ESV Key</button>
-  </div>
 </header>
 
 <div id="esv-banner">
   <span>Get a free ESV token at <a href="https://api.esv.org" target="_blank">api.esv.org</a></span>
   <input type="password" id="esv-input" placeholder="Paste token…">
-  <button onclick="saveEsv()">Save</button>
+  <button class="save-btn" onclick="saveEsv()">Save</button>
 </div>
 
 <nav>
@@ -224,19 +166,21 @@ footer {
 </nav>
 
 <main>
-  <div class="col ko" id="cko">
-    <div class="col-hdr">
-      <span class="clbl">개역개정판</span>
-      <span class="cref" id="rko"></span>
+  <div class="scroll-wrap" id="scroll-wrap">
+    <div class="col ko" id="cko">
+      <div class="col-hdr">
+        <span class="clbl">개역개정판</span>
+        <span class="cref" id="rko"></span>
+      </div>
+      <div id="tko"><div class="ph"><p>책과 장을 선택하고 Read를 누르세요</p></div></div>
     </div>
-    <div id="tko"><div class="ph"><p>책과 장을 선택하고 Read를 누르세요</p></div></div>
-  </div>
-  <div class="col en" id="cen">
-    <div class="col-hdr">
-      <span class="clbl">ESV</span>
-      <span class="cref" id="ren"></span>
+    <div class="col en" id="cen">
+      <div class="col-hdr">
+        <span class="clbl">ESV</span>
+        <span class="cref" id="ren"></span>
+      </div>
+      <div id="ten"><div class="ph"><p>Select a passage and press Read</p></div></div>
     </div>
-    <div id="ten"><div class="ph"><p>Select a passage and press Read</p></div></div>
   </div>
 </main>
 
@@ -281,50 +225,117 @@ const BOOKS=[
   {ko:"요한계시록",en:"Revelation",n:66,ch:22},
 ];
 
-let esvKey=localStorage.getItem('esvKey')||'',bi=42,ci=3,fs=15;
+let esvKey=localStorage.getItem('esvKey')||'', bi=42, ci=3, fs=15;
 
 (function(){
   const s=document.getElementById('bk');
   BOOKS.forEach((b,i)=>{const o=document.createElement('option');o.value=i;o.textContent=b.ko+'  ·  '+b.en;s.appendChild(o);});
-  s.value=bi;buildCh();document.getElementById('ch').value=ci;
+  s.value=bi; buildCh(); document.getElementById('ch').value=ci;
   document.documentElement.style.setProperty('--fs',fs+'px');
-  if(esvKey){document.getElementById('esv-input').value=esvKey;document.getElementById('esv-banner').classList.add('hidden');document.getElementById('desv').className='dot ok';}
+  if(!esvKey) document.getElementById('esv-banner').classList.add('show');
+  else document.getElementById('esv-input').value=esvKey;
 })();
 
-function saveEsv(){esvKey=document.getElementById('esv-input').value.trim();if(!esvKey)return;localStorage.setItem('esvKey',esvKey);document.getElementById('esv-banner').classList.add('hidden');document.getElementById('desv').className='dot ok';}
+function saveEsv(){
+  esvKey=document.getElementById('esv-input').value.trim();
+  if(!esvKey) return;
+  localStorage.setItem('esvKey',esvKey);
+  document.getElementById('esv-banner').classList.remove('show');
+}
 document.getElementById('esv-input').addEventListener('keydown',e=>{if(e.key==='Enter')saveEsv();});
 function onBook(){bi=+document.getElementById('bk').value;ci=1;buildCh();}
-function buildCh(){const s=document.getElementById('ch');s.innerHTML='';for(let i=1;i<=BOOKS[bi].ch;i++){const o=document.createElement('option');o.value=i;o.textContent=i;s.appendChild(o);}s.value=(ci<=BOOKS[bi].ch)?ci:1;}
-function step(d){const c=+document.getElementById('ch').value;if(d===-1){if(c>1)document.getElementById('ch').value=c-1;else if(bi>0){bi--;document.getElementById('bk').value=bi;ci=BOOKS[bi].ch;buildCh();}}else{if(c<BOOKS[bi].ch)document.getElementById('ch').value=c+1;else if(bi<BOOKS.length-1){bi++;document.getElementById('bk').value=bi;ci=1;buildCh();}}load();}
+function buildCh(){
+  const s=document.getElementById('ch');s.innerHTML='';
+  for(let i=1;i<=BOOKS[bi].ch;i++){const o=document.createElement('option');o.value=i;o.textContent=i;s.appendChild(o);}
+  s.value=(ci<=BOOKS[bi].ch)?ci:1;
+}
+function step(d){
+  const c=+document.getElementById('ch').value;
+  if(d===-1){if(c>1)document.getElementById('ch').value=c-1;else if(bi>0){bi--;document.getElementById('bk').value=bi;ci=BOOKS[bi].ch;buildCh();}}
+  else{if(c<BOOKS[bi].ch)document.getElementById('ch').value=c+1;else if(bi<BOOKS.length-1){bi++;document.getElementById('bk').value=bi;ci=1;buildCh();}}
+  load();
+}
 function adjF(d){fs=Math.min(22,Math.max(12,fs+d));document.documentElement.style.setProperty('--fs',fs+'px');}
 
 async function load(){
-  if(!esvKey){document.getElementById('esv-banner').classList.remove('hidden');document.getElementById('esv-input').focus();return;}
-  bi=+document.getElementById('bk').value;ci=+document.getElementById('ch').value;
+  if(!esvKey){document.getElementById('esv-banner').classList.add('show');document.getElementById('esv-input').focus();return;}
+  bi=+document.getElementById('bk').value; ci=+document.getElementById('ch').value;
   const bk=BOOKS[bi];
   document.getElementById('bp').disabled=(bi===0&&ci===1);
   document.getElementById('bn').disabled=(bi===BOOKS.length-1&&ci===bk.ch);
   document.getElementById('bload').disabled=true;
   document.getElementById('rko').textContent=bk.ko+' '+ci+'장';
   document.getElementById('ren').textContent=bk.en+' '+ci;
-  setLdg('tko','로드 중');setLdg('ten','Loading');
+  setLdg('tko','로드 중'); setLdg('ten','Loading');
+
   const [kr,er]=await Promise.allSettled([fetchKo(bk,ci),fetchEsv(bk,ci)]);
   document.getElementById('bload').disabled=false;
-  if(kr.status==='fulfilled')renderKo(kr.value,bk,ci);else setErr('tko',kr.reason?.message||'실패');
-  if(er.status==='fulfilled')renderEsv(er.value,bk,ci);else setErr('ten',er.reason?.message||'Failed');
-  document.getElementById('cko').scrollTop=0;document.getElementById('cen').scrollTop=0;
+  if(kr.status==='fulfilled') renderKo(kr.value,bk,ci); else setErr('tko',kr.reason?.message||'실패');
+  if(er.status==='fulfilled') renderEsv(er.value,bk,ci); else setErr('ten',er.reason?.message||'Failed');
+  document.getElementById('scroll-wrap').scrollTop=0;
 }
 
-async function fetchKo(bk,ch){const r=await fetch(`${WORKER}/nkrv/${bk.n}/${ch}`);if(!r.ok)throw new Error('Worker error '+r.status);const d=await r.json();if(d.error)throw new Error(d.error);if(!Array.isArray(d)||d.length===0)throw new Error('No verses');return d;}
-function renderKo(v,bk,ch){let h=`<div class="ch-title">${bk.ko} ${ch}장</div>`;v.forEach(x=>{h+=`<div class="verse"><span class="vn">${x.verse}</span><span class="vt">${esc(x.text)}</span></div>`;});document.getElementById('tko').innerHTML=h;}
+async function fetchKo(bk,ch){
+  const r=await fetch(`${WORKER}/nkrv/${bk.n}/${ch}`);
+  if(!r.ok) throw new Error('Worker error '+r.status);
+  const d=await r.json();
+  if(d.error) throw new Error(d.error);
+  if(!Array.isArray(d)||d.length===0) throw new Error('No verses');
+  return d;
+}
+function renderKo(v,bk,ch){
+  let h=`<div class="ch-title">${bk.ko} ${ch}장</div>`;
+  v.forEach(x=>{h+=`<div class="verse"><span class="vn">${x.verse}</span><span class="vt">${esc(x.text)}</span></div>`;});
+  document.getElementById('tko').innerHTML=h;
+}
 
-async function fetchEsv(bk,ch){const tok=esvKey.startsWith('Token ')?esvKey:'Token '+esvKey;const q=encodeURIComponent(bk.en+' '+ch);const r=await fetch(`https://api.esv.org/v3/passage/text/?q=${q}&include-headings=true&include-footnotes=false&include-verse-numbers=true&include-short-copyright=false&include-passage-references=false&indent-paragraphs=0&indent-poetry=false`,{headers:{Authorization:tok}});if(r.status===401||r.status===403)throw new Error('Invalid ESV token');if(!r.ok)throw new Error('ESV error '+r.status);const d=await r.json();if(!d.passages||!d.passages[0])throw new Error('No data');return d.passages[0];}
-function renderEsv(txt,bk,ch){let h=`<div class="ch-title">${bk.en} ${ch}</div>`;txt.split('\n').forEach(raw=>{const l=raw.trim();if(!l)return;const m=l.match(/^\[(\d+)\]\s*(.*)/);if(m)h+=`<div class="verse"><span class="vn">${m[1]}</span><span class="vt">${esc(m[2])}</span></div>`;else if(!/^\d+$/.test(l))h+=`<div class="shead">${esc(l)}</div>`;});document.getElementById('ten').innerHTML=h;}
+async function fetchEsv(bk,ch){
+  const tok=esvKey.startsWith('Token ')?esvKey:'Token '+esvKey;
+  const q=encodeURIComponent(bk.en+' '+ch);
+  // include-footnotes=false removes footnote text, but refs like (1) still appear in verse text
+  // Use include-verse-numbers=true and let the API strip footnotes completely
+  const url=`https://api.esv.org/v3/passage/text/?q=${q}`
+    +`&include-headings=true`
+    +`&include-footnotes=false`
+    +`&include-footnote-body=false`
+    +`&include-verse-numbers=true`
+    +`&include-short-copyright=false`
+    +`&include-passage-references=false`
+    +`&indent-paragraphs=0`
+    +`&indent-poetry=false`
+    +`&include-chapter-numbers=false`;
+  const r=await fetch(url,{headers:{Authorization:tok}});
+  if(r.status===401||r.status===403) throw new Error('Invalid ESV token');
+  if(!r.ok) throw new Error('ESV error '+r.status);
+  const d=await r.json();
+  if(!d.passages||!d.passages[0]) throw new Error('No data');
+  return d.passages[0];
+}
+function renderEsv(txt,bk,ch){
+  let h=`<div class="ch-title">${bk.en} ${ch}</div>`;
+  txt.split('\n').forEach(raw=>{
+    const l=raw.trim(); if(!l) return;
+    const m=l.match(/^\[(\d+)\]\s*(.*)/);
+    if(m){
+      // Strip any remaining footnote refs like (1) or ¹ from verse text
+      const verseText=m[2].replace(/\(\d+\)/g,'').replace(/\s+/g,' ').trim();
+      h+=`<div class="verse"><span class="vn">${m[1]}</span><span class="vt">${esc(verseText)}</span></div>`;
+    } else if(!/^\d+$/.test(l)){
+      h+=`<div class="shead">${esc(l)}</div>`;
+    }
+  });
+  document.getElementById('ten').innerHTML=h;
+}
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function setLdg(id,msg){document.getElementById(id).innerHTML=`<div class="ldg-wrap"><div class="spinner"></div><div class="ldg-txt">${msg}</div></div>`;}
 function setErr(id,msg){document.getElementById(id).innerHTML=`<div class="errbox"><strong>Error:</strong> ${esc(msg)}</div>`;}
-document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;if(e.key==='ArrowRight')step(1);if(e.key==='ArrowLeft')step(-1);if(e.key==='Enter')load();});
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  if(e.key==='ArrowRight') step(1);
+  if(e.key==='ArrowLeft') step(-1);
+  if(e.key==='Enter') load();
+});
 </script>
 </body>
 </html>
