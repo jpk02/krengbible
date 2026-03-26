@@ -258,8 +258,8 @@ footer { border-top: 1px solid #e8e5e0; color: #bbb; background: var(--bg); font
 <!-- Mobile passage picker sheet -->
 <div id="mob-sheet" class="mob-sheet hidden" onclick="mobSheetBgClick(event)">
   <div class="mob-sheet-inner" id="mob-sheet-inner">
-    <div class="mob-sheet-drag" id="mob-drag-pill"></div>
-    <div class="mob-sheet-hdr" id="mob-sheet-hdr">
+    <div class="mob-sheet-drag" id="mob-drag-pill" ontouchstart="this._sy=event.touches[0].clientY" ontouchend="if(event.changedTouches[0].clientY-this._sy>60)mobCloseSheet()"></div>
+    <div class="mob-sheet-hdr" id="mob-sheet-hdr" ontouchstart="this._sy=event.touches[0].clientY" ontouchend="if(event.changedTouches[0].clientY-this._sy>60)mobCloseSheet()">
       <span id="mob-sheet-title">Select passage</span>
       <button class="mob-sheet-close" onclick="mobCloseSheet()">✕</button>
     </div>
@@ -599,22 +599,7 @@ mobUpdateLabel();
 // Swipe down to close bottom sheet — attach once on first open
 // Sheet swipe — attached once at page load, always works
 // Attach sheet swipe once on page load — pill is always in DOM
-// Sheet swipe-down: drag pill only
-window.addEventListener('load', function(){
-  const pill = document.getElementById('mob-drag-pill');
-  if(!pill) return;
-  let sy = 0;
-  pill.addEventListener('touchstart', function(e){
-    sy = e.touches[0].clientY;
-    e.stopPropagation();
-  }, {passive:true});
-  pill.addEventListener('touchmove', function(e){
-    const dy = e.touches[0].clientY - sy;
-    if(dy > 40){ mobCloseSheet(); }
-    e.stopPropagation();
-  }, {passive:true});
-});
-function attachSheetSwipe(){} // no-op
+function attachSheetSwipe(){}
 
 // ---- Swipe to change chapter (with elastic drag feedback) ----
 (function(){
