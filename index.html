@@ -309,7 +309,18 @@ function render(koData,esvData,bk,ch){
     let kh2='',eh2='';
     if(kfk.length){
       kh2='<div class="footnotes"><div class="fn-title">각주</div>';
-      kfk.forEach(function(k){kh2+='<div class="fn-item" id="ko-fn-'+k+'"><button class="fn-back-btn" onclick="scrollToVerse(/* find verse */ (function(){var v=0;kv.forEach(function(x){if(x.text.indexOf("(KN:"+k+")")>-1)v=x.verse;});return v;})())>'+k+' ↑</button><span>'+esc(kf[k])+'</span></div>';});
+      // Build map of KN footnote number -> verse number
+    var koFnVm={};
+    kv.forEach(function(x){
+      var matches=x.text.match(/\(KN:(\d+)\)/g)||[];
+      matches.forEach(function(m){var n=m.replace(/[^\d]/g,'');koFnVm[n]=x.verse;});
+    });
+    kfk.forEach(function(k){
+      var vn=koFnVm[k];
+      kh2+=vn
+        ?'<div class="fn-item" id="ko-fn-'+k+'"><button class="fn-back-btn" onclick="scrollToVerse('+vn+')">'+k+' ↑</button><span>'+esc(kf[k])+'</span></div>'
+        :'<div class="fn-item" id="ko-fn-'+k+'"><span class="fn-n">'+k+'</span><span>'+esc(kf[k])+'</span></div>';
+    });
       kh2+='</div>';
     }
     if(efk.length){
