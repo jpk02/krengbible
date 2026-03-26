@@ -146,7 +146,8 @@ footer { border-top: 1px solid #e8e5e0; color: #bbb; background: var(--bg); font
   transition: opacity 0.2s;
 }
 .mob-sheet.hidden { display: none; }
-.mob-sheet-drag { width: 48px; height: 5px; background: #ccc; border-radius: 3px; margin: 12px auto 6px; flex-shrink: 0; }
+.mob-sheet-drag { width: 56px; height: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto; flex-shrink: 0; cursor: grab; padding: 8px 0; }
+.mob-sheet-drag::after { content: ""; display: block; width: 48px; height: 5px; background: #ccc; border-radius: 3px; }
 .mob-sheet-inner {
   background: var(--bg); border-radius: 16px 16px 0 0;
   width: 100%; max-height: 85vh;
@@ -572,32 +573,19 @@ mobUpdateLabel();
 
 // Swipe down to close bottom sheet — attach once on first open
 // Sheet swipe — attached once at page load, always works
-(function(){
-  let sy = 0, active = false;
-  document.addEventListener('touchstart', e => {
-    const sheet = document.getElementById('mob-sheet');
-    if(sheet.classList.contains('hidden')) return;
-    const inner = document.getElementById('mob-sheet-inner');
-    if(!inner) return;
-    const innerTop = inner.getBoundingClientRect().top;
-    const touchY = e.touches[0].clientY;
-    // Only activate if touch starts within top 64px of the sheet
-    if(touchY >= innerTop && touchY - innerTop < 64){
-      sy = touchY;
-      active = true;
-    } else {
-      active = false;
-    }
+function attachSheetSwipe(){
+  // Attach swipe-down listener to the drag pill each time sheet opens
+  const drag = document.querySelector('.mob-sheet-drag');
+  if(!drag) return;
+  let sy = 0;
+  drag.addEventListener('touchstart', e => {
+    sy = e.touches[0].clientY;
   }, {passive: true});
-  document.addEventListener('touchend', e => {
-    if(!active) return;
-    active = false;
-    const dy = e.changedTouches[0].clientY - sy;
-    if(dy > 50) mobCloseSheet();
+  drag.addEventListener('touchmove', e => {
+    const dy = e.touches[0].clientY - sy;
+    if(dy > 60) mobCloseSheet();
   }, {passive: true});
-})();
-
-function attachSheetSwipe(){ /* no-op: handled above */ }
+}
 
 // ---- Swipe to change chapter (with elastic drag feedback) ----
 (function(){
