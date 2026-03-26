@@ -571,33 +571,33 @@ function mobCloseSheet(){
 mobUpdateLabel();
 
 // Swipe down to close bottom sheet — attach once on first open
-let _sheetSwipeAttached = false;
-function attachSheetSwipe(){
-  if(_sheetSwipeAttached) return;
-  _sheetSwipeAttached = true;
-  // Listen on drag bar and sheet inner for swipe-down
-  const dragBar = document.querySelector('.mob-sheet-drag');
-  const sheetInner = document.getElementById('mob-sheet-inner');
-  if(!dragBar || !sheetInner) return;
+// Sheet swipe — attached once at page load, always works
+(function(){
   let sy = 0, active = false;
-  // touchstart on drag bar or header area
-  sheetInner.addEventListener('touchstart', e => {
-    // Only track if touch starts in top 60px of sheet (drag bar + header)
-    const innerTop = sheetInner.getBoundingClientRect().top;
-    if(e.touches[0].clientY - innerTop < 60){
-      sy = e.touches[0].clientY;
+  document.addEventListener('touchstart', e => {
+    const sheet = document.getElementById('mob-sheet');
+    if(sheet.classList.contains('hidden')) return;
+    const inner = document.getElementById('mob-sheet-inner');
+    if(!inner) return;
+    const innerTop = inner.getBoundingClientRect().top;
+    const touchY = e.touches[0].clientY;
+    // Only activate if touch starts within top 64px of the sheet
+    if(touchY >= innerTop && touchY - innerTop < 64){
+      sy = touchY;
       active = true;
     } else {
       active = false;
     }
   }, {passive: true});
-  sheetInner.addEventListener('touchend', e => {
+  document.addEventListener('touchend', e => {
     if(!active) return;
     active = false;
     const dy = e.changedTouches[0].clientY - sy;
-    if(dy > 40) mobCloseSheet();
+    if(dy > 50) mobCloseSheet();
   }, {passive: true});
-}
+})();
+
+function attachSheetSwipe(){ /* no-op: handled above */ }
 
 // ---- Swipe to change chapter (with elastic drag feedback) ----
 (function(){
@@ -643,7 +643,7 @@ function attachSheetSwipe(){
     const dy = e.changedTouches[0].clientY - startY;
     dragging = false;
 
-    if(Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5){
+    if(Math.abs(dx) > 100 && Math.abs(dx) > Math.abs(dy) * 1.5){
       // Animate out in swipe direction then load
       const dir = dx < 0 ? -1 : 1;
       content.style.transition = 'transform 0.18s ease-in, opacity 0.18s ease-in';
