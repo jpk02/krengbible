@@ -175,14 +175,25 @@ let bi=42,ci=3,fs=15,pendingBook=null,loaded=false;
   });
   // Swipe down on sheet inner to close — 150px threshold feels natural
   var sheetInner=document.querySelector('.mob-sheet-inner');
+  var sheetBody=document.getElementById('mob-sheet-body');
   var swy=0, swActive=false;
   sheetInner.addEventListener('touchstart',function(e){
-    swy=e.touches[0].clientY; swActive=true;
+    swy=e.touches[0].clientY;
+    // Only activate swipe-to-close if the scrollable body is at the bottom (or empty)
+    var atBottom = sheetBody.scrollHeight - sheetBody.scrollTop <= sheetBody.clientHeight + 2;
+    swActive = atBottom;
   },{passive:true});
   sheetInner.addEventListener('touchmove',function(e){
     if(!swActive) return;
     var dy=e.touches[0].clientY - swy;
-    if(dy > 0) sheetInner.style.transform='translateY('+Math.min(dy,300)+'px)';
+    // Only translate sheet if dragging DOWN — if user goes back up, reset immediately
+    if(dy > 0){
+      sheetInner.style.transform='translateY('+Math.min(dy,300)+'px)';
+    } else {
+      // User scrolled back up — cancel swipe mode and reset
+      swActive=false;
+      sheetInner.style.transform='';
+    }
   },{passive:true});
   function resetSheet(){
     swActive=false;
