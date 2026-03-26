@@ -124,7 +124,7 @@ footer { border-top: 1px solid #e8e5e0; color: #bbb; background: var(--bg); font
   display: flex; align-items: center; gap: 6px;
   background: #efecea; border: 1px solid #d8d4ce; border-radius: 8px;
   font-size: 13px; font-weight: 700; color: #222; padding: 7px 12px; font-family: inherit;
-  cursor: pointer; flex: 1; max-width: calc(100% - 110px);
+  cursor: pointer; flex: 0 1 auto;
 }
 .mob-nav-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mob-nav-btn svg { flex-shrink: 0; color: #999; }
@@ -146,8 +146,7 @@ footer { border-top: 1px solid #e8e5e0; color: #bbb; background: var(--bg); font
   transition: opacity 0.2s;
 }
 .mob-sheet.hidden { display: none; }
-.mob-sheet-drag { width: 48px; height: 5px; background: #ccc; border-radius: 3px; margin: 12px auto 6px; flex-shrink: 0; touch-action: none; }
-.mob-sheet-hdr { touch-action: none; }
+.mob-sheet-drag { width: 48px; height: 5px; background: #ccc; border-radius: 3px; margin: 12px auto 6px; flex-shrink: 0; }
 .mob-sheet-inner {
   background: var(--bg); border-radius: 16px 16px 0 0;
   width: 100%; max-height: 85vh;
@@ -576,21 +575,28 @@ let _sheetSwipeAttached = false;
 function attachSheetSwipe(){
   if(_sheetSwipeAttached) return;
   _sheetSwipeAttached = true;
-  // Attach to drag bar and header — not the scrollable body
-  const targets = [
-    document.querySelector('.mob-sheet-drag'),
-    document.querySelector('.mob-sheet-hdr')
-  ].filter(Boolean);
-  targets.forEach(el => {
-    let sy = 0;
-    el.addEventListener('touchstart', e => {
+  // Listen on drag bar and sheet inner for swipe-down
+  const dragBar = document.querySelector('.mob-sheet-drag');
+  const sheetInner = document.getElementById('mob-sheet-inner');
+  if(!dragBar || !sheetInner) return;
+  let sy = 0, active = false;
+  // touchstart on drag bar or header area
+  sheetInner.addEventListener('touchstart', e => {
+    // Only track if touch starts in top 60px of sheet (drag bar + header)
+    const innerTop = sheetInner.getBoundingClientRect().top;
+    if(e.touches[0].clientY - innerTop < 60){
       sy = e.touches[0].clientY;
-    }, {passive: true});
-    el.addEventListener('touchend', e => {
-      const dy = e.changedTouches[0].clientY - sy;
-      if(dy > 40) mobCloseSheet();
-    }, {passive: true});
-  });
+      active = true;
+    } else {
+      active = false;
+    }
+  }, {passive: true});
+  sheetInner.addEventListener('touchend', e => {
+    if(!active) return;
+    active = false;
+    const dy = e.changedTouches[0].clientY - sy;
+    if(dy > 40) mobCloseSheet();
+  }, {passive: true});
 }
 
 // ---- Swipe to change chapter (with elastic drag feedback) ----
@@ -647,6 +653,7 @@ function attachSheetSwipe(){
         content.style.transform = '';
         content.style.transition = 'none';
         content.style.opacity = '';
+        haptic('medium');
         if(dx < 0) step(1); else step(-1);
       }, 180);
     } else {
