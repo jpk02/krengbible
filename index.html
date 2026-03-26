@@ -67,7 +67,9 @@ sup.fn-ref { font-size: 9px; color: #2563eb; margin-left: 1px; vertical-align: s
 
 .footnotes { padding: 20px 28px 40px; border-top: 1px solid #e8e5e0; margin-top: 4px; }
 .footnotes .fn-title { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: #bbb; margin-bottom: 10px; }
-.fn-item { display: flex; gap: 8px; font-size: 12px; color: #777; line-height: 1.6; margin-bottom: 3px; }
+.fn-item { display: flex; gap: 8px; font-size: 12px; color: #777; line-height: 1.6; margin-bottom: 3px; border-radius: 4px; padding: 4px 2px; }
+.fn-back-btn { background: none; border: none; color: #2563eb; font: 600 10px inherit; cursor: pointer; padding: 2px 4px; border-radius: 4px; min-width: 28px; text-align: left; line-height: 1.4; flex-shrink: 0; }
+.fn-back-btn:active { background: #e8f0fe; }
 .fn-n { color: #94a3b8; font-size: 9px; font-weight: 600; flex-shrink: 0; padding-top: 3px; }
 
 .ph { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 72px 20px; color: #bbb; text-align: center; }
@@ -144,6 +146,7 @@ footer { border-top: 1px solid #e8e5e0; color: #bbb; background: var(--bg); font
   transition: opacity 0.2s;
 }
 .mob-sheet.hidden { display: none; }
+.mob-sheet-drag { width: 36px; height: 4px; background: #ccc; border-radius: 2px; margin: 10px auto 4px; flex-shrink: 0; }
 .mob-sheet-inner {
   background: var(--bg); border-radius: 16px 16px 0 0;
   width: 100%; max-height: 85vh;
@@ -451,10 +454,11 @@ function render(koVerses, esvData, bk, ch){
     let fnHtml = `<div class="footnotes"><div class="fn-title">Footnotes</div>`;
     fnKeys.forEach(k=>{
       const verseNum = fnVerseMap[k];
-      const backLink = verseNum ? `onclick="scrollToVerse(${verseNum})" title="Back to verse ${verseNum}" style="cursor:pointer"` : '';
-      fnHtml+=`<div class="fn-item" id="fn-${k}" ${backLink}>`;
-      fnHtml+=`<span class="fn-n" style="color:#2563eb">${k}${verseNum?'↑':''}</span>`;
-      fnHtml+=`<span>${esc(footnotes[k])}</span></div>`;
+      if(verseNum){
+        fnHtml+=`<div class="fn-item" id="fn-${k}"><button class="fn-back-btn" onclick="scrollToVerse(${verseNum})" type="button">${k} ↑</button><span>${esc(footnotes[k])}</span></div>`;
+      } else {
+        fnHtml+=`<div class="fn-item" id="fn-${k}"><span class="fn-n">${k}</span><span>${esc(footnotes[k])}</span></div>`;
+      }
     });
     fnHtml += '</div>';
     h += `<div class="fn-row"><div class="ko-side"></div><div class="en-side">${fnHtml}</div></div>`;
@@ -554,6 +558,20 @@ function mobCloseSheet(){
 
 // Init mobile label
 mobUpdateLabel();
+
+// Swipe down to close bottom sheet
+(function(){
+  const inner = document.getElementById('mob-sheet-inner');
+  if(!inner) return;
+  let sy = 0;
+  inner.addEventListener('touchstart', e => {
+    sy = e.touches[0].clientY;
+  }, {passive: true});
+  inner.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - sy;
+    if(dy > 60) mobCloseSheet();
+  }, {passive: true});
+})();
 
 // ---- Swipe to change chapter ----
 (function(){
