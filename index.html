@@ -309,7 +309,7 @@ function render(koData,esvData,bk,ch){
     let kh2='',eh2='';
     if(kfk.length){
       kh2='<div class="footnotes"><div class="fn-title">각주</div>';
-      kfk.forEach(function(k){kh2+='<div class="fn-item" id="ko-fn-'+k+'"><span class="fn-n" style="color:#2563eb;min-width:20px">'+k+'</span><span>'+esc(kf[k])+'</span></div>';});
+      kfk.forEach(function(k){kh2+='<div class="fn-item" id="ko-fn-'+k+'"><button class="fn-back-btn" onclick="scrollToVerse(/* find verse */ (function(){var v=0;kv.forEach(function(x){if(x.text.indexOf("(KN:"+k+")")>-1)v=x.verse;});return v;})())>'+k+' ↑</button><span>'+esc(kf[k])+'</span></div>';});
       kh2+='</div>';
     }
     if(efk.length){
