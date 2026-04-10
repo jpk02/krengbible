@@ -177,6 +177,7 @@ body.dark main::-webkit-scrollbar-thumb{background:#444}
 .prog-book.complete{background:#dbeafe}
 .prog-book.partial{background:#eff6ff}
 .prog-book-name{font-size:12px;font-weight:500;color:#222}
+.ko-book-primary{font-family:'Noto Sans KR',sans-serif}
 .prog-book-ko{font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#666;margin-top:1px}
 .prog-book-pct{font-size:10px;color:#2563eb;margin-top:3px}
 .prog-chapters{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;padding:16px}
@@ -489,8 +490,7 @@ function progShowOverview(){
   var otS=bookStats(OT,0), ntS=bookStats(NT,39);
   var totalRead=otS.read+ntS.read, totalCh=otS.total+ntS.total;
 
-  var html='<div class="prog-section">';
-  html+='<div style="display:flex;justify-content:flex-end;padding-bottom:8px"><button onclick="progReset()" style="background:#efecea;border:1px solid #d8d4ce;color:#666;font:500 12px inherit;cursor:pointer;padding:4px 10px;border-radius:6px">Reset All</button></div>';
+  var html='<div class="prog-section" style="padding-top:8px">';
   html+='<div class="prog-summary"><span><b>'+totalRead+'</b> / '+totalCh+' 장 chapters</span><span><b>'+Math.round(totalRead/totalCh*100)+'%</b> of 성경 Bible</span></div>';
   // Bars
   html+='<div class="prog-testament">';
@@ -505,20 +505,26 @@ function progShowOverview(){
 
   // Book grid
   
-  html+='<div class="prog-books">';
+  html+='<div class="prog-books" style="padding-top:4px">';
   BOOKS.forEach(function(b,i){
     var readCh=0;
     for(var c=1;c<=b.ch;c++) if(data[progKey(i,c)]) readCh++;
     var cls=readCh===b.ch?'complete':readCh>0?'partial':'';
     var pct=Math.round(readCh/b.ch*100);
     html+='<div class="prog-book '+cls+'" onclick="progShowBook('+i+')">';
-    html+='<div class="prog-book-name">'+b.en+'</div>';
-    html+='<div class="prog-book-ko">'+b.ko+'</div>';
+    if(langOrder==="en-ko"){
+      html+='<div class="prog-book-name">'+b.en+'</div>';
+      html+='<div class="prog-book-ko">'+b.ko+'</div>';
+    } else {
+      html+='<div class="prog-book-name ko-book-primary">'+b.ko+'</div>';
+      html+='<div class="prog-book-ko">'+b.en+'</div>';
+    }
     if(readCh>0) html+='<div class="prog-book-pct">'+readCh+'/'+b.ch+' ('+pct+'%)</div>';
     html+='</div>';
   });
   html+='</div>';
 
+  html+='<div style="display:flex;justify-content:center;padding:16px"><button onclick="progReset()" style="background:#efecea;border:1px solid #d8d4ce;color:#666;font:500 12px inherit;cursor:pointer;padding:6px 20px;border-radius:6px;font-family:inherit">Reset All</button></div>';
   document.getElementById('mob-sheet-body').innerHTML=html;
 }
 
@@ -565,9 +571,13 @@ async function loadVotd(){
         if(kv) koText = kv.text.replace(/\(KN:\d+\)/g,'');
       }catch(e){}
     }
+    var koRef = bookIdx>=0 ? BOOKS[bookIdx].ko+' '+v.chapter+':'+v.verse : ref;
     var html = '<div class="votd-wrap">';
-    html += '<div class="votd-ref">'+ref+'</div>';
-    if(koText) html += '<div class="votd-ko">'+koText+'</div>';
+    if(koText){
+      html += '<div class="votd-ref">'+koRef+'</div>';
+      html += '<div class="votd-ko">'+koText+'</div>';
+    }
+    html += '<div class="votd-ref" style="margin-top:12px">'+ref+'</div>';
     html += '<div class="votd-en">'+v.text+'</div>';
     if(bookIdx>=0){
       html += '<button class="votd-read-btn" onclick="bi='+bookIdx+';ci='+v.chapter+';loaded=true;updateLabel();load()">Read '+ref+'</button>';
