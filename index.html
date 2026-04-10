@@ -539,6 +539,18 @@ function hlHideToolbar(){
 }
 function hlAttach(){
   document.querySelectorAll('.verse-row').forEach(function(row){
+    var pressTimer=null;
+    // Mobile: long press anywhere on row
+    row.addEventListener('touchstart',function(e){
+      pressTimer=setTimeout(function(){
+        pressTimer=null;
+        row.classList.add('hl-selected');
+        hlShowToolbar(row,e.touches[0]);
+      },500);
+    },{passive:true});
+    row.addEventListener('touchend',function(){clearTimeout(pressTimer);pressTimer=null;},{passive:true});
+    row.addEventListener('touchmove',function(){clearTimeout(pressTimer);pressTimer=null;},{passive:true});
+    // Desktop: click verse number
     row.querySelectorAll('.vn').forEach(function(vn){
       vn.addEventListener('click',function(e){e.stopPropagation();hlShowToolbar(row,e);});
     });
