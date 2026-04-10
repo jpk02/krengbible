@@ -35,7 +35,7 @@ main::-webkit-scrollbar-thumb:hover{background:#999590}
 .col-hdr:first-child{border-right:1px solid #e8e5e0}
 .clbl{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#bbb}
 .cref{font-size:12px;color:#999}
-.title-row{display:grid;grid-template-columns:1fr 1fr;padding:28px 0 16px}
+.title-row{display:grid;grid-template-columns:1fr 1fr;padding:20px 0 12px}
 .ko-side{padding:0 28px;border-right:1px solid #e8e5e0}
 .en-side{padding:0 28px}
 .ch-title{font-size:17px;font-weight:600;color:#222;letter-spacing:-.02em}
@@ -137,10 +137,11 @@ footer{border-top:1px solid #e8e5e0;color:#bbb;background:var(--bg);font-size:10
 body.dark{--bg:#1a1a1a;color:#e8e5e0}
 body.dark header,body.dark nav,body.dark main,body.dark footer{background:var(--bg)}
 body.dark header,body.dark nav,body.dark .col-headers{border-bottom-color:#333}
-body.dark .verse-cell.ko-side,body.dark .col-hdr:first-child,body.dark .fn-row .ko-side,body.dark .shead-row .ko-side{border-right-color:#333}
+body.dark .verse-cell.ko-side,body.dark .col-hdr:first-child,body.dark .fn-row .ko-side,body.dark .shead-row .ko-side,body.dark .ko-side{border-right-color:#333}
 body.dark .verse-cell.en-side{border-bottom-color:#333}
 body.dark .verse-cell.ko-side{border-bottom-color:#333}
 body.dark{--div:#333}
+body.dark .logo{color:#e8e5e0}
 body.dark .verse-row:hover{background:#242424}
 body.dark .vt{color:#d8d5d0}
 body.dark .ch-title{color:#e8e5e0}
@@ -170,6 +171,7 @@ body.dark main::-webkit-scrollbar-thumb{background:#444}
 <nav>
   <!-- Desktop -->
   <input id="passage-input" class="desk-only" type="text" placeholder="" autocomplete="off" spellcheck="false">
+  <button class="fbtn desk-only" onclick="toggleLangOrder(null)">⇄</button>
   <div class="fctl desk-only">
     <span>A</span>
     <button class="fbtn" id="fminus" type="button">&#8722;</button>
@@ -329,7 +331,7 @@ function applyLangOrder(){
   if(langOrder==='en-ko'){
     var s = document.createElement('style');
     s.id = styleId;
-    s.textContent = '.verse-cell.ko-side{order:2;border-bottom:1px solid var(--div)!important} .verse-cell.en-side{order:1;border-bottom:none!important} .verse-row{display:flex;flex-direction:column} .title-row .ko-side{order:2} .title-row .en-side{order:1} .title-row{display:flex;flex-direction:column}';
+    s.textContent = '.verse-cell.ko-side{order:2;border-bottom:1px solid var(--div)!important;padding-bottom:6px!important} .verse-cell.en-side{order:1;border-bottom:none!important;padding-top:6px!important;padding-bottom:2px!important} .verse-row{display:flex;flex-direction:column} .title-row .ko-side{order:2} .title-row .en-side{order:1} .title-row{display:flex;flex-direction:column} .fn-row{display:flex!important;flex-direction:column} .fn-row .ko-side{order:2!important} .fn-row .en-side{order:1!important}';
     document.head.appendChild(s);
   }
 }
