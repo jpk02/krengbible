@@ -321,7 +321,7 @@ function applyFs(){
   document.documentElement.style.setProperty('--fs',fs+'px');
   document.querySelectorAll('.vt').forEach(el=>el.style.fontSize=fs+'px');
 }
-function updateLabel(){document.getElementById('mob-passage-label').textContent=loaded?BOOKS[bi].ko+' '+ci+'장':'책 선택 / Select Book';}
+function updateLabel(){var lbl=loaded?(langOrder==='en-ko'?BOOKS[bi].en+' '+ci+' / '+BOOKS[bi].ko+' '+ci+'장':BOOKS[bi].ko+' '+ci+'장 / '+BOOKS[bi].en+' '+ci):(langOrder==='en-ko'?'Select Book / 책 선택':'책 선택 / Select Book');document.getElementById('mob-passage-label').textContent=lbl;}
 function onBook(){}
 function buildCh(){}
 function step(d){
@@ -490,7 +490,7 @@ function progShowOverview(){
   var otS=bookStats(OT,0), ntS=bookStats(NT,39);
   var totalRead=otS.read+ntS.read, totalCh=otS.total+ntS.total;
 
-  var html='<div class="prog-section" style="padding-top:8px">';
+  var html='<div class="prog-section" style="padding-top:16px">';
   html+='<div class="prog-summary"><span><b>'+totalRead+'</b> / '+totalCh+' 장 chapters</span><span><b>'+Math.round(totalRead/totalCh*100)+'%</b> of 성경 Bible</span></div>';
   // Bars
   html+='<div class="prog-testament">';
@@ -597,7 +597,7 @@ function sheetOpen(mode){
     return;
   }
   if(mode==='passage'){
-    document.getElementById('mob-sheet-title').textContent='책 선택 / Select Book';
+    document.getElementById('mob-sheet-title').textContent=langOrder==='en-ko'?'Select Book / 책 선택':'책 선택 / Select Book';
     pendingBook=null;
     let h='<div class="mob-book-grid">';
     BOOKS.forEach((b,i)=>{h+='<div class="mob-book-item '+(loaded&&i===bi?'active':'')+'" onclick="sheetSelectBook('+i+')"><div class="ko">'+b.ko+'</div><div class="en">'+b.en+'</div></div>';});
@@ -605,13 +605,13 @@ function sheetOpen(mode){
     body.innerHTML=h;
     setTimeout(()=>body.querySelector('.active')?.scrollIntoView({block:'center'}),50);
   } else {
-    document.getElementById('mob-sheet-title').textContent='Font size';
+    document.getElementById('mob-sheet-title').textContent=langOrder==='en-ko'?'Font Size / 글자 크기':'글자 크기 / Font Size';
     body.innerHTML='<div class="mob-font-sheet"><div class="mob-font-row"><button class="mob-font-btn" onclick="adjFont(-1)">−</button><div class="mob-font-preview">가 Aa — '+fs+'px</div><button class="mob-font-btn" onclick="adjFont(1)">+</button></div></div>';
   }
 }
 function sheetSelectBook(idx){
   pendingBook=idx;
-  document.getElementById('mob-sheet-title').textContent=BOOKS[idx].ko+' '+BOOKS[idx].en;
+  document.getElementById('mob-sheet-title').textContent=langOrder==='en-ko'?BOOKS[idx].en+' '+BOOKS[idx].ko:BOOKS[idx].ko+' '+BOOKS[idx].en;
   let h='<div class="mob-ch-grid">';
   for(let i=1;i<=BOOKS[idx].ch;i++)h+='<div class="mob-ch-item '+(idx===bi&&i===ci?'active':'')+'" onclick="sheetSelectCh('+i+')">'+i+'</div>';
   h+='</div>';
