@@ -24,11 +24,11 @@ select{appearance:none;background:#efecea;border:1px solid #d8d4ce;border-radius
 .fctl{margin-left:auto;display:flex;align-items:center;gap:3px}
 .fctl>span{font-size:11px;color:#bbb;margin-right:2px}
 .fbtn{background:#efecea;border:1px solid #d8d4ce;border-radius:5px;color:#666;cursor:pointer;font-size:12px;font-weight:500;width:26px;height:26px;display:flex;align-items:center;justify-content:center;user-select:none}
-main{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;background:var(--bg);max-width:100%}
-main::-webkit-scrollbar{width:8px}
-main::-webkit-scrollbar-track{background:#f0ede8}
-main::-webkit-scrollbar-thumb{background:#c8c4be;border-radius:4px}
-main::-webkit-scrollbar-thumb:hover{background:#aaa49e}
+main{flex:1;overflow-y:scroll;overflow-x:hidden;min-height:0;background:var(--bg);max-width:100%;scrollbar-gutter:stable}
+main::-webkit-scrollbar{width:10px}
+main::-webkit-scrollbar-track{background:#eae7e2}
+main::-webkit-scrollbar-thumb{background:#b8b4ae;border-radius:10px;border:2px solid #eae7e2}
+main::-webkit-scrollbar-thumb:hover{background:#999590}
 .col-headers{display:grid;grid-template-columns:1fr 1fr;position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid #e8e5e0;overflow:hidden}
 .col-hdr{padding:14px 28px;display:flex;align-items:baseline;justify-content:space-between}
 .col-hdr:first-child{border-right:1px solid #e8e5e0}
@@ -114,6 +114,17 @@ footer{border-top:1px solid #e8e5e0;color:#bbb;background:var(--bg);font-size:10
 .mob-font-row{display:flex;align-items:center;gap:16px;padding:12px 0}
 .mob-font-btn{background:#efecea;border:1px solid #d8d4ce;border-radius:8px;font:500 18px inherit;color:#222;width:56px;height:56px;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .mob-font-preview{flex:1;font-size:15px;color:#555;text-align:center}
+
+/* Edge nav arrows - desktop only */
+.edge-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:50;display:none}
+.edge-nav.left{left:0}
+.edge-nav.right{right:0}
+.edge-btn{background:rgba(255,255,255,0.85);border:1px solid #e8e5e0;color:#555;font-size:20px;width:36px;height:80px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;backdrop-filter:blur(4px)}
+.edge-btn:hover{background:rgba(255,255,255,1);color:#111}
+.edge-btn:disabled{opacity:0.2;cursor:not-allowed}
+.edge-nav.left .edge-btn{border-radius:0 8px 8px 0;border-left:none}
+.edge-nav.right .edge-btn{border-radius:8px 0 0 8px;border-right:none}
+@media(min-width:641px){.edge-nav{display:block}}
 </style>
 </head>
 <body>
@@ -122,12 +133,9 @@ footer{border-top:1px solid #e8e5e0;color:#bbb;background:var(--bg);font-size:10
 </header>
 <nav>
   <span class="nl desk-only">Book</span>
-  <select id="bk" class="desk-only" onchange="onBook()"></select>
+  <select id="bk" class="desk-only" onchange="onBook();load()"></select>
   <span class="nl desk-only">Ch.</span>
-  <select id="ch" class="desk-only"></select>
-  <button class="btn-nav desk-only" id="bp" onclick="step(-1)" disabled>&#8249;</button>
-  <button class="btn-read desk-only" id="bload" onclick="load()">Read</button>
-  <button class="btn-nav desk-only" id="bn" onclick="step(1)" disabled>&#8250;</button>
+  <select id="ch" class="desk-only" onchange="load()"></select>
   <div class="fctl desk-only">
     <span>A</span>
     <button class="fbtn" id="fminus" type="button">&#8722;</button>
@@ -250,12 +258,12 @@ function adjFont(d){
 async function load(){
   bi=+document.getElementById('bk').value;ci=+document.getElementById('ch').value;
   const bk=BOOKS[bi];
-  document.getElementById('bp').disabled=(bi===0&&ci===1);
-  document.getElementById('bn').disabled=(bi===BOOKS.length-1&&ci===bk.ch);
-  document.getElementById('bload').disabled=true;
+  document.getElementById('bp').disabled=(bi===0&&ci===1);document.getElementById('edge-bp').disabled=(bi===0&&ci===1);
+  document.getElementById('bn').disabled=(bi===BOOKS.length-1&&ci===bk.ch);document.getElementById('edge-bn').disabled=(bi===BOOKS.length-1&&ci===bk.ch);
+  
   document.getElementById('content').innerHTML='<div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div>';
   const [kr,er]=await Promise.allSettled([fetchKo(bk,ci),fetchEsv(bk,ci)]);
-  document.getElementById('bload').disabled=false;
+  
   if(kr.status==='rejected'){document.getElementById('content').innerHTML='<div class="errbox"><b>Error:</b> '+esc(kr.reason?.message||'실패')+'</div>';return;}
   if(er.status==='rejected'){document.getElementById('content').innerHTML='<div class="errbox"><b>ESV Error:</b> '+esc(er.reason?.message||'Failed')+'</div>';return;}
   render(kr.value,er.value,bk,ci);
@@ -383,5 +391,8 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Enter')load();
 });
 </script>
+
+<div class="edge-nav left"><button class="edge-btn" id="edge-bp" onclick="step(-1)" disabled>&#8249;</button></div>
+<div class="edge-nav right"><button class="edge-btn" id="edge-bn" onclick="step(1)" disabled>&#8250;</button></div>
 </body>
 </html>
