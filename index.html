@@ -177,7 +177,7 @@ body.dark main::-webkit-scrollbar-thumb{background:#444}
 .prog-book.complete{background:#dbeafe}
 .prog-book.partial{background:#eff6ff}
 .prog-book-name{font-size:12px;font-weight:500;color:#222}
-.ko-book-primary{font-family:'Noto Sans KR',sans-serif}
+.ko-book-primary{font-size:14px;font-weight:500}
 .prog-book-ko{font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#666;margin-top:1px}
 .prog-book-pct{font-size:10px;color:#2563eb;margin-top:3px}
 .prog-chapters{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;padding:16px}
@@ -499,18 +499,18 @@ function progShowOverview(){
 
   // Bars
   html+='<div class="prog-testament">';
-  html+='<div class="prog-testament-title">구약 Old Testament</div>';
+  html+='<div class="prog-testament-title">'+(langOrder==="en-ko"?"Old Testament / 구약":"구약 / Old Testament")+"</div>";
   html+='<div class="prog-bar-row"><span class="prog-bar-label">'+otS.read+'/'+otS.total+'</span><div class="prog-bar-track"><div class="prog-bar-fill" style="width:'+Math.round(otS.read/otS.total*100)+'%"></div></div><span class="prog-bar-pct">'+Math.round(otS.read/otS.total*100)+'%</span></div>';
   html+='</div>';
   html+='<div class="prog-testament">';
-  html+='<div class="prog-testament-title">신약 New Testament</div>';
+  html+='<div class="prog-testament-title">'+(langOrder==="en-ko"?"New Testament / 신약":"신약 / New Testament")+"</div>";
   html+='<div class="prog-bar-row"><span class="prog-bar-label">'+ntS.read+'/'+ntS.total+'</span><div class="prog-bar-track"><div class="prog-bar-fill" style="width:'+Math.round(ntS.read/ntS.total*100)+'%"></div></div><span class="prog-bar-pct">'+Math.round(ntS.read/ntS.total*100)+'%</span></div>';
   html+='</div>';
   html+='</div>';
 
   // Book grid
   
-  html+='<div class="prog-books" style="padding-top:4px">';
+  html+='<div class="prog-books" style="padding-top:0px">';
   BOOKS.forEach(function(b,i){
     var readCh=0;
     for(var c=1;c<=b.ch;c++) if(data[progKey(i,c)]) readCh++;
@@ -518,7 +518,7 @@ function progShowOverview(){
     var pct=Math.round(readCh/b.ch*100);
     html+='<div class="prog-book '+cls+'" onclick="progShowBook('+i+')">';
     if(langOrder==="en-ko"){
-      html+='<div class="prog-book-name">'+b.en+'</div>';
+      html+='<div class="prog-book-name ko-book-primary">'+b.en+'</div>';
       html+='<div class="prog-book-ko">'+b.ko+'</div>';
     } else {
       html+='<div class="prog-book-name ko-book-primary">'+b.ko+'</div>';
