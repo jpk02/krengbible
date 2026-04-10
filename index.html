@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>개역개정 · ESV</title>
+<title>krengbible.com</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
 <style>
 :root{--fs:15px;--bg:#f7f5f2}
@@ -125,17 +125,18 @@ footer{border-top:1px solid #e8e5e0;color:#bbb;background:var(--bg);font-size:10
 .edge-nav.left .edge-btn{border-radius:0 8px 8px 0;border-left:none}
 .edge-nav.right .edge-btn{border-radius:8px 0 0 8px;border-right:none}
 @media(min-width:641px){.edge-nav{display:block}}
+
+#passage-input{flex:1;max-width:400px;background:#efecea;border:1px solid #d8d4ce;border-radius:6px;color:#111;font:14px inherit;padding:6px 12px;outline:none;min-width:0}
+#passage-input:focus{border-color:#555;background:#fff}
+#passage-input::placeholder{color:#bbb}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo"><span>개역개정</span><span class="logo-div">/</span><span class="logo-en">English Standard Version</span></div>
+  <div class="logo"><span>krengbible.com</span></div>
 </header>
 <nav>
-  <span class="nl desk-only">Book</span>
-  <select id="bk" class="desk-only" onchange="onBook()"></select>
-  <span class="nl desk-only">Ch.</span>
-  <select id="ch" class="desk-only" onchange="load()"></select>
+  <input id="passage-input" class="desk-only" type="text" placeholder="Genesis 1  ·  John 3  ·  Romans 8:1" autocomplete="off" spellcheck="false">
   <div class="fctl desk-only">
     <span>A</span>
     <button class="fbtn" id="fminus" type="button">&#8722;</button>
@@ -169,13 +170,16 @@ const WORKER='https://bibleread.pauljkim22.workers.dev';
 const BOOKS=[{ko:"창세기",en:"Genesis",n:1,ch:50},{ko:"출애굽기",en:"Exodus",n:2,ch:40},{ko:"레위기",en:"Leviticus",n:3,ch:27},{ko:"민수기",en:"Numbers",n:4,ch:36},{ko:"신명기",en:"Deuteronomy",n:5,ch:34},{ko:"여호수아",en:"Joshua",n:6,ch:24},{ko:"사사기",en:"Judges",n:7,ch:21},{ko:"룻기",en:"Ruth",n:8,ch:4},{ko:"사무엘상",en:"1 Samuel",n:9,ch:31},{ko:"사무엘하",en:"2 Samuel",n:10,ch:24},{ko:"열왕기상",en:"1 Kings",n:11,ch:22},{ko:"열왕기하",en:"2 Kings",n:12,ch:25},{ko:"역대상",en:"1 Chronicles",n:13,ch:29},{ko:"역대하",en:"2 Chronicles",n:14,ch:36},{ko:"에스라",en:"Ezra",n:15,ch:10},{ko:"느헤미야",en:"Nehemiah",n:16,ch:13},{ko:"에스더",en:"Esther",n:17,ch:10},{ko:"욥기",en:"Job",n:18,ch:42},{ko:"시편",en:"Psalms",n:19,ch:150},{ko:"잠언",en:"Proverbs",n:20,ch:31},{ko:"전도서",en:"Ecclesiastes",n:21,ch:12},{ko:"아가",en:"Song of Solomon",n:22,ch:8},{ko:"이사야",en:"Isaiah",n:23,ch:66},{ko:"예레미야",en:"Jeremiah",n:24,ch:52},{ko:"예레미야애가",en:"Lamentations",n:25,ch:5},{ko:"에스겔",en:"Ezekiel",n:26,ch:48},{ko:"다니엘",en:"Daniel",n:27,ch:12},{ko:"호세아",en:"Hosea",n:28,ch:14},{ko:"요엘",en:"Joel",n:29,ch:3},{ko:"아모스",en:"Amos",n:30,ch:9},{ko:"오바댜",en:"Obadiah",n:31,ch:1},{ko:"요나",en:"Jonah",n:32,ch:4},{ko:"미가",en:"Micah",n:33,ch:7},{ko:"나훔",en:"Nahum",n:34,ch:3},{ko:"하박국",en:"Habakkuk",n:35,ch:3},{ko:"스바냐",en:"Zephaniah",n:36,ch:3},{ko:"학개",en:"Haggai",n:37,ch:2},{ko:"스가랴",en:"Zechariah",n:38,ch:14},{ko:"말라기",en:"Malachi",n:39,ch:4},{ko:"마태복음",en:"Matthew",n:40,ch:28},{ko:"마가복음",en:"Mark",n:41,ch:16},{ko:"누가복음",en:"Luke",n:42,ch:24},{ko:"요한복음",en:"John",n:43,ch:21},{ko:"사도행전",en:"Acts",n:44,ch:28},{ko:"로마서",en:"Romans",n:45,ch:16},{ko:"고린도전서",en:"1 Corinthians",n:46,ch:16},{ko:"고린도후서",en:"2 Corinthians",n:47,ch:13},{ko:"갈라디아서",en:"Galatians",n:48,ch:6},{ko:"에베소서",en:"Ephesians",n:49,ch:6},{ko:"빌립보서",en:"Philippians",n:50,ch:4},{ko:"골로새서",en:"Colossians",n:51,ch:4},{ko:"데살로니가전서",en:"1 Thessalonians",n:52,ch:5},{ko:"데살로니가후서",en:"2 Thessalonians",n:53,ch:3},{ko:"디모데전서",en:"1 Timothy",n:54,ch:6},{ko:"디모데후서",en:"2 Timothy",n:55,ch:4},{ko:"디도서",en:"Titus",n:56,ch:3},{ko:"빌레몬서",en:"Philemon",n:57,ch:1},{ko:"히브리서",en:"Hebrews",n:58,ch:13},{ko:"야고보서",en:"James",n:59,ch:5},{ko:"베드로전서",en:"1 Peter",n:60,ch:5},{ko:"베드로후서",en:"2 Peter",n:61,ch:3},{ko:"요한일서",en:"1 John",n:62,ch:5},{ko:"요한이서",en:"2 John",n:63,ch:1},{ko:"요한삼서",en:"3 John",n:64,ch:1},{ko:"유다서",en:"Jude",n:65,ch:1},{ko:"요한계시록",en:"Revelation",n:66,ch:22}];
 let bi=42,ci=3,fs=15,pendingBook=null,loaded=false;
 (function(){
-  const s=document.getElementById('bk');
-  const ph=document.createElement('option');ph.value='';ph.textContent='책 선택 / Select Book';ph.disabled=true;s.appendChild(ph);
-  BOOKS.forEach((b,i)=>{const o=document.createElement('option');o.value=i;o.textContent=b.ko+'  .  '+b.en;s.appendChild(o);});
-  s.value='';document.getElementById('ch').innerHTML='<option value="" disabled selected>장</option>';
   applyFs();
   document.getElementById('fminus').addEventListener('click',()=>{fs=Math.max(11,fs-1);applyFs();});
   document.getElementById('fplus').addEventListener('click',()=>{fs=Math.min(22,fs+1);applyFs();});
+  // Passage input
+  const inp=document.getElementById('passage-input');
+  if(inp){
+    inp.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){e.preventDefault();parseAndLoad(inp.value.trim());}
+    });
+  }
   updateLabel();
   document.getElementById('mob-sheet').addEventListener('click',function(e){
     if(e.target===this) sheetClose();
@@ -210,18 +214,54 @@ function applyFs(){
   document.querySelectorAll('.vt').forEach(el=>el.style.fontSize=fs+'px');
 }
 function updateLabel(){if(loaded)document.getElementById('mob-passage-label').textContent=BOOKS[bi].ko+' '+ci+'장';}
-function onBook(){const v=document.getElementById('bk').value;if(v==='')return;bi=+v;ci=1;buildCh();load();}
-function buildCh(){
-  const s=document.getElementById('ch');s.innerHTML='';
-  for(let i=1;i<=BOOKS[bi].ch;i++){const o=document.createElement('option');o.value=i;o.textContent=i;s.appendChild(o);}
-  s.value=(ci<=BOOKS[bi].ch)?ci:1;
-}
+function onBook(){}
+function buildCh(){}
 function step(d){
-  const c=+document.getElementById('ch').value;
-  if(d===-1){if(c>1)document.getElementById('ch').value=c-1;else if(bi>0){bi--;document.getElementById('bk').value=bi;ci=BOOKS[bi].ch;buildCh();}}
-  else{if(c<BOOKS[bi].ch)document.getElementById('ch').value=c+1;else if(bi<BOOKS.length-1){bi++;document.getElementById('bk').value=bi;ci=1;buildCh();}}
+  if(d===-1){if(ci>1)ci--;else if(bi>0){bi--;ci=BOOKS[bi].ch;}}
+  else{if(ci<BOOKS[bi].ch)ci++;else if(bi<BOOKS.length-1){bi++;ci=1;}}
   load();
 }
+
+function parseAndLoad(raw){
+  if(!raw) return;
+  // Try to match "BookName Chapter" or "BookName Chapter:Verse"
+  const cleaned = raw.trim().replace(/:/g,' ');
+  const parts = cleaned.match(/^(.+?)\s+(\d+)(?:\s+(\d+))?$/);
+  if(!parts) return;
+  const bookQuery = parts[1].trim().toLowerCase();
+  const chNum = parseInt(parts[2]);
+  // Find matching book
+  const koQuery = parts[1].trim();
+  const idx = BOOKS.findIndex(b=>{
+    const enL = b.en.toLowerCase();
+    const enNS = enL.replace(/\s+/g,'');
+    const bqNS = bookQuery.replace(/\s+/g,'');
+    // Full name match
+    if(enL.startsWith(bookQuery)) return true;
+    if(enNS.startsWith(bqNS)) return true;
+    if(b.ko.startsWith(koQuery)) return true;
+    // Korean abbreviation: match first char of each syllable block
+    // e.g. "요" matches "요한복음", "창" matches "창세기"
+    if(b.ko.startsWith(koQuery)) return true;
+    // Short Korean prefix (1-2 chars)
+    if(koQuery.length<=3 && b.ko.startsWith(koQuery)) return true;
+    // English abbreviation: first letters of each word
+    const initials = b.en.split(' ').map(w=>w[0].toLowerCase()).join('');
+    if(initials.startsWith(bookQuery)) return true;
+    // Common English abbrevs: Gen, Exo, Lev, etc.
+    if(enL.slice(0,bookQuery.length)===bookQuery && bookQuery.length>=2) return true;
+    return false;
+  });
+  if(idx===-1){
+    const inp=document.getElementById('passage-input');
+    if(inp){inp.style.borderColor='#dc2626';setTimeout(()=>{inp.style.borderColor='';},1000);}
+    return;
+  }
+  bi=idx;
+  ci=Math.min(Math.max(1,chNum),BOOKS[idx].ch);
+  load();
+}
+
 function sheetOpen(mode){
   document.getElementById('mob-sheet').classList.remove('hidden');
   const body=document.getElementById('mob-sheet-body');
@@ -268,7 +308,7 @@ async function load(){
   if(kr.status==='rejected'){document.getElementById('content').innerHTML='<div class="errbox"><b>Error:</b> '+esc(kr.reason?.message||'실패')+'</div>';return;}
   if(er.status==='rejected'){document.getElementById('content').innerHTML='<div class="errbox"><b>ESV Error:</b> '+esc(er.reason?.message||'Failed')+'</div>';return;}
   render(kr.value,er.value,bk,ci);
-  loaded=true;document.getElementById('main').scrollTop=0;updateLabel();
+  loaded=true;document.getElementById('main').scrollTop=0;updateLabel();const inp=document.getElementById('passage-input');if(inp)inp.value=BOOKS[bi].en+' '+ci;
 }
 async function fetchKo(bk,ch){
   const r=await fetch(WORKER+'/nkrv/'+bk.n+'/'+ch,{cache:'no-store'});
@@ -386,10 +426,10 @@ function scrollToVerse(n){var el=document.getElementById('vr-'+n),m=document.get
 function scrollToFn(id){var el=document.getElementById(id),m=document.getElementById('main');if(el&&m)m.scrollTop+=el.getBoundingClientRect().top-m.getBoundingClientRect().top-20;}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 document.addEventListener('keydown',function(e){
-  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+  if(e.target.tagName==='SELECT')return;
+  if(e.target.id==='passage-input')return;
   if(e.key==='ArrowRight')step(1);
   if(e.key==='ArrowLeft')step(-1);
-  if(e.key==='Enter')load();
 });
 </script>
 
