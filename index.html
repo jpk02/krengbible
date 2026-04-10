@@ -142,8 +142,8 @@ body.dark #passage-input::placeholder{color:#555}
 body.dark .edge-btn{background:rgba(30,30,30,0.85);border-color:#444;color:#aaa}
 body.dark main::-webkit-scrollbar-track{background:#222}
 body.dark main::-webkit-scrollbar-thumb{background:#444}
-.prog-section{padding:16px}
-.prog-testament{margin-bottom:20px}
+.prog-section{padding:8px}
+.prog-testament{margin-bottom:12px}
 .prog-testament-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#bbb;margin-bottom:10px}
 .prog-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .prog-bar-label{font-size:12px;color:#777;width:60px;flex-shrink:0}
@@ -420,12 +420,12 @@ function progShowOverview(){
   var data=progLoad(),OT=BOOKS.slice(0,39),NT=BOOKS.slice(39);
   function bookStats(books,si){var t=0,r=0;books.forEach(function(b,i){t+=b.ch;for(var c=1;c<=b.ch;c++)if(data[progKey(si+i,c)])r++;});return{total:t,read:r};}
   var otS=bookStats(OT,0),ntS=bookStats(NT,39);
-  var html='<div class="prog-section" style="padding-top:16px">';
+  var html='<div class="prog-section">';
   html+='<div class="prog-testament"><div class="prog-testament-title">'+(langOrder==='en-ko'?'Old Testament / 구약':'구약 / Old Testament')+'</div>';
   html+='<div class="prog-bar-row"><span class="prog-bar-label">'+otS.read+'/'+otS.total+'</span><div class="prog-bar-track"><div class="prog-bar-fill" style="width:'+Math.round(otS.read/otS.total*100)+'%"></div></div><span class="prog-bar-pct">'+Math.round(otS.read/otS.total*100)+'%</span></div></div>';
   html+='<div class="prog-testament"><div class="prog-testament-title">'+(langOrder==='en-ko'?'New Testament / 신약':'신약 / New Testament')+'</div>';
   html+='<div class="prog-bar-row"><span class="prog-bar-label">'+ntS.read+'/'+ntS.total+'</span><div class="prog-bar-track"><div class="prog-bar-fill" style="width:'+Math.round(ntS.read/ntS.total*100)+'%"></div></div><span class="prog-bar-pct">'+Math.round(ntS.read/ntS.total*100)+'%</span></div></div></div>';
-  html+='<div class="prog-books">';
+  html+='<div class="prog-books" style="padding-top:4px;padding-bottom:8px">';
   BOOKS.forEach(function(b,i){
     var rc=0;for(var c=1;c<=b.ch;c++)if(data[progKey(i,c)])rc++;
     var cls=rc===b.ch?'complete':rc>0?'partial':'',pct=Math.round(rc/b.ch*100);
