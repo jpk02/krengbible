@@ -497,8 +497,10 @@ function render(koData,esvData,bk,ch){
   setTimeout(progAttachObserver,500);
   hlApplyAll();hlAttach();
 }
+var _mainContent=null;
 (function(){
   var main=document.getElementById('main'),content=document.getElementById('content');
+  _mainContent=content;
   var sx=0,sy=0,drag=false,locked=false;
   main.addEventListener('touchstart',function(e){if(!document.getElementById('mob-sheet').classList.contains('hidden'))return;window._hlActive=false;sx=e.touches[0].clientX;sy=e.touches[0].clientY;drag=false;locked=false;},{passive:true});
   main.addEventListener('touchmove',function(e){if(!document.getElementById('mob-sheet').classList.contains('hidden'))return;if(locked||window._hlActive)return;var dx=e.touches[0].clientX-sx,dy=e.touches[0].clientY-sy;if(!drag&&Math.abs(dy)>Math.abs(dx)*1.2){locked=true;return;}if(Math.abs(dx)>8)drag=true;if(drag){content.style.transform='translateX('+(dx*0.35)+'px)';content.style.transition='none';}},{passive:true});
@@ -537,8 +539,8 @@ function hlAttach(){
       var t=e.touches[0];
       pressTimer=setTimeout(function(){
         pressTimer=null;
-        // Lock the swipe gesture so it doesn't slide
         window._hlActive=true;
+        if(_mainContent){_mainContent.style.transform='';_mainContent.style.transition='none';}
         hlShowToolbar(row,t);
       },500);
     },{passive:true});
