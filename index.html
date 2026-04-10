@@ -175,15 +175,24 @@ body.dark .prog-bar-track{background:#2a2a2a}
 body.dark .prog-back-btn{color:#60a5fa}
 .fn-popup{position:fixed;z-index:200;background:#fff;border:1px solid #e8e5e0;border-radius:8px;padding:10px 14px;max-width:280px;font-size:12px;color:#444;line-height:1.6;box-shadow:0 4px 16px rgba(0,0,0,.12);pointer-events:none;transition:opacity .15s}
 body.dark .fn-popup{background:#2a2a2a;border-color:#444;color:#ccc}
-.votd-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 28px;min-height:60vh;text-align:center;gap:16px}
-.votd-ref{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#555}
-.votd-ko{font-family:'Noto Sans KR',sans-serif;font-size:17px;line-height:1.8;color:#1c1c1c;max-width:480px;word-break:keep-all}
-.votd-en{font-size:15px;line-height:1.8;color:#1c1c1c;max-width:480px;font-style:italic}
-.votd-read-btn{margin-top:8px;background:#222;border:none;border-radius:8px;color:#fff;cursor:pointer;font:500 13px inherit;padding:8px 20px}
+.votd-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;min-height:60vh}
+.votd-card{background:#fff;border-radius:20px;padding:28px 24px 24px;max-width:420px;width:100%;box-shadow:0 2px 20px rgba(0,0,0,.07);display:flex;flex-direction:column}
+body.dark .votd-card{background:#242424;box-shadow:0 2px 20px rgba(0,0,0,.3)}
+.votd-label{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#2563eb;margin-bottom:18px}
+body.dark .votd-label{color:#60a5fa}
+.votd-ko-ref{font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:600;color:#aaa;margin-bottom:5px}
+.votd-ko{font-family:'Noto Sans KR',sans-serif;font-size:18px;line-height:1.85;color:#1c1c1c;word-break:keep-all;margin-bottom:20px}
 body.dark .votd-ko{color:#e8e5e0}
+.votd-divider{height:1px;background:#f0ede8;margin-bottom:18px}
+body.dark .votd-divider{background:#333}
+.votd-en-ref{font-size:11px;font-weight:600;color:#aaa;margin-bottom:5px}
+.votd-en{font-size:15px;line-height:1.75;color:#555;font-style:italic;margin-bottom:24px}
 body.dark .votd-en{color:#999}
+.votd-read-btn{align-self:flex-start;background:#2563eb;border:none;border-radius:10px;color:#fff;cursor:pointer;font:500 13px inherit;padding:9px 20px}
+.votd-read-btn:active{opacity:.85}
+body.dark .votd-read-btn{background:#1d4ed8}
 .verse-row.hl-selected .vt{text-decoration:underline;text-decoration-style:dashed;text-decoration-color:#888;text-decoration-thickness:2px;text-underline-offset:4px}
-.hl-bar{position:fixed;bottom:0;left:0;right:0;z-index:300;background:#fff;border-top:1px solid #e8e5e0;padding:16px 28px calc(20px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:16px;transform:translateY(100%);transition:transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)}
+.hl-bar{position:fixed;bottom:0;left:0;right:0;z-index:300;background:#fff;border-top:1px solid #e8e5e0;padding:14px 28px env(safe-area-inset-bottom);display:flex;align-items:center;gap:16px;transform:translateY(100%);transition:transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)}
 .hl-bar.visible{transform:translateY(0)}
 body.dark .hl-bar{background:#1e1e1e;border-top-color:#333}
 .hl-bar-handle{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:4px;background:#d8d4ce;border-radius:2px}
@@ -442,11 +451,17 @@ async function loadVotd(){
     var bookIdx=BOOKS.findIndex(function(b){return b.en===v.bookname;}),koText='';
     if(bookIdx>=0){try{var kr=await fetch(WORKER+'/nkrv/'+BOOKS[bookIdx].n+'/'+v.chapter,{cache:'no-store'}),kd=await kr.json(),verses=Array.isArray(kd)?kd:(kd.verses||[]),kv=verses.find(function(x){return x.verse===+v.verse;});if(kv)koText=kv.text.replace(/\(KN:\d+\)/g,'');}catch(e){}}
     var koRef=bookIdx>=0?BOOKS[bookIdx].ko+' '+v.chapter+':'+v.verse:ref;
-    var html='<div class="votd-wrap">';
-    if(koText){html+='<div class="votd-ref">'+koRef+'</div><div class="votd-ko">'+koText+'</div>';}
-    html+='<div class="votd-ref" style="margin-top:12px">'+ref+'</div><div class="votd-en">'+v.text+'</div>';
-    if(bookIdx>=0){var chRef=v.bookname+' '+v.chapter;html+='<button class="votd-read-btn" onclick="bi='+bookIdx+';ci='+v.chapter+';loaded=true;updateLabel();load()">Read '+chRef+'</button>';}
-    html+='</div>';
+    var html='<div class="votd-wrap"><div class="votd-card">';
+    html+='<div class="votd-label">오늘의 말씀 · Verse of the Day</div>';
+    if(koText){
+      html+='<div class="votd-ko-ref">'+koRef+'</div>';
+      html+='<div class="votd-ko">'+koText+'</div>';
+      html+='<div class="votd-divider"></div>';
+    }
+    html+='<div class="votd-en-ref">'+ref+'</div>';
+    html+='<div class="votd-en">'+v.text+'</div>';
+    if(bookIdx>=0){var chRef=v.bookname+' '+v.chapter;html+='<button class="votd-read-btn" onclick="bi='+bookIdx+';ci='+v.chapter+';loaded=true;updateLabel();load()">Read '+chRef+' →</button>';}
+    html+='</div></div>';
     document.getElementById('content').innerHTML=html;
   }catch(e){document.getElementById('content').innerHTML='';}
 }
