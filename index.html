@@ -227,6 +227,46 @@ body.dark .fn-popup{background:#2a2a2a;border-color:#444;color:#ccc;box-shadow:0
 .votd-read-btn:hover{opacity:.8}
 body.dark .votd-ko{color:#e8e5e0}
 body.dark .votd-en{color:#999}
+
+/* Highlight colors */
+.hl-y{background:#fef9c3}
+.hl-g{background:#dcfce7}
+.hl-b{background:#dbeafe}
+.hl-p{background:#f3e8ff}
+.hl-r{background:#fee2e2}
+body.dark .hl-y{background:#713f12}
+body.dark .hl-g{background:#14532d}
+body.dark .hl-b{background:#1e3a5f}
+body.dark .hl-p{background:#3b0764}
+body.dark .hl-r{background:#7f1d1d}
+
+/* Highlight toolbar */
+.hl-toolbar{
+  position:fixed;z-index:300;
+  background:#fff;border:1px solid #e8e5e0;border-radius:10px;
+  padding:6px 8px;display:flex;gap:6px;align-items:center;
+  box-shadow:0 4px 16px rgba(0,0,0,.12);
+}
+body.dark .hl-toolbar{background:#2a2a2a;border-color:#444}
+.hl-swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0}
+.hl-swatch:active{transform:scale(1.2)}
+.hl-swatch.active{border-color:#333}
+body.dark .hl-swatch.active{border-color:#fff}
+.hl-clear{background:none;border:none;font-size:13px;cursor:pointer;color:#999;padding:0 2px;line-height:1}
+.hl-clear:hover{color:#dc2626}
+
+.confirm-modal{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4)}
+.confirm-modal.hidden{display:none}
+.confirm-box{background:#fff;border-radius:14px;padding:24px 20px 16px;max-width:300px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+body.dark .confirm-box{background:#2a2a2a}
+.confirm-msg{font-size:14px;line-height:1.6;color:#222;margin-bottom:20px}
+body.dark .confirm-msg{color:#e8e5e0}
+.confirm-btns{display:flex;gap:8px;justify-content:flex-end}
+.confirm-btn{border:none;border-radius:8px;font:500 13px inherit;cursor:pointer;padding:8px 18px}
+.confirm-btn.cancel{background:#efecea;color:#555}
+body.dark .confirm-btn.cancel{background:#333;color:#bbb}
+.confirm-btn.ok{background:#222;color:#fff}
+body.dark .confirm-btn.ok{background:#e8e5e0;color:#111}
 </style>
 </head>
 <body>
@@ -266,6 +306,23 @@ body.dark .votd-en{color:#999}
     </div>
     <div id="mob-sheet-body"></div>
   </div>
+</div>
+<div id="confirm-modal" class="confirm-modal hidden" onclick="if(event.target===this)confirmCancel()">
+  <div class="confirm-box">
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button class="confirm-btn cancel" onclick="confirmCancel()">Cancel</button>
+      <button class="confirm-btn ok" onclick="confirmOk()">Reset</button>
+    </div>
+  </div>
+</div>
+<div id="hl-toolbar" class="hl-toolbar" style="display:none">
+  <div class="hl-swatch" style="background:#fef9c3" data-color="y" onclick="hlApply('y')"></div>
+  <div class="hl-swatch" style="background:#dcfce7" data-color="g" onclick="hlApply('g')"></div>
+  <div class="hl-swatch" style="background:#dbeafe" data-color="b" onclick="hlApply('b')"></div>
+  <div class="hl-swatch" style="background:#f3e8ff" data-color="p" onclick="hlApply('p')"></div>
+  <div class="hl-swatch" style="background:#fee2e2" data-color="r" onclick="hlApply('r')"></div>
+  <button class="hl-clear" id="hl-clear-btn" onclick="hlApply(null)">✕</button>
 </div>
 <div id="fn-popup" class="fn-popup" style="opacity:0;display:none"></div>
 <main id="main">
@@ -472,11 +529,26 @@ var progView = 'overview'; // 'overview' | 'book'
 var progViewBook = 0;
 
 
+var _confirmCb = null;
+function showConfirm(msg, cb){
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-modal').classList.remove('hidden');
+  _confirmCb = cb;
+}
+function confirmOk(){
+  document.getElementById('confirm-modal').classList.add('hidden');
+  if(_confirmCb) _confirmCb();
+  _confirmCb = null;
+}
+function confirmCancel(){
+  document.getElementById('confirm-modal').classList.add('hidden');
+  _confirmCb = null;
+}
 function progReset(){
-  if(confirm('Reset all reading progress? This cannot be undone.')){
+  showConfirm('Reset all reading progress? This cannot be undone.', function(){
     localStorage.removeItem(PROGRESS_KEY);
     progShowOverview();
-  }
+  });
 }
 
 function progShowOverview(){
@@ -704,6 +776,8 @@ function render(koData,esvData,bk,ch){
   document.getElementById('content').innerHTML=h;
   if(langOrder==='en-ko') applyLangOrder();
   setTimeout(progAttachObserver,500);
+  hlApplyAll();
+  hlAttach();
 }
 (function(){
   const main=document.getElementById('main');
@@ -812,6 +886,111 @@ function render(koData,esvData,bk,ch){
     if(!e.target.classList.contains('fn-ref')) hideFnPopup();
   });
 })();
+
+// ── Highlights ──
+var HL_KEY = 'krengbible_hl';
+var hlSelected = null; // current verse row element
+
+function hlLoad(){
+  try{ return JSON.parse(localStorage.getItem(HL_KEY)||'{}'); }
+  catch(e){ return {}; }
+}
+function hlSave(data){
+  try{ localStorage.setItem(HL_KEY, JSON.stringify(data)); }
+  catch(e){}
+}
+function hlKey(bi,ci,verse){ return bi+'_'+ci+'_'+verse; }
+
+function hlApplyAll(){
+  var data = hlLoad();
+  document.querySelectorAll('.verse-row').forEach(function(row){
+    var n = row.id.replace('vr-','');
+    var k = hlKey(bi,ci,n);
+    // Remove existing highlight classes
+    row.classList.remove('hl-y','hl-g','hl-b','hl-p','hl-r');
+    if(data[k]) row.classList.add('hl-'+data[k]);
+  });
+}
+
+function hlApply(color){
+  if(!hlSelected) return;
+  var n = hlSelected.id.replace('vr-','');
+  var k = hlKey(bi,ci,n);
+  var data = hlLoad();
+  if(color) data[k]=color; else delete data[k];
+  hlSave(data);
+  hlSelected.classList.remove('hl-y','hl-g','hl-b','hl-p','hl-r');
+  if(color) hlSelected.classList.add('hl-'+color);
+  hlHideToolbar();
+}
+
+function hlShowToolbar(row, e){
+  hlSelected = row;
+  var tb = document.getElementById('hl-toolbar');
+  tb.style.display='flex';
+  // Position near tap
+  var x = e.clientX||(e.touches&&e.touches[0]&&e.touches[0].clientX)||0;
+  var y = e.clientY||(e.touches&&e.touches[0]&&e.touches[0].clientY)||0;
+  var tw=180, th=40;
+  var vw=window.innerWidth, vh=window.innerHeight;
+  var top = y - th - 12;
+  if(top<8) top = y+20;
+  var left = x - tw/2;
+  if(left<8) left=8;
+  if(left+tw>vw-8) left=vw-tw-8;
+  tb.style.left=left+'px';
+  tb.style.top=top+'px';
+  // Mark active color
+  var data=hlLoad();
+  var n=row.id.replace('vr-','');
+  var cur=data[hlKey(bi,ci,n)]||null;
+  // Update clear button tooltip
+  var clrBtn=document.getElementById('hl-clear-btn');
+  if(clrBtn) clrBtn.title=langOrder==='ko-en'?'형광펜 지우기':'Remove highlight';
+  var koColors={y:'노란색',g:'초록색',b:'파란색',p:'보라색',r:'빨간색'};
+  var enColors={y:'Yellow',g:'Green',b:'Blue',p:'Purple',r:'Red'};
+  tb.querySelectorAll('.hl-swatch').forEach(function(s){
+    s.classList.toggle('active', s.dataset.color===cur);
+    s.title=langOrder==='ko-en'?koColors[s.dataset.color]:enColors[s.dataset.color];
+  });
+}
+
+function hlHideToolbar(){
+  var tb=document.getElementById('hl-toolbar');
+  if(tb) tb.style.display='none';
+  hlSelected=null;
+}
+
+// Attach long-press / tap handler to verse rows after render
+function hlAttach(){
+  document.querySelectorAll('.verse-row').forEach(function(row){
+    // Long press on mobile, click on desktop
+    var pressTimer;
+    row.addEventListener('touchstart',function(e){
+      pressTimer=setTimeout(function(){ hlShowToolbar(row,e.touches[0]); },500);
+    },{passive:true});
+    row.addEventListener('touchend',function(){ clearTimeout(pressTimer); },{passive:true});
+    row.addEventListener('touchmove',function(){ clearTimeout(pressTimer); },{passive:true});
+    // Desktop: single click on verse number
+    row.querySelectorAll('.vn').forEach(function(vn){
+      vn.style.cursor='pointer';
+      vn.addEventListener('click',function(e){
+        e.stopPropagation();
+        hlShowToolbar(row,e);
+      });
+    });
+  });
+}
+
+// Hide toolbar on outside tap
+document.addEventListener('click',function(e){
+  var tb=document.getElementById('hl-toolbar');
+  if(tb&&!tb.contains(e.target)&&!e.target.classList.contains('vn')) hlHideToolbar();
+});
+document.addEventListener('touchstart',function(e){
+  var tb=document.getElementById('hl-toolbar');
+  if(tb&&tb.style.display!=='none'&&!tb.contains(e.target)&&!e.target.closest('.verse-row')) hlHideToolbar();
+},{passive:true});
 
 function scrollToVerse(n){var el=document.getElementById('vr-'+n),m=document.getElementById('main');if(el&&m)m.scrollTop+=el.getBoundingClientRect().top-m.getBoundingClientRect().top-20;}
 function scrollToFn(id){var el=document.getElementById(id),m=document.getElementById('main');if(el&&m)m.scrollTop+=el.getBoundingClientRect().top-m.getBoundingClientRect().top-20;}
