@@ -176,8 +176,19 @@ body.dark .fn-popup{background:#2a2a2a;border-color:#444;color:#ccc}
 .votd-read-btn{margin-top:8px;background:#222;border:none;border-radius:8px;color:#fff;cursor:pointer;font:500 13px inherit;padding:8px 20px}
 body.dark .votd-ko{color:#e8e5e0}
 body.dark .votd-en{color:#999}
-.verse-row.hl-selected .vt{background:rgba(0,0,0,0.07);border-radius:3px}
-body.dark .verse-row.hl-selected .vt{background:rgba(255,255,255,0.1);border-radius:3px}
+.verse-row.hl-selected .vt{text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#aaa;text-underline-offset:3px}
+.hl-bar{position:fixed;bottom:0;left:0;right:0;z-index:300;background:#fff;border-top:1px solid #e8e5e0;padding:14px 24px 32px;display:flex;align-items:center;gap:14px;transform:translateY(100%);transition:transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)}
+.hl-bar.visible{transform:translateY(0)}
+body.dark .hl-bar{background:#1e1e1e;border-top-color:#333}
+.hl-bar-swatches{display:flex;gap:14px;flex:1}
+.hl-bar-swatch{width:32px;height:32px;border-radius:50%;cursor:pointer;border:3px solid transparent;flex-shrink:0;transition:transform 0.1s}
+.hl-bar-swatch:active{transform:scale(1.15)}
+.hl-bar-swatch.active{border-color:#333}
+body.dark .hl-bar-swatch.active{border-color:#fff}
+.hl-bar-copy{background:none;border:none;font-size:24px;cursor:pointer;color:#555;padding:0 4px;line-height:1}
+body.dark .hl-bar-copy{color:#aaa}
+.hl-bar-clear{background:none;border:none;font-size:20px;cursor:pointer;color:#bbb;padding:0 4px;line-height:1}
+.hl-bar-clear:active{color:#dc2626}
 .verse-row.hl-y .vt{background:#fde047;border-radius:3px}
 .verse-row.hl-g .vt{background:#86efac;border-radius:3px}
 .verse-row.hl-b .vt{background:#93c5fd;border-radius:3px}
@@ -188,17 +199,7 @@ body.dark .verse-row.hl-g .vt{background:#166534}
 body.dark .verse-row.hl-b .vt{background:#1e40af}
 body.dark .verse-row.hl-p .vt{background:#6b21a8}
 body.dark .verse-row.hl-r .vt{background:#991b1b}
-.hl-toolbar{position:fixed;z-index:300;background:#fff;border:1px solid #e8e5e0;border-radius:10px;padding:6px 8px;display:flex;gap:6px;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,.12)}
-body.dark .hl-toolbar{background:#2a2a2a;border-color:#444}
-.hl-swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0}
-.hl-swatch:active{transform:scale(1.2)}
-.hl-swatch.active{border-color:#333}
-body.dark .hl-swatch.active{border-color:#fff}
-.hl-clear{background:none;border:none;font-size:13px;cursor:pointer;color:#999;padding:0 2px;line-height:1}
-.hl-clear:hover{color:#dc2626}
-.hl-copy{background:#efecea;border:1px solid #d8d4ce;border-radius:6px;font-size:14px;cursor:pointer;color:#444;width:28px;height:28px;display:flex;align-items:center;justify-content:center;padding:0}
-.hl-copy:hover{background:#e0dbd4}
-body.dark .hl-copy{background:#333;border-color:#555;color:#ccc}
+
 .confirm-modal{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4)}
 .confirm-modal.hidden{display:none}
 .confirm-box{background:#fff;border-radius:14px;padding:24px 20px 16px;max-width:300px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.15)}
@@ -256,15 +257,16 @@ body.dark .confirm-btn.ok{background:#e8e5e0;color:#111}
     </div>
   </div>
 </div>
-<div id="hl-toolbar" class="hl-toolbar" style="display:none">
-  <div class="hl-swatch" style="background:#fde047" data-color="y" onclick="hlApply('y')"></div>
-  <div class="hl-swatch" style="background:#86efac" data-color="g" onclick="hlApply('g')"></div>
-  <div class="hl-swatch" style="background:#93c5fd" data-color="b" onclick="hlApply('b')"></div>
-  <div class="hl-swatch" style="background:#d8b4fe" data-color="p" onclick="hlApply('p')"></div>
-  <div class="hl-swatch" style="background:#fca5a5" data-color="r" onclick="hlApply('r')"></div>
-  <div style="width:1px;background:#e8e5e0;margin:0 2px;align-self:stretch"></div>
-  <button class="hl-copy" id="hl-copy-btn" onclick="hlCopy()" title="Copy">⎘</button>
-  <button class="hl-clear" id="hl-clear-btn" onclick="hlApply(null)">✕</button>
+<div id="hl-bar" class="hl-bar">
+  <div class="hl-bar-swatches">
+    <div class="hl-bar-swatch" style="background:#fde047" data-color="y" onclick="hlApply('y')"></div>
+    <div class="hl-bar-swatch" style="background:#86efac" data-color="g" onclick="hlApply('g')"></div>
+    <div class="hl-bar-swatch" style="background:#93c5fd" data-color="b" onclick="hlApply('b')"></div>
+    <div class="hl-bar-swatch" style="background:#d8b4fe" data-color="p" onclick="hlApply('p')"></div>
+    <div class="hl-bar-swatch" style="background:#fca5a5" data-color="r" onclick="hlApply('r')"></div>
+  </div>
+  <button class="hl-bar-copy" id="hl-copy-btn" onclick="hlCopy()">⎘</button>
+  <button class="hl-bar-clear" onclick="hlApply(null)">✕</button>
 </div>
 <div id="fn-popup" class="fn-popup" style="opacity:0;display:none"></div>
 <main id="main">
@@ -538,42 +540,40 @@ function hlCopy(){
 }
 function hlApply(color){if(!hlSelected)return;var n=hlSelected.id.replace('vr-',''),k=hlKey(bi,ci,n),data=hlLoad();if(color)data[k]=color;else delete data[k];hlSave(data);hlSelected.classList.remove('hl-y','hl-g','hl-b','hl-p','hl-r');if(color)hlSelected.classList.add('hl-'+color);hlHideToolbar();}
 function hlShowToolbar(row,e){
+  if(hlSelected&&hlSelected!==row) hlSelected.classList.remove('hl-selected');
   hlSelected=row;
   row.classList.add('hl-selected');
-  var tb=document.getElementById('hl-toolbar');tb.style.display='flex';
-  var x=e.clientX||(e.touches&&e.touches[0]&&e.touches[0].clientX)||0,y=e.clientY||(e.touches&&e.touches[0]&&e.touches[0].clientY)||0;
-  var tw=180,vw=window.innerWidth,top=y-52;if(top<8)top=y+20;var left=x-tw/2;if(left<8)left=8;if(left+tw>vw-8)left=vw-tw-8;
-  tb.style.left=left+'px';tb.style.top=top+'px';
+  var bar=document.getElementById('hl-bar');
+  bar.classList.add('visible');
+  // Mark active color
   var data=hlLoad(),n=row.id.replace('vr-',''),cur=data[hlKey(bi,ci,n)]||null;
-  var clrBtn=document.getElementById('hl-clear-btn');if(clrBtn)clrBtn.title=langOrder==='ko-en'?'형광펜 지우기':'Remove highlight';
   var koC={y:'노란색',g:'초록색',b:'파란색',p:'보라색',r:'빨간색'},enC={y:'Yellow',g:'Green',b:'Blue',p:'Purple',r:'Red'};
-  tb.querySelectorAll('.hl-swatch').forEach(function(s){s.classList.toggle('active',s.dataset.color===cur);s.title=langOrder==='ko-en'?koC[s.dataset.color]:enC[s.dataset.color];});
+  bar.querySelectorAll('.hl-bar-swatch').forEach(function(s){
+    s.classList.toggle('active',s.dataset.color===cur);
+    s.title=langOrder==='ko-en'?koC[s.dataset.color]:enC[s.dataset.color];
+  });
 }
 function hlHideToolbar(){
-  var tb=document.getElementById('hl-toolbar');if(tb)tb.style.display='none';
+  var bar=document.getElementById('hl-bar');
+  if(bar) bar.classList.remove('visible');
   if(hlSelected){hlSelected.classList.remove('hl-selected');hlSelected=null;}
 }
 function hlAttach(){
   document.querySelectorAll('.verse-row').forEach(function(row){
-    var pressTimer=null;
-    // Mobile: long press anywhere on row
-    row.addEventListener('touchstart',function(e){
-      pressTimer=setTimeout(function(){
-        pressTimer=null;
-        row.classList.add('hl-selected');
-        hlShowToolbar(row,e.touches[0]);
-      },500);
-    },{passive:true});
-    row.addEventListener('touchend',function(){clearTimeout(pressTimer);pressTimer=null;},{passive:true});
-    row.addEventListener('touchmove',function(){clearTimeout(pressTimer);pressTimer=null;},{passive:true});
-    // Desktop: click verse number
-    row.querySelectorAll('.vn').forEach(function(vn){
-      vn.addEventListener('click',function(e){e.stopPropagation();hlShowToolbar(row,e);});
+    row.addEventListener('click',function(e){
+      if(e.target.classList.contains('fn-ref')) return;
+      hlShowToolbar(row,e);
     });
   });
 }
-document.addEventListener('click',function(e){var tb=document.getElementById('hl-toolbar');if(tb&&!tb.contains(e.target)&&!e.target.classList.contains('vn'))hlHideToolbar();});
-document.addEventListener('touchstart',function(e){var tb=document.getElementById('hl-toolbar');if(tb&&tb.style.display!=='none'&&!tb.contains(e.target)&&!e.target.closest('.verse-row'))hlHideToolbar();},{passive:true});
+document.addEventListener('click',function(e){
+  var bar=document.getElementById('hl-bar');
+  if(bar&&bar.classList.contains('visible')&&!bar.contains(e.target)&&!e.target.closest('.verse-row')) hlHideToolbar();
+});
+document.addEventListener('touchstart',function(e){
+  var bar=document.getElementById('hl-bar');
+  if(bar&&bar.classList.contains('visible')&&!bar.contains(e.target)&&!e.target.closest('.verse-row')) hlHideToolbar();
+},{passive:true});
 function scrollToVerse(n){var el=document.getElementById('vr-'+n),m=document.getElementById('main');if(el&&m)m.scrollTop+=el.getBoundingClientRect().top-m.getBoundingClientRect().top-20;}
 function scrollToFn(id){var el=document.getElementById(id),m=document.getElementById('main');if(el&&m)m.scrollTop+=el.getBoundingClientRect().top-m.getBoundingClientRect().top-20;}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
