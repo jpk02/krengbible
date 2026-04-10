@@ -208,7 +208,14 @@ body.dark .prog-back-btn{color:#60a5fa}
 body.dark .fn-popup{background:#2a2a2a;border-color:#444;color:#ccc;box-shadow:0 4px 16px rgba(0,0,0,.4)}
 
 @media(max-width:640px){
-  .verse-cell.en-side .vn{display:none}
+  .verse-cell.en-side .vn{visibility:hidden}
+}
+
+@media(min-width:641px){
+  .mob-sheet{align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
+  .mob-sheet-inner{border-radius:12px;max-height:80vh;max-width:560px;width:100%}
+  .prog-chapters{grid-template-columns:repeat(10,1fr)}
+  .prog-books{grid-template-columns:repeat(4,1fr)}
 }
 </style>
 </head>
@@ -382,7 +389,7 @@ function applyLangOrder(){
   if(langOrder==='en-ko'){
     var s = document.createElement('style');
     s.id = styleId;
-    s.textContent = '.verse-cell.ko-side{order:2;box-shadow:0 1px 0 0 var(--div);padding-top:4px!important;padding-bottom:6px!important} .verse-cell.en-side{order:1;border-bottom:none!important;padding-top:6px!important;padding-bottom:4px!important} .verse-row{display:flex;flex-direction:column} .title-row .ko-side{order:2} .title-row .en-side{order:1} .title-row{display:flex;flex-direction:column} .fn-row{display:flex!important;flex-direction:column} .fn-row .ko-side{order:2!important} .fn-row .en-side{order:1!important} .verse-cell.en-side .vn{display:block!important} .verse-cell.ko-side .vn{display:none!important}';
+    s.textContent = '.verse-cell.ko-side{order:2;box-shadow:0 1px 0 0 var(--div);padding-top:4px!important;padding-bottom:6px!important} .verse-cell.en-side{order:1;border-bottom:none!important;padding-top:6px!important;padding-bottom:4px!important} .verse-row{display:flex;flex-direction:column} .title-row .ko-side{order:2} .title-row .en-side{order:1} .title-row{display:flex;flex-direction:column} .fn-row{display:flex!important;flex-direction:column} .fn-row .ko-side{order:2!important} .fn-row .en-side{order:1!important} .verse-cell.en-side .vn{visibility:visible!important} .verse-cell.ko-side .vn{visibility:hidden!important}';
     document.head.appendChild(s);
   }
 }
