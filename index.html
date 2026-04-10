@@ -136,7 +136,7 @@ footer{border-top:1px solid #e8e5e0;color:#bbb;background:var(--bg);font-size:10
   <div class="logo"><span>krengbible.com</span></div>
 </header>
 <nav>
-  <input id="passage-input" class="desk-only" type="text" placeholder="Genesis 1  ·  John 3  ·  Romans 8:1" autocomplete="off" spellcheck="false">
+  <input id="passage-input" class="desk-only" type="text" placeholder="" autocomplete="off" spellcheck="false">
   <div class="fctl desk-only">
     <span>A</span>
     <button class="fbtn" id="fminus" type="button">&#8722;</button>
@@ -288,7 +288,6 @@ function sheetSelectBook(idx){
 }
 function sheetSelectCh(ch){
   bi=pendingBook;ci=ch;
-  document.getElementById('bk').value=bi;buildCh();document.getElementById('ch').value=ci;
   sheetClose();updateLabel();load();
 }
 function sheetClose(){document.getElementById('mob-sheet').classList.add('hidden');pendingBook=null;}
@@ -297,7 +296,6 @@ function adjFont(d){
   const p=document.querySelector('.mob-font-preview');if(p)p.textContent='가 Aa — '+fs+'px';
 }
 async function load(){
-  bi=+document.getElementById('bk').value;ci=+document.getElementById('ch').value;
   const bk=BOOKS[bi];
   var ebp=document.getElementById('edge-bp');if(ebp)ebp.disabled=(bi===0&&ci===1);
   var ebn=document.getElementById('edge-bn');if(ebn)ebn.disabled=(bi===BOOKS.length-1&&ci===bk.ch);
