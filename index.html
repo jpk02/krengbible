@@ -477,7 +477,7 @@ function progReset(){
 
 function progShowOverview(){
   progView='overview';
-  document.getElementById('mob-sheet-title').textContent='진도 Reading Progress';
+  document.getElementById('mob-sheet-title').textContent=langOrder==='en-ko'?'Reading Progress / 성경 읽기 진도':'성경 읽기 진도 / Reading Progress';
   var data=progLoad();
   var OT=BOOKS.slice(0,39), NT=BOOKS.slice(39);
   function bookStats(books,startIdx){
