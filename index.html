@@ -30,7 +30,7 @@ main::-webkit-scrollbar{width:10px}
 main::-webkit-scrollbar-track{background:#eae7e2}
 main::-webkit-scrollbar-thumb{background:#b8b4ae;border-radius:10px;border:2px solid #eae7e2}
 main::-webkit-scrollbar-thumb:hover{background:#999590}
-.col-headers{display:grid;grid-template-columns:1fr 1fr;position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid #e8e5e0;overflow:hidden}
+.col-headers{display:none}
 .col-hdr{padding:14px 28px;display:flex;align-items:baseline;justify-content:space-between}
 .col-hdr:first-child{border-right:1px solid #e8e5e0}
 .clbl{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#bbb}
@@ -65,7 +65,10 @@ sup.fn-ref{font-size:9px;color:#2563eb;margin-left:1px;vertical-align:super;line
 .ldg-txt{font-size:12px;color:#bbb}
 .errbox{background:#fff5f5;border:1px solid #fecaca;border-radius:6px;color:#dc2626;padding:10px 14px;font-size:13px;line-height:1.5;margin:16px 28px}
 footer{border-top:1px solid #e8e5e0;color:#bbb;background:var(--bg);font-size:10px;padding:8px 20px;text-align:center}
+.desk-hide{display:none}
 @media(max-width:640px){
+  .desk-hide{display:flex!important}
+
   header{display:none}
   nav{padding:6px 12px;min-height:0}
   .col-headers{display:none}
@@ -154,7 +157,7 @@ footer{border-top:1px solid #e8e5e0;color:#bbb;background:var(--bg);font-size:10
     </button>
     <div class="mob-nav-actions">
       <button class="mob-icon-btn" onclick="sheetOpen('font')">A</button>
-      <button class="mob-icon-btn" id="mob-lang-btn" onclick="toggleLangOrder()" title="언어 순서">한</button>
+      <button class="mob-icon-btn desk-hide" id="mob-lang-btn" onclick="toggleLangOrder()">한</button>
     </div>
   </div>
 </nav>
@@ -285,10 +288,10 @@ function parseAndLoad(raw){
 
 
 function toggleLangOrder(){
+  if(window.innerWidth>640) return;
   langOrder = langOrder==='ko-en' ? 'en-ko' : 'ko-en';
   const btn = document.getElementById('mob-lang-btn');
   if(btn) btn.textContent = langOrder==='ko-en' ? '한' : 'Eng';
-  // Re-render if loaded
   if(loaded) applyLangOrder();
 }
 function applyLangOrder(){
