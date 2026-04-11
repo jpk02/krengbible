@@ -660,7 +660,7 @@ function sheetOpen(mode){
     var h='<div class="mob-book-list">';
     BOOKS.forEach(function(b,i){
       var p=langOrder==='en-ko'?b.en:b.ko,s=langOrder==='en-ko'?b.ko:b.en;
-      var isActive=loaded&&i===bi&&!inIntroMode;
+      var isActive=loaded&&i===bi;
       h+='<div class="mob-book-row'+(isActive?' active':'')+'" id="book-row-'+i+'">';
       h+='<div class="mob-book-row-hdr" onclick="toggleBookRow('+i+')">';
       h+='<div class="names"><div class="ko">'+p+'</div><div class="en">'+s+'</div></div>';
@@ -669,10 +669,11 @@ function sheetOpen(mode){
       h+='<div class="mob-ch-grid" id="ch-grid-'+i+'" style="'+(isActive?'':'display:none')+'">';
       if(isActive){
         var introLabel2=langOrder==='ko-en'?'책 소개':'Book Intro';
-        h+='<div class="mob-ch-item" style="grid-column:1/-1;border-radius:8px;background:#e8edf5;color:#1b2a4a;font-size:12px;font-weight:600;aspect-ratio:unset;padding:10px;justify-content:flex-start;gap:8px;border:1px solid #c8d3e8" onclick="loadBookIntroView('+i+')">'
+        var introActive=inIntroMode?' style="background:#1b2a4a;color:#fff;border-color:#1b2a4a"':'';
+        h+='<div class="mob-ch-item" style="grid-column:1/-1;border-radius:8px;background:#e8edf5;color:#1b2a4a;font-size:12px;font-weight:600;aspect-ratio:unset;padding:10px;justify-content:flex-start;gap:8px;border:1px solid #c8d3e8'+'" onclick="loadBookIntroView('+i+')"'+(inIntroMode?' style="background:#1b2a4a!important;color:#fff!important"':'')+' >'
           +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
           +' '+introLabel2+'</div>';
-        for(var c=1;c<=b.ch;c++)h+='<div class="mob-ch-item'+(c===ci?' active':'')+'" onclick="sheetSelectCh2('+i+','+c+')">'+c+'</div>';
+        for(var c=1;c<=b.ch;c++)h+='<div class="mob-ch-item'+(c===ci&&!inIntroMode?' active':'')+'" onclick="sheetSelectCh2('+i+','+c+')">'+c+'</div>';
       }
       h+='</div></div>';
     });
@@ -701,7 +702,7 @@ function toggleBookRow(idx){
     var h='<div class="mob-ch-item" style="grid-column:1/-1;border-radius:8px;background:#e8edf5;color:#1b2a4a;font-size:12px;font-weight:600;aspect-ratio:unset;padding:10px;justify-content:flex-start;gap:8px;border:1px solid #c8d3e8" onclick="loadBookIntroView('+idx+')">'
       +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
       +' '+introLabel+'</div>';
-    for(var c=1;c<=b.ch;c++) h+='<div class="mob-ch-item'+(idx===bi&&c===ci?' active':'')+'" onclick="sheetSelectCh2('+idx+','+c+')">'+c+'</div>';
+    for(var c=1;c<=b.ch;c++) h+='<div class="mob-ch-item'+(idx===bi&&c===ci&&!inIntroMode?' active':'')+'" onclick="sheetSelectCh2('+idx+','+c+')">'+c+'</div>';
     grid.innerHTML=h;
     grid.style.display='grid';
     if(chevron)chevron.classList.add('open');
