@@ -211,7 +211,7 @@ body.dark .intro-theme-ko{color:#ccc}
 body.dark .intro-theme-en{color:#888}
 .intro-map{width:100%;height:260px;border-radius:12px;overflow:hidden;margin-top:8px;border:1px solid #e8e5e0;position:relative;z-index:1}
 body.dark .intro-map{border-color:#333}
-.leaflet-num-marker{background:transparent!important;border:none!important}
+.leaflet-div-icon{background:none!important;border:none!important}
 .lnm{background:#1b2a4a;color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);font-family:'DM Sans',sans-serif}
 .intro-map-legend{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .intro-map-legend-item{display:flex;align-items:flex-start;gap:10px}
@@ -770,10 +770,12 @@ function render(koData,esvData,bk,ch){
 }
 (function(){
   var main=document.getElementById('main'),content=document.getElementById('content');
-  var sx=0,sy=0,drag=false,locked=false,startedHoriz=false;
+  var sx=0,sy=0,drag=false,locked=true,startedHoriz=false;
 
   main.addEventListener('touchstart',function(e){
     if(!document.getElementById('mob-sheet').classList.contains('hidden'))return;
+    // Don't swipe if touch started inside a map
+    if(e.target.closest&&e.target.closest('.intro-map')){return;}
     sx=e.touches[0].clientX;sy=e.touches[0].clientY;
     drag=false;locked=false;startedHoriz=false;
   },{passive:true});
@@ -989,7 +991,16 @@ function renderBookIntro(d,bk){
       var mapEl=document.getElementById('intro-map');
       if(!mapEl)return;
       var locs=d.map_locations;
-      var map=L.map('intro-map',{zoomControl:true,attributionControl:false});
+      var map=L.map('intro-map',{
+        zoomControl:false,
+        attributionControl:false,
+        dragging:false,
+        touchZoom:false,
+        doubleClickZoom:false,
+        scrollWheelZoom:false,
+        boxZoom:false,
+        keyboard:false
+      });
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
         attribution:'© OpenStreetMap © CartoDB',
         subdomains:'abcd'
@@ -1007,10 +1018,6 @@ function renderBookIntro(d,bk){
       });
       if(bounds.length>1)map.fitBounds(bounds,{padding:[30,30]});
       else if(bounds.length===1)map.setView(bounds[0],7);
-      // Prevent page swipe when interacting with map
-      mapEl.addEventListener('touchstart',function(e){e.stopPropagation();},{passive:true});
-      mapEl.addEventListener('touchmove',function(e){e.stopPropagation();},{passive:true});
-      mapEl.addEventListener('touchend',function(e){e.stopPropagation();},{passive:true});
     },100);
   }
 }
