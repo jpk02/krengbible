@@ -997,12 +997,12 @@ function renderBookIntro(d,bk,container){
         boxZoom:false,
         keyboard:false
       });
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
-        attribution:'© OpenStreetMap © CartoDB',
-        subdomains:'abcd'
+      L.tileLayer('https://cawm.lib.uiowa.edu/tiles/{z}/{x}/{y}.png',{
+        attribution:'© <a href="https://cawm.lib.uiowa.edu">CAWM</a> CC BY 4.0',
+        maxZoom:10
       }).addTo(map);
       var bounds=locs.map(function(l){return[l.lat,l.lng];});
-      if(bounds.length>1)map.fitBounds(bounds,{padding:[40,40],animate:false});
+      if(bounds.length>1)map.fitBounds(bounds,{padding:[50,50],animate:false});
       else map.setView(bounds[0],7,{animate:false});
       // Pure SVG overlay — completely bypasses Leaflet marker/icon system
       var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -1010,8 +1010,28 @@ function renderBookIntro(d,bk,container){
       mapEl.appendChild(svg);
       function drawPins(){
         while(svg.firstChild)svg.removeChild(svg.firstChild);
-        locs.forEach(function(loc,i){
+        // Calculate pixel positions
+        var pts=locs.map(function(loc){
           var pt=map.latLngToContainerPoint([loc.lat,loc.lng]);
+          return{x:pt.x,y:pt.y};
+        });
+        // Offset overlapping markers — if two pins are within 28px, nudge them apart
+        var r=14;
+        for(var i=0;i<pts.length;i++){
+          for(var j=i+1;j<pts.length;j++){
+            var dx=pts[j].x-pts[i].x, dy=pts[j].y-pts[i].y;
+            var dist=Math.sqrt(dx*dx+dy*dy);
+            if(dist<r*2&&dist>0){
+              var overlap=(r*2-dist)/2+2;
+              var nx=dx/dist, ny=dy/dist;
+              pts[i].x-=nx*overlap; pts[i].y-=ny*overlap;
+              pts[j].x+=nx*overlap; pts[j].y+=ny*overlap;
+            } else if(dist===0){
+              pts[i].x-=r; pts[j].x+=r;
+            }
+          }
+        }
+        pts.forEach(function(pt,i){
           var g=document.createElementNS('http://www.w3.org/2000/svg','g');
           var circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
           circle.setAttribute('cx',pt.x);
