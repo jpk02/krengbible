@@ -581,7 +581,7 @@ function sheetOpen(mode){
     var h='<div class="mob-book-list">';
     BOOKS.forEach(function(b,i){
       var p=langOrder==='en-ko'?b.en:b.ko,s=langOrder==='en-ko'?b.ko:b.en;
-      var isActive=loaded&&i===bi;
+      var isActive=loaded&&i===bi&&!inIntroMode;
       h+='<div class="mob-book-row'+(isActive?' active':'')+'" id="book-row-'+i+'">';
       h+='<div class="mob-book-row-hdr" onclick="toggleBookRow('+i+')">';
       h+='<div class="names"><div class="ko">'+p+'</div><div class="en">'+s+'</div></div>';
@@ -615,7 +615,9 @@ function toggleBookRow(idx){
     if(!grid.children.length){
       var b=BOOKS[idx];
       var introLabel=langOrder==='ko-en'?'책 소개':'Book Intro';
-      var h='<div class="mob-ch-item" style="grid-column:1/-1;border-radius:8px;background:#1b2a4a;color:#fff;font-size:12px;font-weight:600;aspect-ratio:unset;padding:10px;justify-content:flex-start;gap:6px" onclick="loadBookIntroView('+idx+')">📖 '+introLabel+'</div>';
+      var h='<div class="mob-ch-item" style="grid-column:1/-1;border-radius:8px;background:#1b2a4a;color:#fff;font-size:12px;font-weight:600;aspect-ratio:unset;padding:10px;justify-content:flex-start;gap:8px" onclick="loadBookIntroView('+idx+')">'
+        +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
+        +' '+introLabel+'</div>';
       for(var c=1;c<=b.ch;c++) h+='<div class="mob-ch-item'+(idx===bi&&c===ci?' active':'')+'" onclick="sheetSelectCh2('+idx+','+c+')">'+c+'</div>';
       grid.innerHTML=h;
     }
@@ -624,7 +626,7 @@ function toggleBookRow(idx){
   }
 }
 function sheetSelectCh2(bookIdx,ch){
-  bi=bookIdx;ci=ch;pendingBook=bookIdx;
+  bi=bookIdx;ci=ch;pendingBook=bookIdx;inIntroMode=false;
   loaded=true;sheetClose();updateLabel();load();
 }
 function sheetSelectBook(idx){
@@ -793,8 +795,9 @@ document.addEventListener('touchstart',function(e){
 },{passive:true});
 function scrollToVerse(n){var el=document.getElementById('vr-'+n),m=document.getElementById('main');if(el&&m)m.scrollTop+=el.getBoundingClientRect().top-m.getBoundingClientRect().top-20;}
 function scrollToFn(id){var el=document.getElementById(id),m=document.getElementById('main');if(el&&m)m.scrollTop+=el.getBoundingClientRect().top-m.getBoundingClientRect().top-20;}
+var inIntroMode=false;
 function loadBookIntroView(bookIdx){
-  bi=bookIdx;loaded=true;sheetClose();updateLabel();
+  bi=bookIdx;loaded=true;inIntroMode=true;sheetClose();updateLabel();
   var bk=BOOKS[bookIdx];
   document.getElementById('content').innerHTML='<div class="ldg"><div class="spinner"></div><div class="ldg-txt">'+(langOrder==='ko-en'?'책 소개 불러오는 중…':'Loading book intro…')+'</div></div>';
   document.getElementById('main').scrollTop=0;
