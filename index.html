@@ -43,8 +43,9 @@ main::-webkit-scrollbar-thumb:hover{background:#999590}
 .verse-row:hover{background:#f0ede8}
 .verse-cell{padding:2px 28px;display:flex;gap:10px;align-items:baseline}
 .verse-cell.ko-side{border-right:1px solid #e8e5e0}
-/* #5: Remove verse divider lines entirely */
+/* Verse dividers — inset within margins, not edge to edge */
 .verse-cell.en-side{border-bottom:none!important}
+.verse-row+.verse-row{border-top:1px solid #e8e5e0;margin:0 20px;}
 .vn{color:#999;font-size:10px;font-weight:600;min-width:16px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;padding-top:2px;cursor:pointer}
 .vt{line-height:1.85;color:#1c1c1c;flex:1;user-select:none;-webkit-user-select:none}
 .ko-side .vt{font-family:'Noto Sans KR',sans-serif;font-weight:400;word-break:keep-all;letter-spacing:-.02em}
@@ -78,7 +79,7 @@ footer{border-top:1px solid #e8e5e0;color:#bbb;background:var(--bg);font-size:10
   .desk-only{display:none!important}
   .mob-nav{display:flex!important;align-items:center;justify-content:space-between;width:100%}
 }
-.mob-passage-pill{display:flex;align-items:center;gap:6px;background:none;border:none;font-size:13px;font-weight:600;color:#222;padding:6px 10px;font-family:inherit;cursor:pointer;flex:0 1 auto;letter-spacing:-.01em}
+.mob-passage-pill{display:flex;align-items:center;gap:6px;background:none;border:none;font-size:13px;font-weight:600;color:#222;padding:6px 10px 6px 20px;font-family:inherit;cursor:pointer;flex:0 1 auto;letter-spacing:-.01em}
 .mob-passage-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mob-passage-pill svg{flex-shrink:0;color:#aaa}
 body.dark .mob-passage-pill{color:#e8e5e0}
@@ -204,7 +205,7 @@ body.dark .section-label{color:#8899bb}
 body.dark .text-ko{color:#e8e5e0}
 body.dark .text-en{color:#999}
 /* Keep these for backward compat */
-.intro-wrap{padding:20px 20px 40px;max-width:680px}
+.intro-wrap{padding:20px 16px 40px 16px;max-width:680px}
 .intro-section{margin-bottom:24px}
 .intro-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1b2a4a;margin-bottom:8px}
 body.dark .intro-label{color:#8899bb}
@@ -237,7 +238,7 @@ body.dark .intro-map-legend-desc{color:#999}
 .ch-tab.active{color:#1b2a4a;border-bottom:2px solid #1b2a4a}
 body.dark .ch-tab.active{color:#e8e5e0;border-bottom-color:#e8e5e0}
 /* #1: Commentary — plain text, no selectable blocks */
-.comm-wrap{padding:16px 20px 40px 20px}
+.comm-wrap{padding:16px 16px 40px 16px}
 .comm-section{margin-bottom:24px}
 .comm-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1b2a4a;margin-bottom:8px}
 body.dark .comm-label{color:#8899bb}
