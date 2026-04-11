@@ -212,7 +212,6 @@ body.dark .intro-theme-ko{color:#ccc}
 body.dark .intro-theme-en{color:#888}
 .intro-map{width:100%;height:260px;border-radius:12px;overflow:hidden;margin-top:8px;border:1px solid #e8e5e0;position:relative;z-index:1}
 body.dark .intro-map{border-color:#333}
-/* Force mobile-only layout on all screen sizes */
 header{display:none!important}
 .desk-only{display:none!important}
 .mob-nav{display:flex!important;align-items:center;justify-content:space-between;width:100%}
@@ -225,7 +224,6 @@ header{display:none!important}
 .mob-sheet{align-items:flex-end!important}
 .mob-sheet-inner{border-radius:16px 16px 0 0!important;max-height:85vh!important;max-width:100%!important}
 .prog-chapters{grid-template-columns:repeat(6,1fr)!important}
-
 .leaflet-div-icon{background:none!important;border:none!important;box-shadow:none!important;}
 .intro-map-legend{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .intro-map-legend-item{display:flex;align-items:flex-start;gap:10px}
@@ -337,7 +335,7 @@ body.dark .confirm-btn.ok{background:#e8e5e0;color:#111}
       </button>
       <button class="mob-icon-btn" id="mob-dark-btn" onclick="toggleDark(this)" title="Dark mode">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
-      </button>
+    </button>
       <button class="mob-icon-btn" onclick="sheetOpen('progress')" title="읽기 진도">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
       </button>
@@ -447,7 +445,6 @@ function parseAndLoad(raw){
 function toggleLangOrder(btn){
   langOrder=langOrder==='ko-en'?'en-ko':'ko-en';
   if(btn)btn.textContent=langOrder==='ko-en'?'한':'Eng';
-  // Sync both desktop and mobile buttons
   var deskBtn=document.getElementById('desk-lang-btn');
   var mobBtn=document.getElementById('mob-lang-btn');
   if(deskBtn)deskBtn.textContent=langOrder==='ko-en'?'한':'Eng';
@@ -490,7 +487,6 @@ function applyLangOrder(){
 function toggleDark(btn){
   darkMode=!darkMode;
   document.body.classList.toggle('dark',darkMode);
-  document.querySelectorAll('#mob-dark-btn,#desk-dark-btn').forEach(b=>b.textContent=darkMode?'◑':'◐');
 }
 var PROGRESS_KEY='krengbible_progress';
 function progLoad(){try{return JSON.parse(localStorage.getItem(PROGRESS_KEY)||'{}');}catch(e){return {};}}
@@ -683,22 +679,30 @@ function sheetOpen(mode){
     body.innerHTML='<div class="mob-font-sheet"><div class="mob-font-row"><button class="mob-font-btn" onclick="adjFont(-1)">−</button><div class="mob-font-preview">가 Aa — '+fs+'px</div><button class="mob-font-btn" onclick="adjFont(1)">+</button></div></div>';
   }
 }
+
+/* FIXED */
 function toggleBookRow(idx){
-  var body=document.getElementById('mob-sheet-body');
   var grid=document.getElementById('ch-grid-'+idx);
   var chevron=document.querySelector('#book-row-'+idx+' .mob-book-row-chevron');
   var isOpen=grid.style.display!=='none';
+
   if(isOpen){
     grid.style.display='none';
     if(chevron)chevron.classList.remove('open');
   } else {
     var b=BOOKS[idx];
-    for(var c=1;c<=b.ch;c++) h+='<div class="mob-ch-item'+(idx===bi&&c===ci&&!inIntroMode?' active':'')+'" onclick="sheetSelectCh2('+idx+','+c+')">'+c+'</div>';
+    var h='';
+
+    for(var c=1;c<=b.ch;c++){
+      h+='<div class="mob-ch-item'+(idx===bi&&c===ci&&!inIntroMode?' active':'')+'" onclick="sheetSelectCh2('+idx+','+c+')">'+c+'</div>';
+    }
+
     grid.innerHTML=h;
     grid.style.display='grid';
     if(chevron)chevron.classList.add('open');
   }
 }
+
 function sheetSelectCh2(bookIdx,ch){
   bi=bookIdx;ci=ch;pendingBook=bookIdx;inIntroMode=false;
   window._lastIntroData=null;window._lastIntroBk=null;
@@ -976,7 +980,6 @@ function renderBookIntro(d,bk,container){
       var mapEl=document.getElementById('intro-map');
       if(!mapEl)return;
       var locs=d.map_locations;
-      // Destroy any existing Leaflet instance on this container
       if(mapEl._leaflet_id){try{L.DomUtil.get('intro-map')._leaflet_map&&L.DomUtil.get('intro-map')._leaflet_map.remove();}catch(e){}}
       mapEl._leaflet_id=null;
       var map=L.map('intro-map',{
@@ -996,18 +999,15 @@ function renderBookIntro(d,bk,container){
       var bounds=locs.map(function(l){return[l.lat,l.lng];});
       if(bounds.length>1)map.fitBounds(bounds,{padding:[50,50],animate:false});
       else map.setView(bounds[0],7,{animate:false});
-      // Pure SVG overlay — completely bypasses Leaflet marker/icon system
       var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
       svg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:500;overflow:visible';
       mapEl.appendChild(svg);
       function drawPins(){
         while(svg.firstChild)svg.removeChild(svg.firstChild);
-        // Calculate pixel positions
         var pts=locs.map(function(loc){
           var pt=map.latLngToContainerPoint([loc.lat,loc.lng]);
           return{x:pt.x,y:pt.y};
         });
-        // Offset overlapping markers — if two pins are within 28px, nudge them apart
         var r=14;
         for(var i=0;i<pts.length;i++){
           for(var j=i+1;j<pts.length;j++){
@@ -1059,7 +1059,6 @@ function switchTab(tab){
   var btnText=document.getElementById('tab-text');
   var btnComm=document.getElementById('tab-comm');
   var btnIntro=document.getElementById('tab-intro');
-  // Hide all
   if(tText)tText.style.display='none';
   if(tComm)tComm.style.display='none';
   if(tIntro)tIntro.style.display='none';
@@ -1084,7 +1083,6 @@ function renderCommentary(d,tComm){
   var rl=langOrder==='ko-en'?'묵상':'Reflection';
   var isEn=langOrder==='en-ko';
   var h='<div class="verse-row" style="padding-top:16px">';
-  // Summary
   h+='<div class="verse-cell ko-side" style="flex-direction:column;align-items:flex-start;padding-top:16px;padding-bottom:12px">';
   h+='<div class="commentary-label">'+sl+'</div>';
   h+='<div class="'+(isEn?'commentary-en':'commentary-ko')+'">'+esc(isEn?d.summary_en:d.summary_ko)+'</div>';
@@ -1094,7 +1092,6 @@ function renderCommentary(d,tComm){
   h+='<div class="'+(isEn?'commentary-ko':'commentary-en')+'">'+esc(isEn?d.summary_ko:d.summary_en)+'</div>';
   h+='</div>';
   h+='</div>';
-  // Reflection
   h+='<div class="verse-row">';
   h+='<div class="verse-cell ko-side" style="flex-direction:column;align-items:flex-start;padding-top:16px;padding-bottom:24px">';
   h+='<div class="commentary-label">'+rl+'</div>';
@@ -1144,7 +1141,6 @@ function toggleIntroDropdown(){
   var dd=document.getElementById('intro-dropdown');
   var list=document.getElementById('intro-dropdown-list');
   if(dd.style.display!=='none'){dd.style.display='none';return;}
-  // Build list if empty
   if(!list.children.length){
     var h='';
     BOOKS.forEach(function(b,i){
@@ -1161,7 +1157,6 @@ function toggleIntroDropdown(){
   }
   dd.style.display='block';
 }
-// Close dropdown when clicking outside
 document.addEventListener('click',function(e){
   var dd=document.getElementById('intro-dropdown');
   var btn=document.getElementById('intro-btn');
