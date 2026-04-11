@@ -970,18 +970,20 @@ function renderBookIntro(d,bk){
         subdomains:'abcd'
       }).addTo(map);
       var bounds=[];
-      locs.forEach(function(loc,i){
-        var icon=L.divIcon({
-          className:'',
-          html:'<div style="width:26px;height:26px;background:#1b2a4a;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);font-family:sans-serif;line-height:1">'+(i+1)+'</div>',
-          iconSize:[26,26],
-          iconAnchor:[13,13]
-        });
-        L.marker([loc.lat,loc.lng],{icon:icon}).addTo(map);
-        bounds.push([loc.lat,loc.lng]);
-      });
+      locs.forEach(function(loc){bounds.push([loc.lat,loc.lng]);});
       if(bounds.length>1)map.fitBounds(bounds,{padding:[30,30]});
       else if(bounds.length===1)map.setView(bounds[0],7);
+      map.whenReady(function(){
+        setTimeout(function(){
+          locs.forEach(function(loc,i){
+            var pt=map.latLngToContainerPoint([loc.lat,loc.lng]);
+            var el=document.createElement('div');
+            el.textContent=i+1;
+            el.style.cssText='position:absolute;width:26px;height:26px;background:#1b2a4a;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);pointer-events:none;transform:translate(-50%,-50%);left:'+pt.x+'px;top:'+pt.y+'px;z-index:999';
+            mapEl.appendChild(el);
+          });
+        },200);
+      });
     },100);
   }
 }
