@@ -41,7 +41,7 @@ main::-webkit-scrollbar-thumb:hover{background:#999590}
 .shead{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#bbb}
 .verse-row{display:grid;grid-template-columns:1fr 1fr}
 .verse-row:hover{background:#f0ede8}
-.verse-cell{padding:2px 28px;display:flex;gap:10px;align-items:baseline}
+.verse-cell{padding:2px 28px;display:flex;gap:6px;align-items:baseline}
 .verse-cell.ko-side{border-right:1px solid #e8e5e0}
 /* Verse dividers — inset line using pseudo-element, no layout impact */
 .verse-cell.en-side{border-bottom:none!important}
@@ -483,16 +483,20 @@ function toggleLangOrder(btn){
   if(inIntroMode&&window._lastIntroData&&window._lastIntroBk){
     renderBookIntro(window._lastIntroData,window._lastIntroBk);
   }
-  // Also re-render if book intro tab is currently visible
   var tIntroEl=document.getElementById('tab-intro-content');
+  var tComm=document.getElementById('tab-comm-content');
+  // Re-render whichever tab is visible, invalidate the hidden one so it re-renders on next click
   if(tIntroEl&&tIntroEl.style.display!=='none'&&!tIntroEl.querySelector('.ldg')&&window._lastIntroData&&window._lastIntroBk){
     tIntroEl.innerHTML='';
     renderBookIntro(window._lastIntroData,window._lastIntroBk,tIntroEl);
+  } else if(tIntroEl&&window._lastIntroData&&!tIntroEl.querySelector('.ldg')){
+    tIntroEl.innerHTML='<div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div>';
   }
-  var tComm=document.getElementById('tab-comm-content');
   if(tComm&&tComm.style.display!=='none'&&!tComm.querySelector('.ldg')){
     if(window._lastCommData) renderCommentary(window._lastCommData,tComm);
     else loadCommentary();
+  } else if(tComm&&window._lastCommData&&!tComm.querySelector('.ldg')){
+    tComm.innerHTML='<div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div>';
   }
   if(!document.getElementById('mob-sheet').classList.contains('hidden')){
     if(progView==='overview')progShowOverview();
