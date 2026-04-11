@@ -211,16 +211,16 @@ body.dark .intro-theme-ko{color:#ccc}
 body.dark .intro-theme-en{color:#888}
 .intro-map{width:100%;height:220px;border-radius:12px;overflow:hidden;margin-top:8px;border:1px solid #e8e5e0}
 body.dark .intro-map{border-color:#333};gap:0;border-bottom:1px solid #e8e5e0;margin:0 14px;flex-shrink:0}
-.ch-tabs{display:flex;gap:0;border-bottom:1px solid #e8e5e0;padding:0 20px;flex-shrink:0}
-.ch-tab{background:none;border:none;font:500 13px inherit;color:#999;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.ch-tabs{display:flex;gap:0;border-bottom:1px solid #e8e5e0;padding:0 4px 0 20px;flex-shrink:0}
+.ch-tab{background:none;border:none;font:500 13px inherit;color:#999;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;touch-action:manipulation}
 .ch-tab.active{color:#1b2a4a;border-bottom-color:#1b2a4a}
 body.dark .ch-tab.active{color:#e8e5e0;border-bottom-color:#e8e5e0}
-.commentary-wrap{padding:20px 20px 40px;max-width:680px}
-.commentary-section{margin-bottom:24px}
+.commentary-wrap{padding:20px 20px 40px;max-width:680px}.commentary-section{margin-bottom:24px}
 .commentary-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1b2a4a;margin-bottom:6px}
 body.dark .commentary-label{color:#8899bb}
 .commentary-ko{font-family:'Noto Sans KR',sans-serif;font-size:15px;line-height:1.85;color:#1c1c1c;margin-bottom:8px;word-break:keep-all;text-align:justify}
-.commentary-en{font-size:14px;line-height:1.75;color:#555;margin-bottom:6px;text-align:justify}
+.commentary-en{font-size:14px;line-height:1.75;color:#1c1c1c;margin-bottom:6px;text-align:justify}
+body.dark .commentary-en{color:#d8d5d0}
 body.dark .commentary-ko{color:#e8e5e0}
 body.dark .commentary-en{color:#999}
 .fn-popup{position:fixed;z-index:200;background:#fff;border:1px solid #e8e5e0;border-radius:8px;padding:10px 14px;max-width:280px;font-size:12px;color:#444;line-height:1.6;box-shadow:0 4px 16px rgba(0,0,0,.12);pointer-events:none;transition:opacity .15s}
@@ -424,7 +424,7 @@ function toggleLangOrder(btn){
   if(koSide&&enSide){koSide.style.order=langOrder==='ko-en'?1:2;enSide.style.order=langOrder==='ko-en'?2:1;}
   // Update tab labels
   var tabText=document.getElementById('tab-text');var tabComm=document.getElementById('tab-comm');
-  if(tabText)tabText.textContent=langOrder==='ko-en'?'본문':'Text';
+  if(tabText)tabText.textContent=langOrder==='ko-en'?'본문':'Passage';
   if(tabComm)tabComm.textContent=langOrder==='ko-en'?'해설':'Commentary';
   // Update VOTD button if visible
   var koBtn=document.querySelector('.votd-btn-ko');
@@ -719,9 +719,9 @@ function render(koData,esvData,bk,ch){
   var en=esvData.verses,headings=esvData.headings,footnotes=esvData.footnotes;
   var h='<div class="col-headers"></div>';
   // Tab bar
-  var tl1=langOrder==='ko-en'?'본문':'Text', tl2=langOrder==='ko-en'?'해설':'Commentary';
+  var tl1=langOrder==='ko-en'?'본문':'Passage', tl2=langOrder==='ko-en'?'해설':'Commentary';
   h+='<div class="ch-tabs"><button class="ch-tab active" id="tab-text" onclick="switchTab(\'text\')">'+tl1+'</button><button class="ch-tab" id="tab-comm" onclick="switchTab(\'comm\')">'+tl2+'</button></div>';
-  h+='<div id="tab-text-content">';
+  h+='<div id="tab-text-content" style="padding-top:8px">';
   kv.forEach(function(v){
     var n=v.verse,er=en[n]||'';
     if(headings[n])h+='<div class="shead-row"><div class="ko-side"></div><div class="en-side"><div class="shead">'+esc(headings[n])+'</div></div></div>';
