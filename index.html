@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>krengbible.com</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <style>
 :root{--fs:15px;--bg:#f7f5f2;--ko-order:1;--en-order:2;--div:#e8e5e0}
 *{box-sizing:border-box;margin:0;padding:0;max-width:100%}
@@ -190,7 +191,25 @@ body.dark .prog-bar-pct{color:#aaa}
 body.dark .prog-ch.unread{background:#2a2a2a;color:#999}
 body.dark .prog-bar-track{background:#2a2a2a}
 body.dark .prog-back-btn{color:#60a5fa}
-.ch-tabs{display:flex;gap:0;border-bottom:1px solid #e8e5e0;margin:0 14px;flex-shrink:0}
+.intro-wrap{padding:20px 20px 40px;max-width:680px}
+.intro-section{margin-bottom:24px}
+.intro-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1b2a4a;margin-bottom:8px}
+body.dark .intro-label{color:#8899bb}
+.intro-ko{font-family:'Noto Sans KR',sans-serif;font-size:15px;line-height:1.85;color:#1c1c1c;margin-bottom:6px;word-break:keep-all}
+.intro-en{font-size:14px;line-height:1.75;color:#555;font-style:italic;margin-bottom:6px}
+body.dark .intro-ko{color:#e8e5e0}
+body.dark .intro-en{color:#999}
+.intro-themes{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.intro-theme{background:#fff;border-radius:10px;padding:12px 14px;border:1px solid #e8e5e0}
+body.dark .intro-theme{background:#242424;border-color:#333}
+.intro-theme-title{font-size:13px;font-weight:600;color:#1b2a4a;margin-bottom:4px}
+body.dark .intro-theme-title{color:#a8b8d8}
+.intro-theme-ko{font-family:'Noto Sans KR',sans-serif;font-size:13px;line-height:1.7;color:#444;word-break:keep-all}
+.intro-theme-en{font-size:12px;line-height:1.6;color:#777;font-style:italic}
+body.dark .intro-theme-ko{color:#ccc}
+body.dark .intro-theme-en{color:#888}
+.intro-map{width:100%;height:220px;border-radius:12px;overflow:hidden;margin-top:8px;border:1px solid #e8e5e0}
+body.dark .intro-map{border-color:#333};gap:0;border-bottom:1px solid #e8e5e0;margin:0 14px;flex-shrink:0}
 .ch-tab{background:none;border:none;font:500 13px inherit;color:#999;padding:8px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
 .ch-tab.active{color:#1b2a4a;border-bottom-color:#1b2a4a}
 body.dark .ch-tab.active{color:#e8e5e0;border-bottom-color:#e8e5e0}
@@ -334,8 +353,9 @@ body.dark .confirm-btn.ok{background:#e8e5e0;color:#111}
   <div id="content"></div>
   <footer>개역개정판 &copy; 대한성서공회 &nbsp;&middot;&nbsp; ESV&reg; &copy; 2001 Crossway &middot; Used by permission</footer>
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-const WORKER='https://krengbible.pauljkim22.workers.dev';
+const WORKER=
 const BOOKS=[{ko:"창세기",en:"Genesis",n:1,ch:50},{ko:"출애굽기",en:"Exodus",n:2,ch:40},{ko:"레위기",en:"Leviticus",n:3,ch:27},{ko:"민수기",en:"Numbers",n:4,ch:36},{ko:"신명기",en:"Deuteronomy",n:5,ch:34},{ko:"여호수아",en:"Joshua",n:6,ch:24},{ko:"사사기",en:"Judges",n:7,ch:21},{ko:"룻기",en:"Ruth",n:8,ch:4},{ko:"사무엘상",en:"1 Samuel",n:9,ch:31},{ko:"사무엘하",en:"2 Samuel",n:10,ch:24},{ko:"열왕기상",en:"1 Kings",n:11,ch:22},{ko:"열왕기하",en:"2 Kings",n:12,ch:25},{ko:"역대상",en:"1 Chronicles",n:13,ch:29},{ko:"역대하",en:"2 Chronicles",n:14,ch:36},{ko:"에스라",en:"Ezra",n:15,ch:10},{ko:"느헤미야",en:"Nehemiah",n:16,ch:13},{ko:"에스더",en:"Esther",n:17,ch:10},{ko:"욥기",en:"Job",n:18,ch:42},{ko:"시편",en:"Psalms",n:19,ch:150},{ko:"잠언",en:"Proverbs",n:20,ch:31},{ko:"전도서",en:"Ecclesiastes",n:21,ch:12},{ko:"아가",en:"Song of Solomon",n:22,ch:8},{ko:"이사야",en:"Isaiah",n:23,ch:66},{ko:"예레미야",en:"Jeremiah",n:24,ch:52},{ko:"예레미야애가",en:"Lamentations",n:25,ch:5},{ko:"에스겔",en:"Ezekiel",n:26,ch:48},{ko:"다니엘",en:"Daniel",n:27,ch:12},{ko:"호세아",en:"Hosea",n:28,ch:14},{ko:"요엘",en:"Joel",n:29,ch:3},{ko:"아모스",en:"Amos",n:30,ch:9},{ko:"오바댜",en:"Obadiah",n:31,ch:1},{ko:"요나",en:"Jonah",n:32,ch:4},{ko:"미가",en:"Micah",n:33,ch:7},{ko:"나훔",en:"Nahum",n:34,ch:3},{ko:"하박국",en:"Habakkuk",n:35,ch:3},{ko:"스바냐",en:"Zephaniah",n:36,ch:3},{ko:"학개",en:"Haggai",n:37,ch:2},{ko:"스가랴",en:"Zechariah",n:38,ch:14},{ko:"말라기",en:"Malachi",n:39,ch:4},{ko:"마태복음",en:"Matthew",n:40,ch:28},{ko:"마가복음",en:"Mark",n:41,ch:16},{ko:"누가복음",en:"Luke",n:42,ch:24},{ko:"요한복음",en:"John",n:43,ch:21},{ko:"사도행전",en:"Acts",n:44,ch:28},{ko:"로마서",en:"Romans",n:45,ch:16},{ko:"고린도전서",en:"1 Corinthians",n:46,ch:16},{ko:"고린도후서",en:"2 Corinthians",n:47,ch:13},{ko:"갈라디아서",en:"Galatians",n:48,ch:6},{ko:"에베소서",en:"Ephesians",n:49,ch:6},{ko:"빌립보서",en:"Philippians",n:50,ch:4},{ko:"골로새서",en:"Colossians",n:51,ch:4},{ko:"데살로니가전서",en:"1 Thessalonians",n:52,ch:5},{ko:"데살로니가후서",en:"2 Thessalonians",n:53,ch:3},{ko:"디모데전서",en:"1 Timothy",n:54,ch:6},{ko:"디모데후서",en:"2 Timothy",n:55,ch:4},{ko:"디도서",en:"Titus",n:56,ch:3},{ko:"빌레몬서",en:"Philemon",n:57,ch:1},{ko:"히브리서",en:"Hebrews",n:58,ch:13},{ko:"야고보서",en:"James",n:59,ch:5},{ko:"베드로전서",en:"1 Peter",n:60,ch:5},{ko:"베드로후서",en:"2 Peter",n:61,ch:3},{ko:"요한일서",en:"1 John",n:62,ch:5},{ko:"요한이서",en:"2 John",n:63,ch:1},{ko:"요한삼서",en:"3 John",n:64,ch:1},{ko:"유다서",en:"Jude",n:65,ch:1},{ko:"요한계시록",en:"Revelation",n:66,ch:22}];
 let bi=42,ci=3,fs=15,pendingBook=null,loaded=false,langOrder="ko-en",darkMode=false;
 (function(){
@@ -594,7 +614,8 @@ function toggleBookRow(idx){
     // Populate chapters if empty
     if(!grid.children.length){
       var b=BOOKS[idx];
-      var h='';
+      var introLabel=langOrder==='ko-en'?'책 소개':'Book Intro';
+      var h='<div class="mob-ch-item" style="grid-column:1/-1;border-radius:8px;background:#1b2a4a;color:#fff;font-size:12px;font-weight:600;aspect-ratio:unset;padding:10px;justify-content:flex-start;gap:6px" onclick="loadBookIntroView('+idx+')">📖 '+introLabel+'</div>';
       for(var c=1;c<=b.ch;c++) h+='<div class="mob-ch-item'+(idx===bi&&c===ci?' active':'')+'" onclick="sheetSelectCh2('+idx+','+c+')">'+c+'</div>';
       grid.innerHTML=h;
     }
@@ -772,7 +793,76 @@ document.addEventListener('touchstart',function(e){
 },{passive:true});
 function scrollToVerse(n){var el=document.getElementById('vr-'+n),m=document.getElementById('main');if(el&&m)m.scrollTop+=el.getBoundingClientRect().top-m.getBoundingClientRect().top-20;}
 function scrollToFn(id){var el=document.getElementById(id),m=document.getElementById('main');if(el&&m)m.scrollTop+=el.getBoundingClientRect().top-m.getBoundingClientRect().top-20;}
-function switchTab(tab){
+function loadBookIntroView(bookIdx){
+  bi=bookIdx;loaded=true;sheetClose();updateLabel();
+  var bk=BOOKS[bookIdx];
+  document.getElementById('content').innerHTML='<div class="ldg"><div class="spinner"></div><div class="ldg-txt">'+(langOrder==='ko-en'?'책 소개 불러오는 중…':'Loading book intro…')+'</div></div>';
+  document.getElementById('main').scrollTop=0;
+  fetch(WORKER+'/intro/'+bk.n).then(function(r){return r.json();}).then(function(d){
+    if(d.error) throw new Error(d.error);
+    renderBookIntro(d,bk);
+  }).catch(function(e){
+    document.getElementById('content').innerHTML='<div class="errbox">Intro failed: '+esc(e.message)+'</div>';
+  });
+}
+function renderBookIntro(d,bk){
+  var isEn=langOrder==='en-ko';
+  var ol=isEn?'Overview':'개요', bl=isEn?'Historical Background':'역사적 배경';
+  var tl=isEn?'Key Themes':'핵심 주제', gl=isEn?'Geographic Context':'지리적 배경';
+  var title=isEn?bk.en+' — Book Intro':bk.ko+' — 책 소개';
+  var h='<div class="col-headers"></div>';
+  h+='<div style="padding:16px 14px 4px"><div style="font-size:18px;font-weight:700;color:#1b2a4a;font-family:\'Noto Sans KR\',sans-serif">'+title+'</div></div>';
+  h+='<div class="intro-wrap">';
+  // Overview
+  h+='<div class="intro-section"><div class="intro-label">'+ol+'</div>';
+  if(isEn){h+='<div class="intro-en">'+esc(d.overview_en)+'</div><div class="intro-ko">'+esc(d.overview_ko)+'</div>';}
+  else{h+='<div class="intro-ko">'+esc(d.overview_ko)+'</div><div class="intro-en">'+esc(d.overview_en)+'</div>';}
+  h+='</div>';
+  // Background
+  h+='<div class="intro-section"><div class="intro-label">'+bl+'</div>';
+  if(isEn){h+='<div class="intro-en">'+esc(d.background_en)+'</div><div class="intro-ko">'+esc(d.background_ko)+'</div>';}
+  else{h+='<div class="intro-ko">'+esc(d.background_ko)+'</div><div class="intro-en">'+esc(d.background_en)+'</div>';}
+  h+='</div>';
+  // Themes
+  h+='<div class="intro-section"><div class="intro-label">'+tl+'</div><div class="intro-themes">';
+  var themes=isEn?d.themes_en:d.themes_ko;
+  var themes2=isEn?d.themes_ko:d.themes_en;
+  if(themes&&themes.length){themes.forEach(function(t,i){
+    h+='<div class="intro-theme"><div class="intro-theme-title">'+esc(t.title)+'</div>';
+    if(isEn){h+='<div class="intro-theme-en">'+esc(t.desc)+'</div>';if(themes2&&themes2[i])h+='<div class="intro-theme-ko">'+esc(themes2[i].desc)+'</div>';}
+    else{h+='<div class="intro-theme-ko">'+esc(t.desc)+'</div>';if(themes2&&themes2[i])h+='<div class="intro-theme-en">'+esc(themes2[i].desc)+'</div>';}
+    h+='</div>';
+  });}
+  h+='</div></div>';
+  // Geo + Map
+  h+='<div class="intro-section"><div class="intro-label">'+gl+'</div>';
+  if(isEn){h+='<div class="intro-en">'+esc(d.geo_en)+'</div><div class="intro-ko">'+esc(d.geo_ko)+'</div>';}
+  else{h+='<div class="intro-ko">'+esc(d.geo_ko)+'</div><div class="intro-en">'+esc(d.geo_en)+'</div>';}
+  if(d.map_locations&&d.map_locations.length){
+    h+='<div class="intro-map" id="intro-map"></div>';
+  }
+  h+='</div>';
+  h+='</div>';
+  document.getElementById('content').innerHTML=h;
+  // Init Leaflet map
+  if(d.map_locations&&d.map_locations.length&&window.L){
+    setTimeout(function(){
+      var mapEl=document.getElementById('intro-map');
+      if(!mapEl)return;
+      var locs=d.map_locations;
+      var map=L.map('intro-map',{zoomControl:true,attributionControl:false});
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      var bounds=[];
+      locs.forEach(function(loc){
+        var marker=L.marker([loc.lat,loc.lng]).addTo(map);
+        marker.bindPopup('<b>'+loc.name+'</b><br><small>'+loc.desc+'</small>');
+        bounds.push([loc.lat,loc.lng]);
+      });
+      if(bounds.length>1)map.fitBounds(bounds,{padding:[20,20]});
+      else if(bounds.length===1)map.setView(bounds[0],7);
+    },100);
+  }
+}
   var tText=document.getElementById('tab-text-content');
   var tComm=document.getElementById('tab-comm-content');
   var btnText=document.getElementById('tab-text');
@@ -800,7 +890,7 @@ async function loadCommentary(){
     var d=await r.json();
     console.log('Commentary data:',d);
     if(d.error) throw new Error(d.error+(d.detail?' — '+d.detail:''));
-    var sl=langOrder==='ko-en'?'요약':'Summary';
+    var sl=langOrder==='ko-en'?'요약':'Synopsis';
     var cl=langOrder==='ko-en'?'역사적 배경':'Historical Context';
     var rl=langOrder==='ko-en'?'묵상':'Reflection';
     var h='<div class="commentary-wrap">';
