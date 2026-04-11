@@ -41,7 +41,7 @@ main::-webkit-scrollbar-thumb:hover{background:#999590}
 .shead{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#bbb}
 .verse-row{display:grid;grid-template-columns:1fr 1fr}
 .verse-row:hover{background:#f0ede8}
-.verse-cell{padding:5px 28px;display:flex;gap:10px;align-items:baseline}
+.verse-cell{padding:2px 28px;display:flex;gap:10px;align-items:baseline}
 .verse-cell.ko-side{border-right:1px solid #e8e5e0}
 .vn{color:#999;font-size:10px;font-weight:600;min-width:16px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;padding-top:2px;cursor:pointer}
 .vt{line-height:1.85;color:#1c1c1c;flex:1;user-select:none;-webkit-user-select:none}
@@ -152,6 +152,7 @@ body.dark .mob-sheet-hdr span{color:#e8e5e0}
 body.dark .mob-ch-item.active{background:#e8e5e0;color:#111}
 body.dark #passage-input{background:#2a2a2a;border-color:#444;color:#e8e5e0}
 body.dark #passage-input::placeholder{color:#555}
+body.dark #intro-dropdown{background:#2a2a2a;border-color:#444}
 body.dark .edge-btn{background:rgba(30,30,30,0.85);border-color:#444;color:#aaa}
 body.dark main::-webkit-scrollbar-track{background:#222}
 body.dark main::-webkit-scrollbar-thumb{background:#444}
@@ -294,7 +295,13 @@ body.dark .confirm-btn.ok{background:#e8e5e0;color:#111}
 <header><div class="logo"><span>krengbible.com</span></div></header>
 <nav>
   <input id="passage-input" class="desk-only" type="text" placeholder="" autocomplete="off" spellcheck="false">
-  <button class="fbtn desk-only" onclick="toggleLangOrder(null)">⇄</button>
+  <div class="desk-only" style="position:relative;flex-shrink:0">
+    <button class="fbtn" id="intro-btn" onclick="toggleIntroDropdown()" style="width:auto;padding:0 8px;font-size:11px;white-space:nowrap;letter-spacing:0">Book Intro</button>
+    <div id="intro-dropdown" style="display:none;position:absolute;top:32px;left:0;background:#fff;border:1px solid #d8d4ce;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:2000;width:210px;max-height:320px;overflow-y:auto">
+      <div id="intro-dropdown-list"></div>
+    </div>
+  </div>
+  <button class="fbtn desk-only" id="desk-lang-btn" onclick="toggleLangOrder(this)" style="width:auto;padding:0 8px;font-size:11px">한</button>
   <div class="fctl desk-only">
     <button class="fbtn" id="fminus" type="button">&#8722;</button>
     <button class="fbtn" id="fplus" type="button">+</button>
@@ -374,7 +381,7 @@ let bi=42,ci=3,fs=15,pendingBook=null,loaded=false,langOrder="ko-en",darkMode=fa
   const inp=document.getElementById('passage-input');
   if(inp) inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();parseAndLoad(inp.value.trim());}});
   updateLabel();
-  if(window.innerWidth<=640) loadVotd();
+  loadVotd();
   document.getElementById('mob-sheet').addEventListener('click',function(e){if(e.target===this)sheetClose();});
   var si=document.querySelector('.mob-sheet-inner'),sh=document.querySelector('.mob-sheet-hdr'),swy=0,swa=false;
   sh.addEventListener('touchstart',function(e){swy=e.touches[0].clientY;swa=true;},{passive:true});
@@ -427,14 +434,20 @@ function parseAndLoad(raw){
 function toggleLangOrder(btn){
   langOrder=langOrder==='ko-en'?'en-ko':'ko-en';
   if(btn)btn.textContent=langOrder==='ko-en'?'한':'Eng';
+  // Sync both desktop and mobile buttons
+  var deskBtn=document.getElementById('desk-lang-btn');
+  var mobBtn=document.getElementById('mob-lang-btn');
+  if(deskBtn)deskBtn.textContent=langOrder==='ko-en'?'한':'Eng';
+  if(mobBtn)mobBtn.textContent=langOrder==='ko-en'?'한':'Eng';
   updateLabel();
   if(loaded)applyLangOrder();
   var koSide=document.querySelector('.title-row .ko-side');
   var enSide=document.querySelector('.title-row .en-side');
   if(koSide&&enSide){koSide.style.order=langOrder==='ko-en'?1:2;enSide.style.order=langOrder==='ko-en'?2:1;}
-  var tabText=document.getElementById('tab-text');var tabComm=document.getElementById('tab-comm');
+  var tabText=document.getElementById('tab-text');var tabComm=document.getElementById('tab-comm');var tabIntro=document.getElementById('tab-intro');
   if(tabText)tabText.textContent=langOrder==='ko-en'?'본문':'Passage';
   if(tabComm)tabComm.textContent=langOrder==='ko-en'?'해설':'Commentary';
+  if(tabIntro)tabIntro.textContent=langOrder==='ko-en'?'책 소개':'Book Intro';
   var koBtn=document.querySelector('.votd-btn-ko');
   var enBtn=document.querySelector('.votd-btn-en');
   if(koBtn) koBtn.style.display=langOrder==='en-ko'?'none':'';
@@ -731,8 +744,8 @@ function render(koData,esvData,bk,ch){
   var kv=koData.verses,kf=koData.footnotes||{};
   var en=esvData.verses,headings=esvData.headings,footnotes=esvData.footnotes;
   var h='<div class="col-headers"></div>';
-  var tl1=langOrder==='ko-en'?'본문':'Passage', tl2=langOrder==='ko-en'?'해설':'Commentary';
-  h+='<div class="ch-tabs"><button class="ch-tab active" id="tab-text" onclick="switchTab(\'text\')">'+tl1+'</button><button class="ch-tab" id="tab-comm" onclick="switchTab(\'comm\')">'+tl2+'</button></div>';
+  var tl1=langOrder==='ko-en'?'본문':'Passage', tl2=langOrder==='ko-en'?'해설':'Commentary', tl3=langOrder==='ko-en'?'책 소개':'Book Intro';
+  h+='<div class="ch-tabs"><button class="ch-tab active" id="tab-text" onclick="switchTab(\'text\')">'+tl1+'</button><button class="ch-tab" id="tab-comm" onclick="switchTab(\'comm\')">'+tl2+'</button><button class="ch-tab" id="tab-intro" onclick="switchTab(\'intro\')">'+tl3+'</button></div>';
   h+='<div id="tab-text-content" style="padding-top:8px">';
   kv.forEach(function(v){
     var n=v.verse,er=en[n]||'';
@@ -747,6 +760,7 @@ function render(koData,esvData,bk,ch){
   fnHidden+='</div>';h+=fnHidden;
   h+='</div>';
   h+='<div id="tab-comm-content" style="display:none"><div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div></div>';
+  h+='<div id="tab-intro-content" style="display:none"><div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div></div>';
   document.getElementById('content').innerHTML=h;
   if(langOrder==='en-ko')applyLangOrder();
   setTimeout(progAttachObserver,500);
@@ -889,13 +903,14 @@ function loadBookIntroView(bookIdx){
     document.getElementById('content').innerHTML='<div class="errbox">Intro failed: '+esc(e.message)+'</div>';
   });
 }
-function renderBookIntro(d,bk){
+function renderBookIntro(d,bk,container){
   var isEn=langOrder==='en-ko';
   var ol=isEn?'Overview':'개요';
   var bl=isEn?'Historical Background':'역사적 배경';
   var tl=isEn?'Key Themes':'핵심 주제';
   var gl=isEn?'Geographic Context':'지리적 배경';
-  var h='<div class="col-headers"></div>';
+  var h='';
+  if(!container) h+='<div class="col-headers"></div>';
   h+='<div class="intro-wrap">';
   h+='<div class="intro-section"><div class="intro-label">'+ol+'</div>';
   if(isEn){h+='<div class="intro-en">'+esc(d.overview_en)+'</div><div class="intro-ko">'+esc(d.overview_ko)+'</div>';}
@@ -949,12 +964,16 @@ function renderBookIntro(d,bk){
   }
   h+='</div>';
   h+='</div>';
-  document.getElementById('content').innerHTML=h;
+  var target=container||document.getElementById('content');
+  target.innerHTML=h;
   if(d.map_locations&&d.map_locations.length&&window.L){
     setTimeout(function(){
       var mapEl=document.getElementById('intro-map');
       if(!mapEl)return;
       var locs=d.map_locations;
+      // Destroy any existing Leaflet instance on this container
+      if(mapEl._leaflet_id){try{L.DomUtil.get('intro-map')._leaflet_map&&L.DomUtil.get('intro-map')._leaflet_map.remove();}catch(e){}}
+      mapEl._leaflet_id=null;
       var map=L.map('intro-map',{
         zoomControl:false,
         attributionControl:false,
@@ -969,65 +988,116 @@ function renderBookIntro(d,bk){
         attribution:'© OpenStreetMap © CartoDB',
         subdomains:'abcd'
       }).addTo(map);
-      var MarkerPin=L.Layer.extend({
-        initialize:function(latlng,num){this._latlng=L.latLng(latlng);this._num=num;},
-        onAdd:function(map){
-          this._map=map;
-          var el=document.createElement('div');
-          el.textContent=this._num;
-          el.style.cssText='position:absolute;width:26px;height:26px;background:#1b2a4a;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);pointer-events:none;margin-left:-13px;margin-top:-13px;font-family:sans-serif;z-index:1000';
-          this._el=el;
-          map.getPanes().overlayPane.appendChild(el);
-          map.on('zoomend viewreset',this._update,this);
-          this._update();
-        },
-        onRemove:function(map){
-          map.getPanes().overlayPane.removeChild(this._el);
-          map.off('zoomend viewreset',this._update,this);
-        },
-        _update:function(){
-          var pt=this._map.latLngToLayerPoint(this._latlng);
-          this._el.style.left=pt.x+'px';
-          this._el.style.top=pt.y+'px';
-        }
-      });
-      var bounds=[];
-      locs.forEach(function(loc,i){
-        new MarkerPin([loc.lat,loc.lng],i+1).addTo(map);
-        bounds.push([loc.lat,loc.lng]);
-      });
-      if(bounds.length>1)map.fitBounds(bounds,{padding:[30,30],animate:false});
-      else if(bounds.length===1)map.setView(bounds[0],7,{animate:false});
+      var bounds=locs.map(function(l){return[l.lat,l.lng];});
+      if(bounds.length>1)map.fitBounds(bounds,{padding:[40,40],animate:false});
+      else map.setView(bounds[0],7,{animate:false});
+      // Pure SVG overlay — completely bypasses Leaflet marker/icon system
+      var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:500;overflow:visible';
+      mapEl.appendChild(svg);
+      function drawPins(){
+        while(svg.firstChild)svg.removeChild(svg.firstChild);
+        locs.forEach(function(loc,i){
+          var pt=map.latLngToContainerPoint([loc.lat,loc.lng]);
+          var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+          var circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+          circle.setAttribute('cx',pt.x);
+          circle.setAttribute('cy',pt.y);
+          circle.setAttribute('r','13');
+          circle.setAttribute('fill','#1b2a4a');
+          circle.setAttribute('stroke','#fff');
+          circle.setAttribute('stroke-width','2');
+          var text=document.createElementNS('http://www.w3.org/2000/svg','text');
+          text.setAttribute('x',pt.x);
+          text.setAttribute('y',pt.y);
+          text.setAttribute('text-anchor','middle');
+          text.setAttribute('dominant-baseline','central');
+          text.setAttribute('fill','#fff');
+          text.setAttribute('font-size','11');
+          text.setAttribute('font-weight','700');
+          text.setAttribute('font-family','sans-serif');
+          text.textContent=i+1;
+          g.appendChild(circle);
+          g.appendChild(text);
+          svg.appendChild(g);
+        });
+      }
+      map.on('moveend zoomend viewreset',drawPins);
+      drawPins();
     },100);
   }
 }
 function switchTab(tab){
   var tText=document.getElementById('tab-text-content');
   var tComm=document.getElementById('tab-comm-content');
+  var tIntro=document.getElementById('tab-intro-content');
   var btnText=document.getElementById('tab-text');
   var btnComm=document.getElementById('tab-comm');
+  var btnIntro=document.getElementById('tab-intro');
+  // Hide all
+  if(tText)tText.style.display='none';
+  if(tComm)tComm.style.display='none';
+  if(tIntro)tIntro.style.display='none';
+  if(btnText)btnText.classList.remove('active');
+  if(btnComm)btnComm.classList.remove('active');
+  if(btnIntro)btnIntro.classList.remove('active');
   if(tab==='text'){
-    tText.style.display='';tComm.style.display='none';
-    btnText.classList.add('active');btnComm.classList.remove('active');
-  } else {
-    tText.style.display='none';tComm.style.display='';
-    btnText.classList.remove('active');btnComm.classList.add('active');
-    if(tComm.querySelector('.ldg')) loadCommentary();
+    if(tText)tText.style.display='';
+    if(btnText)btnText.classList.add('active');
+  } else if(tab==='comm'){
+    if(tComm)tComm.style.display='';
+    if(btnComm)btnComm.classList.add('active');
+    if(tComm&&tComm.querySelector('.ldg')) loadCommentary();
+  } else if(tab==='intro'){
+    if(tIntro)tIntro.style.display='';
+    if(btnIntro)btnIntro.classList.add('active');
+    if(tIntro&&tIntro.querySelector('.ldg')) loadTabIntro();
   }
 }
 function renderCommentary(d,tComm){
   var sl=langOrder==='ko-en'?'요약':'Synopsis';
   var rl=langOrder==='ko-en'?'묵상':'Reflection';
-  var h='<div class="commentary-wrap">';
-  h+='<div class="commentary-section"><div class="commentary-label">'+sl+'</div>';
-  if(langOrder==='ko-en'){h+='<div class="commentary-ko">'+esc(d.summary_ko)+'</div><div class="commentary-en">'+esc(d.summary_en)+'</div>';}
-  else{h+='<div class="commentary-en">'+esc(d.summary_en)+'</div><div class="commentary-ko">'+esc(d.summary_ko)+'</div>';}
+  var isEn=langOrder==='en-ko';
+  var h='<div class="verse-row" style="padding-top:16px">';
+  // Summary
+  h+='<div class="verse-cell ko-side" style="flex-direction:column;align-items:flex-start;padding-top:16px;padding-bottom:12px">';
+  h+='<div class="commentary-label">'+sl+'</div>';
+  h+='<div class="'+(isEn?'commentary-en':'commentary-ko')+'">'+esc(isEn?d.summary_en:d.summary_ko)+'</div>';
   h+='</div>';
-  h+='<div class="commentary-section"><div class="commentary-label">'+rl+'</div>';
-  if(langOrder==='ko-en'){h+='<div class="commentary-ko">'+esc(d.reflection_ko)+'</div><div class="commentary-en">'+esc(d.reflection_en)+'</div>';}
-  else{h+='<div class="commentary-en">'+esc(d.reflection_en)+'</div><div class="commentary-ko">'+esc(d.reflection_ko)+'</div>';}
-  h+='</div></div>';
+  h+='<div class="verse-cell en-side" style="flex-direction:column;align-items:flex-start;padding-top:16px;padding-bottom:12px">';
+  h+='<div class="commentary-label">'+sl+'</div>';
+  h+='<div class="'+(isEn?'commentary-ko':'commentary-en')+'">'+esc(isEn?d.summary_ko:d.summary_en)+'</div>';
+  h+='</div>';
+  h+='</div>';
+  // Reflection
+  h+='<div class="verse-row">';
+  h+='<div class="verse-cell ko-side" style="flex-direction:column;align-items:flex-start;padding-top:16px;padding-bottom:24px">';
+  h+='<div class="commentary-label">'+rl+'</div>';
+  h+='<div class="'+(isEn?'commentary-en':'commentary-ko')+'">'+esc(isEn?d.reflection_en:d.reflection_ko)+'</div>';
+  h+='</div>';
+  h+='<div class="verse-cell en-side" style="flex-direction:column;align-items:flex-start;padding-top:16px;padding-bottom:24px">';
+  h+='<div class="commentary-label">'+rl+'</div>';
+  h+='<div class="'+(isEn?'commentary-ko':'commentary-en')+'">'+esc(isEn?d.reflection_ko:d.reflection_en)+'</div>';
+  h+='</div>';
+  h+='</div>';
   tComm.innerHTML=h;
+}
+async function loadTabIntro(){
+  var bk=BOOKS[bi];
+  var tIntro=document.getElementById('tab-intro-content');
+  if(!tIntro)return;
+  tIntro.innerHTML='<div class="ldg"><div class="spinner"></div><div class="ldg-txt">'+(langOrder==='ko-en'?'책 소개 불러오는 중…':'Loading book intro…')+'</div></div>';
+  try{
+    var r=await fetch(WORKER+'/intro/'+bk.n);
+    if(!r.ok) throw new Error('Worker error '+r.status);
+    var d=await r.json();
+    if(d.error) throw new Error(d.error);
+    window._lastIntroData=d;window._lastIntroBk=bk;
+    tIntro.innerHTML='';
+    renderBookIntro(d,bk,tIntro);
+  } catch(e){
+    tIntro.innerHTML='<div class="errbox">Intro failed: '+esc(e.message)+'</div>';
+  }
 }
 async function loadCommentary(){
   var bk=BOOKS[bi];
@@ -1045,6 +1115,33 @@ async function loadCommentary(){
     tComm.innerHTML='<div class="errbox">Commentary failed: '+esc(e.message)+'</div>';
   }
 }
+function toggleIntroDropdown(){
+  var dd=document.getElementById('intro-dropdown');
+  var list=document.getElementById('intro-dropdown-list');
+  if(dd.style.display!=='none'){dd.style.display='none';return;}
+  // Build list if empty
+  if(!list.children.length){
+    var h='';
+    BOOKS.forEach(function(b,i){
+      var primary=langOrder==='en-ko'?b.en:b.ko;
+      var secondary=langOrder==='en-ko'?b.ko:b.en;
+      h+='<div onclick="loadBookIntroView('+i+');document.getElementById(\'intro-dropdown\').style.display=\'none\'" '
+        +'style="padding:7px 14px;cursor:pointer;font-size:13px;border-bottom:.5px solid #f0ede8;display:flex;align-items:baseline;gap:6px" '
+        +'onmouseover="this.style.background=\'#f7f5f2\'" onmouseout="this.style.background=\'\'">'
+        +'<span style="font-weight:500;color:#222">'+esc(primary)+'</span>'
+        +'<span style="font-size:11px;color:#aaa">'+esc(secondary)+'</span>'
+        +'</div>';
+    });
+    list.innerHTML=h;
+  }
+  dd.style.display='block';
+}
+// Close dropdown when clicking outside
+document.addEventListener('click',function(e){
+  var dd=document.getElementById('intro-dropdown');
+  var btn=document.getElementById('intro-btn');
+  if(dd&&btn&&!dd.contains(e.target)&&e.target!==btn)dd.style.display='none';
+});
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 document.addEventListener('keydown',function(e){if(e.target.tagName==='SELECT'||e.target.id==='passage-input')return;if(e.key==='ArrowRight')step(1);if(e.key==='ArrowLeft')step(-1);});
 </script>
