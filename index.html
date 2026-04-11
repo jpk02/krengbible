@@ -209,7 +209,15 @@ body.dark .intro-theme-title{color:#a8b8d8}
 .intro-theme-en{font-size:12px;line-height:1.6;color:#777}
 body.dark .intro-theme-ko{color:#ccc}
 body.dark .intro-theme-en{color:#888}
-.intro-map{width:100%;height:220px;border-radius:12px;overflow:hidden;margin-top:8px;border:1px solid #e8e5e0}
+.intro-map{width:100%;height:260px;border-radius:12px;overflow:hidden;margin-top:8px;border:1px solid #e8e5e0}
+body.dark .intro-map{border-color:#333}
+.intro-map-legend{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.intro-map-legend-item{display:flex;align-items:flex-start;gap:10px}
+.intro-map-legend-num{background:#1b2a4a;color:#fff;border-radius:50%;width:20px;height:20px;min-width:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:2px}
+.intro-map-legend-name{font-size:13px;font-weight:600;color:#222;margin-bottom:2px}
+body.dark .intro-map-legend-name{color:#e8e5e0}
+.intro-map-legend-desc{font-size:12px;color:#666;line-height:1.5}
+body.dark .intro-map-legend-desc{color:#999}
 body.dark .intro-map{border-color:#333}
 .ch-tabs{display:flex;gap:0;border-bottom:1px solid #e8e5e0;padding:0 0 0 20px;flex-shrink:0}
 .ch-tab{background:none;border:none;font:500 13px inherit;color:#999;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;touch-action:manipulation}
@@ -760,23 +768,50 @@ function render(koData,esvData,bk,ch){
 }
 (function(){
   var main=document.getElementById('main'),content=document.getElementById('content');
-  var sx=0,sy=0,drag=false,locked=false;
-  main.addEventListener('touchstart',function(e){if(!document.getElementById('mob-sheet').classList.contains('hidden'))return;sx=e.touches[0].clientX;sy=e.touches[0].clientY;drag=false;locked=false;},{passive:true});
+  var sx=0,sy=0,drag=false,locked=false,startedHoriz=false;
+
+  main.addEventListener('touchstart',function(e){
+    if(!document.getElementById('mob-sheet').classList.contains('hidden'))return;
+    sx=e.touches[0].clientX;sy=e.touches[0].clientY;
+    drag=false;locked=false;startedHoriz=false;
+  },{passive:true});
+
   main.addEventListener('touchmove',function(e){
     if(!document.getElementById('mob-sheet').classList.contains('hidden'))return;
     if(locked)return;
     var dx=e.touches[0].clientX-sx,dy=e.touches[0].clientY-sy;
-    if(inIntroMode&&dx<0){locked=true;return;}
+    var adx=Math.abs(dx),ady=Math.abs(dy);
+
+    // On intro: block going to previous (right swipe dx>0), allow going to ch1 (left swipe dx<0)
+    if(inIntroMode&&dx>0){locked=true;return;}
+    // On VOTD: block left swipe (no previous)
     if(!loaded&&dx<0){locked=true;return;}
-    if(!drag&&Math.abs(dy)>Math.abs(dx)*1.2){locked=true;return;}
-    if(Math.abs(dx)>8)drag=true;
-    if(drag){content.style.transform='translateX('+(dx*0.35)+'px)';content.style.transition='none';}
-  },{passive:true});
+
+    if(!startedHoriz&&!drag){
+      if(adx>8&&adx>ady){
+        // Clearly horizontal — take over
+        startedHoriz=true;
+        drag=true;
+        e.preventDefault();
+      } else if(ady>adx*1.2){
+        // Clearly vertical — let scroll win
+        locked=true;return;
+      } else if(adx<8&&ady<8){
+        return; // undecided yet
+      }
+    }
+    if(drag){
+      e.preventDefault();
+      content.style.transform='translateX('+(dx*0.35)+'px)';
+      content.style.transition='none';
+    }
+  },{passive:false});
+
   main.addEventListener('touchend',function(e){
     if(!document.getElementById('mob-sheet').classList.contains('hidden'))return;
     if(!drag){content.style.transform='';drag=false;return;}
-    var dx=e.changedTouches[0].clientX-sx;drag=false;
-    if(Math.abs(dx)>100){
+    var dx=e.changedTouches[0].clientX-sx;drag=false;startedHoriz=false;
+    if(Math.abs(dx)>80){
       var dir=dx<0?-1:1;
       content.style.transition='transform 0.18s ease-in,opacity 0.18s ease-in';
       content.style.transform='translateX('+(dir*-80)+'px)';
@@ -937,6 +972,11 @@ function renderBookIntro(d,bk){
   else{h+='<div class="intro-ko">'+esc(d.geo_ko)+'</div><div class="intro-en">'+esc(d.geo_en)+'</div>';}
   if(d.map_locations&&d.map_locations.length){
     h+='<div class="intro-map" id="intro-map"></div>';
+    h+='<div class="intro-map-legend">';
+    d.map_locations.forEach(function(loc,i){
+      h+='<div class="intro-map-legend-item"><span class="intro-map-legend-num">'+(i+1)+'</span><div class="intro-map-legend-text"><div class="intro-map-legend-name">'+esc(loc.name)+'</div><div class="intro-map-legend-desc">'+esc(isEn?loc.desc:(loc.desc_ko||loc.desc))+'</div></div></div>';
+    });
+    h+='</div>';
   }
   h+='</div>';
   h+='</div>';
@@ -953,9 +993,13 @@ function renderBookIntro(d,bk){
         subdomains:'abcd'
       }).addTo(map);
       var bounds=[];
-      locs.forEach(function(loc){
-        var marker=L.marker([loc.lat,loc.lng]).addTo(map);
-        marker.bindPopup('<b>'+loc.name+'</b><br><small>'+loc.desc+'</small>');
+      locs.forEach(function(loc,i){
+        var icon=L.divIcon({
+          className:'',
+          html:'<div style="background:#1b2a4a;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">'+(i+1)+'</div>',
+          iconSize:[24,24],iconAnchor:[12,12]
+        });
+        L.marker([loc.lat,loc.lng],{icon:icon}).addTo(map);
         bounds.push([loc.lat,loc.lng]);
       });
       if(bounds.length>1)map.fitBounds(bounds,{padding:[20,20]});
