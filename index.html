@@ -196,7 +196,7 @@ body.dark .prog-back-btn{color:#60a5fa}
 .intro-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1b2a4a;margin-bottom:8px}
 body.dark .intro-label{color:#8899bb}
 .intro-ko{font-family:'Noto Sans KR',sans-serif;font-size:15px;line-height:1.85;color:#1c1c1c;margin-bottom:6px;word-break:keep-all}
-.intro-en{font-size:14px;line-height:1.75;color:#555;font-style:italic;margin-bottom:6px}
+.intro-en{font-size:14px;line-height:1.75;color:#555;margin-bottom:6px}
 body.dark .intro-ko{color:#e8e5e0}
 body.dark .intro-en{color:#999}
 .intro-themes{display:flex;flex-direction:column;gap:12px;margin-top:4px}
@@ -205,12 +205,12 @@ body.dark .intro-theme{background:#242424;border-color:#333}
 .intro-theme-title{font-size:13px;font-weight:600;color:#1b2a4a;margin-bottom:4px}
 body.dark .intro-theme-title{color:#a8b8d8}
 .intro-theme-ko{font-family:'Noto Sans KR',sans-serif;font-size:13px;line-height:1.7;color:#444;word-break:keep-all}
-.intro-theme-en{font-size:12px;line-height:1.6;color:#777;font-style:italic}
+.intro-theme-en{font-size:12px;line-height:1.6;color:#777}
 body.dark .intro-theme-ko{color:#ccc}
 body.dark .intro-theme-en{color:#888}
 .intro-map{width:100%;height:220px;border-radius:12px;overflow:hidden;margin-top:8px;border:1px solid #e8e5e0}
 body.dark .intro-map{border-color:#333};gap:0;border-bottom:1px solid #e8e5e0;margin:0 14px;flex-shrink:0}
-.ch-tabs{display:flex;gap:0;border-bottom:1px solid #e8e5e0;margin:0 14px;flex-shrink:0}
+.ch-tabs{display:flex;gap:0;border-bottom:1px solid #e8e5e0;margin:0;flex-shrink:0}
 .ch-tab{background:none;border:none;font:500 13px inherit;color:#999;padding:8px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
 .ch-tab.active{color:#1b2a4a;border-bottom-color:#1b2a4a}
 body.dark .ch-tab.active{color:#e8e5e0;border-bottom-color:#e8e5e0}
@@ -219,7 +219,7 @@ body.dark .ch-tab.active{color:#e8e5e0;border-bottom-color:#e8e5e0}
 .commentary-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1b2a4a;margin-bottom:6px}
 body.dark .commentary-label{color:#8899bb}
 .commentary-ko{font-family:'Noto Sans KR',sans-serif;font-size:15px;line-height:1.85;color:#1c1c1c;margin-bottom:8px;word-break:keep-all}
-.commentary-en{font-size:14px;line-height:1.75;color:#555;font-style:italic}
+.commentary-en{font-size:14px;line-height:1.75;color:#555;margin-bottom:6px}
 body.dark .commentary-ko{color:#e8e5e0}
 body.dark .commentary-en{color:#999}
 .fn-popup{position:fixed;z-index:200;background:#fff;border:1px solid #e8e5e0;border-radius:8px;padding:10px 14px;max-width:280px;font-size:12px;color:#444;line-height:1.6;box-shadow:0 4px 16px rgba(0,0,0,.12);pointer-events:none;transition:opacity .15s}
@@ -617,7 +617,13 @@ function sheetOpen(mode){
       h+='<svg class="mob-book-row-chevron'+(isActive?' open':'')+'" width="12" height="8" viewBox="0 0 10 6"><path fill="currentColor" d="M0 0l5 6 5-6z"/></svg>';
       h+='</div>';
       h+='<div class="mob-ch-grid" id="ch-grid-'+i+'" style="'+(isActive?'':'display:none')+'">';
-      if(isActive){for(var c=1;c<=b.ch;c++)h+='<div class="mob-ch-item'+(c===ci?' active':'')+'" onclick="sheetSelectCh2('+i+','+c+')">'+c+'</div>';}
+      if(isActive){
+        var introLabel2=langOrder==='ko-en'?'책 소개':'Book Intro';
+        h+='<div class="mob-ch-item" style="grid-column:1/-1;border-radius:8px;background:#e8edf5;color:#1b2a4a;font-size:12px;font-weight:600;aspect-ratio:unset;padding:10px;justify-content:flex-start;gap:8px;border:1px solid #c8d3e8" onclick="loadBookIntroView('+i+')">'
+          +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
+          +' '+introLabel2+'</div>';
+        for(var c=1;c<=b.ch;c++)h+='<div class="mob-ch-item'+(c===ci?' active':'')+'" onclick="sheetSelectCh2('+i+','+c+')">'+c+'</div>';
+      }
       h+='</div></div>';
     });
     h+='</div>';
@@ -640,16 +646,14 @@ function toggleBookRow(idx){
     grid.style.display='none';
     if(chevron)chevron.classList.remove('open');
   } else {
-    // Populate chapters if empty
-    if(!grid.children.length){
-      var b=BOOKS[idx];
-      var introLabel=langOrder==='ko-en'?'책 소개':'Book Intro';
-      var h='<div class="mob-ch-item" style="grid-column:1/-1;border-radius:8px;background:#e8edf5;color:#1b2a4a;font-size:12px;font-weight:600;aspect-ratio:unset;padding:10px;justify-content:flex-start;gap:8px;border:1px solid #c8d3e8" onclick="loadBookIntroView('+idx+')">'
-        +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
-        +' '+introLabel+'</div>';
-      for(var c=1;c<=b.ch;c++) h+='<div class="mob-ch-item'+(idx===bi&&c===ci?' active':'')+'" onclick="sheetSelectCh2('+idx+','+c+')">'+c+'</div>';
-      grid.innerHTML=h;
-    }
+    // Always re-populate to ensure intro button is included
+    var b=BOOKS[idx];
+    var introLabel=langOrder==='ko-en'?'책 소개':'Book Intro';
+    var h='<div class="mob-ch-item" style="grid-column:1/-1;border-radius:8px;background:#e8edf5;color:#1b2a4a;font-size:12px;font-weight:600;aspect-ratio:unset;padding:10px;justify-content:flex-start;gap:8px;border:1px solid #c8d3e8" onclick="loadBookIntroView('+idx+')">'
+      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
+      +' '+introLabel+'</div>';
+    for(var c=1;c<=b.ch;c++) h+='<div class="mob-ch-item'+(idx===bi&&c===ci?' active':'')+'" onclick="sheetSelectCh2('+idx+','+c+')">'+c+'</div>';
+    grid.innerHTML=h;
     grid.style.display='grid';
     if(chevron)chevron.classList.add('open');
   }
