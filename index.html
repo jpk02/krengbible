@@ -326,7 +326,7 @@ body.dark .confirm-btn.ok{background:#e8e5e0;color:#111}
 .more-menu.hidden{display:none}
 .more-menu-item{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;padding:12px 16px;font:400 14px inherit;color:#222;cursor:pointer;gap:0;text-align:left}
 .more-menu-item:active{background:#f7f5f2}
-.font-adj-btn{background:#efecea;border:1px solid #d8d4ce;border-radius:6px;width:24px;height:24px;font-size:14px;font-weight:400;color:#222;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.font-adj-btn{background:#efecea;border:1px solid #d8d4ce;border-radius:6px;width:30px;height:30px;font-size:16px;font-weight:400;color:#222;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 .font-pop-preview{font-size:14px;font-weight:400;color:#555;flex:1;text-align:center}
 .more-menu-divider{height:1px;background:#f0ede8;margin:0 12px}
 body.dark .more-menu{background:#2a2a2a;border-color:#444}
@@ -816,7 +816,7 @@ function sheetSelectBook(idx){
 }
 function sheetSelectCh(ch){bi=pendingBook;ci=ch;loaded=true;sheetClose();updateLabel();load();}
 function sheetClose(){document.getElementById('mob-sheet').classList.add('hidden');pendingBook=null;}
-function adjFont(d){fs=Math.min(22,Math.max(11,fs+d));applyFs();var p=document.querySelector('.mob-font-preview');if(p)p.textContent='가 Aa — '+fs+'px';var p2=document.getElementById('font-pop-preview');if(p2)p2.textContent='가 Aa — '+fs+'px';}
+function adjFont(d){fs=Math.min(22,Math.max(11,fs+d));applyFs();var p=document.querySelector('.mob-font-preview');if(p)p.textContent='가 Aa — '+fs+'px';}
 async function load(){
   var bk=BOOKS[bi];
   var ebp=document.getElementById('edge-bp');if(ebp)ebp.disabled=(bi===0&&ci===1);
