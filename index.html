@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -658,7 +659,7 @@ async function loadVotd(){
       if(koText){html+='<div class="votd-divider"></div><div class="votd-ko-ref">'+koRef+'</div><div class="votd-ko" style="font-size:15px;color:#555;margin-bottom:24px">'+koText+'</div>';}
     } else {
       if(koText){html+='<div class="votd-ko-ref">'+koRef+'</div><div class="votd-ko">'+koText+'</div><div class="votd-divider"></div>';}
-      html+='<div class="votd-en-ref">'+ref+'</div><div class="votd-en">'+v.text+'</div>';
+      html+='<div class="votd-en-ref">'+ref+'</div><div class="votd-en" style="font-size:15px;color:#555;margin-bottom:24px">'+v.text+'</div>';
     }
     if(bookIdx>=0){
       var chRef=v.bookname+' '+v.chapter;
