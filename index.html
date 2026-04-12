@@ -104,9 +104,10 @@ body.dark .mob-icon-btn{color:#e8e5e0!important;background:none!important}
 .mob-sheet{position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.4);display:flex;align-items:flex-end}
 .mob-sheet.hidden{display:none}
 .mob-sheet-inner{background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
-.mob-sheet-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;flex-shrink:0;border-bottom:1px solid #e8e5e0}
+.mob-sheet-hdr{display:flex;align-items:center;justify-content:center;padding:20px 20px 12px;flex-shrink:0;position:relative}
 .mob-sheet-hdr span{font-size:14px;font-weight:500;color:#222}
-.mob-sheet-close{background:#efecea;border:none;border-radius:50%;width:36px;height:36px;min-width:36px;font-size:15px;color:#444;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:500;flex-shrink:0;margin-right:4px}
+.mob-sheet-handle{width:36px;height:4px;background:#d8d4ce;border-radius:2px;position:absolute;top:8px;left:50%;transform:translateX(-50%)}
+body.dark .mob-sheet-handle{background:#444}
 #mob-sheet-body{overflow-y:auto;flex:1}
 .mob-book-list{display:flex;flex-direction:column}
 .mob-book-row{border-bottom:.5px solid #f0ede8;cursor:pointer}
@@ -156,7 +157,7 @@ body.dark .logo{color:#e8e5e0}
 body.dark .verse-row:hover{background:#242424}
 body.dark .vt{color:#d8d5d0}
 body.dark .ch-title{color:#e8e5e0}
-body.dark select,body.dark .fbtn,body.dark .mob-font-btn,body.dark .mob-sheet-close{background:#2a2a2a;border-color:#444;color:#ccc}
+body.dark select,body.dark .fbtn,body.dark .mob-font-btn{background:#2a2a2a;border-color:#444;color:#ccc}
 body.dark .mob-book-item{color:#d8d5d0;border-bottom-color:#2a2a2a}
 body.dark .mob-book-item:active{background:#2a2a2a}
 body.dark .mob-ch-item{background:#2a2a2a;color:#d8d5d0}
@@ -454,8 +455,8 @@ header{display:none!important}
 <div id="mob-sheet" class="mob-sheet hidden">
   <div class="mob-sheet-inner">
     <div class="mob-sheet-hdr">
+      <div class="mob-sheet-handle"></div>
       <span id="mob-sheet-title"></span>
-      <button class="mob-sheet-close" onclick="sheetClose()">&#10005;</button>
     </div>
     <div id="mob-sheet-body"></div>
   </div>
