@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -316,7 +315,36 @@ body.dark .confirm-msg{color:#e8e5e0}
 body.dark .confirm-btn.cancel{background:#333;color:#bbb}
 .confirm-btn.ok{background:#222;color:#fff}
 body.dark .confirm-btn.ok{background:#e8e5e0;color:#111}
-/* Force mobile layout */
+.more-menu{position:absolute;top:40px;right:0;background:#fff;border:1px solid #e8e5e0;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:2000;min-width:210px;overflow:hidden;padding:4px 0}
+.more-menu.hidden{display:none}
+.more-menu-item{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;padding:12px 16px;font:500 14px inherit;color:#222;cursor:pointer;gap:12px;text-align:left}
+.more-menu-item:active{background:#f7f5f2}
+body.dark .more-menu{background:#2a2a2a;border-color:#444}
+body.dark .more-menu-item{color:#e8e5e0}
+body.dark .more-menu-item:active{background:#333}
+/* Search overlay */
+.search-overlay{position:fixed;inset:0;z-index:1500;background:var(--bg);display:flex;flex-direction:column}
+.search-overlay.hidden{display:none}
+.search-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #e8e5e0;flex-shrink:0}
+.search-back{background:none;border:none;cursor:pointer;color:#555;display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;-webkit-appearance:none}
+body.dark .search-back{color:#aaa}
+.search-input-wrap{flex:1;display:flex;align-items:center;gap:8px;background:#efecea;border-radius:10px;padding:8px 12px}
+.search-input-wrap svg{flex-shrink:0;color:#aaa}
+#search-input{flex:1;background:none;border:none;outline:none;font:15px inherit;color:#111;min-width:0}
+body.dark #search-input{color:#e8e5e0}
+body.dark .search-input-wrap{background:#2a2a2a}
+#search-input::placeholder{color:#aaa}
+.search-results{flex:1;overflow-y:auto;padding:8px 0}
+.search-result-item{display:flex;align-items:stretch;gap:0;padding:12px 18px;cursor:pointer;border-bottom:.5px solid #f0ede8}
+.search-result-item:active{background:#f0ede8}
+body.dark .search-result-item{border-bottom-color:#2a2a2a}
+body.dark .search-result-item:active{background:#242424}
+.search-result-accent{width:3px;background:#1b2a4a;border-radius:2px;flex-shrink:0;margin-right:12px}
+.search-result-text{font-size:14px;line-height:1.6;color:#1c1c1c;margin-bottom:4px}
+body.dark .search-result-text{color:#e8e5e0}
+.search-result-ref{font-size:12px;font-weight:700;color:#1b2a4a}
+body.dark .search-result-ref{color:#8899bb}
+.search-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:8px;color:#bbb;font-size:14px}
 header{display:none!important}
 .desk-only{display:none!important}
 .mob-nav{display:flex!important;align-items:center;justify-content:space-between;width:100%}
@@ -359,18 +387,48 @@ header{display:none!important}
     </button>
     <div class="mob-nav-actions">
       <button class="mob-icon-btn" id="mob-lang-btn" onclick="toggleLangOrder(this)">한</button>
-      <button class="mob-icon-btn" onclick="sheetOpen('font')" title="Font size">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><text x="1" y="18" font-size="14" font-family="inherit" font-weight="600" stroke="none" fill="currentColor">A</text><text x="12" y="16" font-size="10" font-family="inherit" font-weight="500" stroke="none" fill="currentColor">A</text></svg>
+      <button class="mob-icon-btn" onclick="openSearch()" title="Search">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
       </button>
-      <button class="mob-icon-btn" id="mob-dark-btn" onclick="toggleDark(this)" title="Dark mode">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
-      </button>
-      <button class="mob-icon-btn" onclick="sheetOpen('progress')" title="읽기 진도">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-      </button>
+      <div style="position:relative">
+        <button class="mob-icon-btn" id="mob-more-btn" onclick="toggleMoreMenu()" title="More">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+        </button>
+        <div id="more-menu" class="more-menu hidden">
+          <button class="more-menu-item" onclick="sheetOpen('font');toggleMoreMenu()">
+            <span>글자 크기 / Font Size</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><text x="1" y="16" font-size="12" font-family="inherit" font-weight="600" stroke="none" fill="currentColor">A</text><text x="10" y="14" font-size="9" font-family="inherit" font-weight="500" stroke="none" fill="currentColor">A</text></svg>
+          </button>
+          <button class="more-menu-item" onclick="toggleDark();toggleMoreMenu()">
+            <span>다크 모드 / Dark Mode</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
+          </button>
+          <button class="more-menu-item" onclick="sheetOpen('progress');toggleMoreMenu()">
+            <span>읽기 진도 / Progress</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </nav>
+<div id="search-overlay" class="search-overlay hidden">
+  <div class="search-top">
+    <button class="search-back" onclick="closeSearch()">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <div class="search-input-wrap">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input id="search-input" type="text" placeholder="검색 / Search" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+  <div class="search-results" id="search-results">
+    <div class="search-empty" id="search-empty">
+      <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+      <span>검색어를 입력하세요 / Enter a search term</span>
+    </div>
+  </div>
+</div>
 <div id="mob-sheet" class="mob-sheet hidden">
   <div class="mob-sheet-inner">
     <div class="mob-sheet-hdr">
@@ -1108,7 +1166,148 @@ document.addEventListener('click',function(e){
   if(dd&&btn&&!dd.contains(e.target)&&e.target!==btn)dd.style.display='none';
 });
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-document.addEventListener('keydown',function(e){if(e.target.tagName==='SELECT'||e.target.id==='passage-input')return;if(e.key==='ArrowRight')step(1);if(e.key==='ArrowLeft')step(-1);});
+// More menu
+function toggleMoreMenu(){
+  var m=document.getElementById('more-menu');
+  m.classList.toggle('hidden');
+}
+document.addEventListener('click',function(e){
+  var m=document.getElementById('more-menu');
+  var btn=document.getElementById('mob-more-btn');
+  if(m&&!m.classList.contains('hidden')&&!m.contains(e.target)&&e.target!==btn&&!btn.contains(e.target))m.classList.add('hidden');
+});
+
+// Search
+var searchTimer=null;
+var searchState={q:'',isKo:false,loading:false,hasMore:false,nextOffset:0,nextPage:1};
+
+function openSearch(){
+  var inp=document.getElementById('search-input');
+  inp.placeholder=langOrder==='ko-en'?'검색 / Search':'Search / 검색';
+  document.getElementById('search-overlay').classList.remove('hidden');
+  var emptyMsg=langOrder==='ko-en'?'검색어를 입력하세요 / Enter a search term':'Enter a search term / 검색어를 입력하세요';
+  document.getElementById('search-results').innerHTML='<div class="search-empty"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>'+emptyMsg+'</span></div>';
+  setTimeout(function(){inp.focus();},100);
+}
+function closeSearch(){
+  document.getElementById('search-overlay').classList.add('hidden');
+  document.getElementById('search-input').value='';
+  searchState={q:'',isKo:false,loading:false,hasMore:false,nextOffset:0,nextPage:1};
+  document.getElementById('search-results').innerHTML='<div class="search-empty"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>검색어를 입력하세요 / Enter a search term</span></div>';
+}
+window.addEventListener('load', function(){
+document.getElementById('search-input').addEventListener('input',function(){
+  clearTimeout(searchTimer);
+  var q=this.value.trim();
+  if(!q){
+    searchState={q:'',isKo:false,loading:false,hasMore:false,nextOffset:0,nextPage:1};
+    document.getElementById('search-results').innerHTML='<div class="search-empty"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>검색어를 입력하세요 / Enter a search term</span></div>';
+    return;
+  }
+  document.getElementById('search-results').innerHTML='<div class="search-empty"><div class="spinner"></div></div>';
+  searchTimer=setTimeout(function(){
+    searchState={q:q,isKo:isKorean(q),loading:false,hasMore:false,nextOffset:0,nextPage:1};
+    document.getElementById('search-results').innerHTML='';
+    loadMoreResults();
+  },400);
+});
+
+document.getElementById('search-results').addEventListener('scroll',function(){
+  var el=this;
+  if(el.scrollTop+el.clientHeight>=el.scrollHeight-100){
+    if(searchState.hasMore&&!searchState.loading) loadMoreResults();
+  }
+});
+}); // end window load
+
+function isKorean(str){return /[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(str);}
+
+async function loadMoreResults(){
+  if(searchState.loading||!searchState.q)return;
+  searchState.loading=true;
+
+  // Show loading spinner at bottom
+  var loadingEl=document.createElement('div');
+  loadingEl.className='search-empty';loadingEl.id='search-load-more';
+  loadingEl.innerHTML='<div class="spinner"></div>';
+  document.getElementById('search-results').appendChild(loadingEl);
+
+  try{
+    var url,data;
+    if(searchState.isKo){
+      url=WORKER+'/search/ko?q='+encodeURIComponent(searchState.q)+'&offset='+searchState.nextOffset;
+      var r=await fetch(url);data=await r.json();
+    } else {
+      url=WORKER+'/search/en?q='+encodeURIComponent(searchState.q)+'&page='+searchState.nextPage;
+      var r=await fetch(url);data=await r.json();
+    }
+
+    // Remove loading spinner
+    var lel=document.getElementById('search-load-more');if(lel)lel.remove();
+
+    var results=document.getElementById('search-results');
+
+    if(!data.results||data.results.length===0){
+      if(results.children.length===0){
+        var noResultsMsg=langOrder==='ko-en'
+          ?'검색 결과가 없습니다 / No results found'
+          :'No results found / 검색 결과가 없습니다';
+        results.innerHTML='<div class="search-empty"><span>'+noResultsMsg+'</span></div>';
+      }
+      searchState.hasMore=false;
+      searchState.loading=false;
+      return;
+    }
+
+    data.results.forEach(function(item){
+      var div=document.createElement('div');
+      div.className='search-result-item';
+      div.innerHTML='<div class="search-result-accent"></div><div style="flex:1;min-width:0"><div class="search-result-text">'+esc(item.text)+'</div><div class="search-result-ref">'+esc(item.ref)+'</div></div>';
+      div.onclick=function(){searchNavigate(item.book,item.chapter,item.verse);};
+      results.appendChild(div);
+    });
+
+    searchState.hasMore=data.hasMore||false;
+    if(searchState.isKo) searchState.nextOffset=data.nextOffset||0;
+    else searchState.nextPage=(searchState.nextPage||1)+1;
+
+    // Add "load more" sentinel if there are more results
+    if(searchState.hasMore){
+      var sentinel=document.createElement('div');
+      sentinel.id='search-sentinel';sentinel.style.height='1px';
+      results.appendChild(sentinel);
+    }
+
+  }catch(e){
+    var lel=document.getElementById('search-load-more');if(lel)lel.remove();
+    if(document.getElementById('search-results').children.length===0){
+      var errMsg=langOrder==='ko-en'
+        ?'검색 결과가 없습니다 / No results found'
+        :'No results found / 검색 결과가 없습니다';
+      document.getElementById('search-results').innerHTML='<div class="search-empty"><span>'+errMsg+'</span></div>';
+    }
+  }
+  searchState.loading=false;
+}
+
+function searchNavigate(bookIdx,chapter,verse){
+  closeSearch();
+  bi=bookIdx;ci=chapter;loaded=true;inIntroMode=false;
+  window._lastIntroData=null;window._lastIntroBk=null;
+  updateLabel();
+  load().then(function(){
+    setTimeout(function(){
+      var row=document.getElementById('vr-'+verse);
+      if(row){
+        var main=document.getElementById('main');
+        main.scrollTop+=row.getBoundingClientRect().top-main.getBoundingClientRect().top-60;
+        row.classList.add('hl-selected');
+        setTimeout(function(){row.classList.remove('hl-selected');},3000);
+      }
+    },400);
+  });
+}
+document.addEventListener('keydown',function(e){if(e.target.tagName==='SELECT'||e.target.id==='passage-input'||e.target.id==='search-input')return;if(e.key==='ArrowRight')step(1);if(e.key==='ArrowLeft')step(-1);});
 </script>
 <div class="edge-nav left"><button class="edge-btn" id="edge-bp" onclick="step(-1)" disabled>&#8249;</button></div>
 <div class="edge-nav right"><button class="edge-btn" id="edge-bn" onclick="step(1)" disabled>&#8250;</button></div>
