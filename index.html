@@ -1305,16 +1305,21 @@ document.getElementById('search-input').addEventListener('keydown',function(e){
 
 function isKorean(str){return /[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(str);}
 
+// Korean abbreviations that aren't simple prefixes
+var KO_ABBREV={'고전':45,'고후':46,'살전':51,'살후':52,'딤전':53,'딤후':54,'벧전':59,'벧후':60,'요일':61,'요이':62,'요삼':63,'빌':49,'골':50,'갈':47,'엡':48,'롬':44,'히':57,'약':58,'유':64,'계':65,'몬':56,'딛':55,'막':40,'눅':41,'요':42,'행':43,'마':39};
+
 // Check if query matches a book name only (no chapter number) — returns book index or -1
 function tryParseBookOnly(q){
   var bookQ=q.trim().toLowerCase();
   var koQ=q.trim();
+  // Check Korean abbreviation map first
+  if(KO_ABBREV.hasOwnProperty(koQ)) return KO_ABBREV[koQ]-1;
   return BOOKS.findIndex(function(b){
     var enL=b.en.toLowerCase(),enNS=enL.replace(/\s+/g,''),bqNS=bookQ.replace(/\s+/g,'');
     if(enL===bookQ)return true;
     if(enNS===bqNS)return true;
-    if(enL.startsWith(bookQ)&&bookQ.length>=3)return true;
-    if(enNS.startsWith(bqNS)&&bqNS.length>=3)return true;
+    if(enL.startsWith(bookQ)&&bookQ.length>=2)return true;
+    if(enNS.startsWith(bqNS)&&bqNS.length>=2)return true;
     var initials=b.en.split(' ').map(function(w){return w[0].toLowerCase();}).join('');
     if(initials===bookQ)return true;
     if(b.ko===koQ)return true;
@@ -1338,7 +1343,8 @@ function tryParseReference(q){
     if(initials===bookQ)return true;
     var words=enL.split(' ');
     for(var w of words){if(w.startsWith(bookQ)&&bookQ.length>=3)return true;}
-    // Korean — exact or starts-with (even 1 char for single-char book abbrevs like 창, 막, 눅)
+    // Korean — check abbrev map first, then prefix match
+    if(KO_ABBREV.hasOwnProperty(koQ)) return BOOKS.indexOf(b)===KO_ABBREV[koQ]-1;
     if(b.ko===koQ)return true;
     if(b.ko.startsWith(koQ)&&koQ.length>=1)return true;
     return false;
