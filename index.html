@@ -1240,7 +1240,28 @@ document.getElementById('search-input').addEventListener('input',function(){
   }
   document.getElementById('search-results').innerHTML='<div class="search-empty"><div class="spinner"></div></div>';
   searchTimer=setTimeout(function(){
-    // First check if it's a verse reference like "ps 1" or "고전 1:1"
+    // Check if it's a book-only query — show chapter list
+    var bookIdx=tryParseBookOnly(q);
+    if(bookIdx!==-1){
+      var b=BOOKS[bookIdx];
+      var results=document.getElementById('search-results');
+      results.innerHTML='';
+      for(var ch=1;ch<=b.ch;ch++){
+        (function(chapter){
+          var div=document.createElement('div');
+          div.className='search-result-item';
+          var label=langOrder==='ko-en'
+            ?b.ko+' '+chapter+'장 / '+b.en+' '+chapter
+            :b.en+' '+chapter+' / '+b.ko+' '+chapter+'장';
+          div.innerHTML='<div class="search-result-accent"></div><div style="flex:1;min-width:0"><div class="search-result-ref">'+esc(label)+'</div></div>';
+          div.onclick=function(){searchNavigate(bookIdx,chapter,1);};
+          results.appendChild(div);
+        })(ch);
+      }
+      document.getElementById('search-input')._pendingRef=null;
+      return;
+    }
+    // Check if it's a verse reference like "ps 1" or "고전 1:1"
     var ref=tryParseReference(q);
     if(ref){
       var b=BOOKS[ref.bookIdx];
@@ -1284,28 +1305,42 @@ document.getElementById('search-input').addEventListener('keydown',function(e){
 
 function isKorean(str){return /[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(str);}
 
-// Try to parse a reference like "ps 1", "1 cor 1:1", "시편 1장", "고전 1:1"
+// Check if query matches a book name only (no chapter number) — returns book index or -1
+function tryParseBookOnly(q){
+  var bookQ=q.trim().toLowerCase();
+  var koQ=q.trim();
+  return BOOKS.findIndex(function(b){
+    var enL=b.en.toLowerCase(),enNS=enL.replace(/\s+/g,''),bqNS=bookQ.replace(/\s+/g,'');
+    if(enL===bookQ)return true;
+    if(enNS===bqNS)return true;
+    if(enL.startsWith(bookQ)&&bookQ.length>=3)return true;
+    if(enNS.startsWith(bqNS)&&bqNS.length>=3)return true;
+    var initials=b.en.split(' ').map(function(w){return w[0].toLowerCase();}).join('');
+    if(initials===bookQ)return true;
+    if(b.ko===koQ)return true;
+    if(b.ko.startsWith(koQ)&&koQ.length>=1)return true;
+    return false;
+  });
+}
+
+// Try to parse a reference like "ps 1", "1 cor 1:1", "시편 1장", "고전 1:1", "창 1"
 function tryParseReference(q){
   var cleaned=q.trim().replace(/：/g,':').replace(/장/g,' ').replace(/절/g,'').replace(/:/g,' ').trim();
-  // Match pattern: book name + optional space + chapter + optional :verse
   var m=cleaned.match(/^(.+?)\s*(\d+)(?:\s+(\d+))?$/);
   if(!m)return null;
   var bookQ=m[1].trim().toLowerCase(),ch=parseInt(m[2]),verse=m[3]?parseInt(m[3]):1;
+  var koQ=m[1].trim();
   var idx=BOOKS.findIndex(function(b){
     var enL=b.en.toLowerCase(),enNS=enL.replace(/\s+/g,''),bqNS=bookQ.replace(/\s+/g,'');
-    // English matches
     if(enL.startsWith(bookQ))return true;
     if(enNS.startsWith(bqNS)&&bqNS.length>=2)return true;
-    // Initials match e.g. "1co" for "1 Corinthians"
     var initials=b.en.split(' ').map(function(w){return w[0].toLowerCase();}).join('');
     if(initials===bookQ)return true;
-    // Abbreviated like "cor" matches "Corinthians" or "1cor"
     var words=enL.split(' ');
     for(var w of words){if(w.startsWith(bookQ)&&bookQ.length>=3)return true;}
-    // Korean matches - must start with query
-    var koQ=m[1].trim();
+    // Korean — exact or starts-with (even 1 char for single-char book abbrevs like 창, 막, 눅)
     if(b.ko===koQ)return true;
-    if(b.ko.startsWith(koQ)&&koQ.length>=2)return true;
+    if(b.ko.startsWith(koQ)&&koQ.length>=1)return true;
     return false;
   });
   if(idx===-1)return null;
