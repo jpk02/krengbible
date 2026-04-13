@@ -247,6 +247,7 @@ body.dark .intro-map{border-color:#333}
 .intro-map-legend-num{background:#1b2a4a;color:#fff;border-radius:50%;width:20px;height:20px;min-width:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:2px}
 .intro-map-legend-name{font-size:13px;font-weight:600;color:#222;margin-bottom:2px}
 body.dark .intro-map-legend-name{color:#e8e5e0}
+body.dark .intro-map-legend-name span{color:#e8e5e0!important}
 .intro-map-legend-desc{font-size:12px;color:#333;line-height:1.5}
 body.dark .intro-map-legend-desc{color:#e8e5e0}
 /* #6: Tab bar — remove full-width border, keep only active underline */
@@ -340,7 +341,7 @@ body.dark .more-menu-item:active{background:#333}
 /* Search overlay */
 .search-overlay{position:fixed;inset:0;z-index:1500;background:var(--bg);display:flex;flex-direction:column}
 .search-overlay.hidden{display:none}
-.search-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #e8e5e0;flex-shrink:0}
+.search-top{display:flex;align-items:center;gap:8px;padding:8px 12px;flex-shrink:0}
 .search-back{background:none;border:none;cursor:pointer;color:#555;display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;-webkit-appearance:none}
 body.dark .search-back{color:#aaa}
 .search-input-wrap{flex:1;display:flex;align-items:center;gap:8px;background:#efecea;border-radius:10px;padding:8px 12px}
@@ -1242,24 +1243,25 @@ document.getElementById('search-input').addEventListener('input',function(){
     // First check if it's a verse reference like "ps 1" or "고전 1:1"
     var ref=tryParseReference(q);
     if(ref){
-      closeSearch();
-      bi=ref.bookIdx;ci=ref.chapter;loaded=true;inIntroMode=false;
-      window._lastIntroData=null;window._lastIntroBk=null;
-      updateLabel();
-      load().then(function(){
-        setTimeout(function(){
-          var verse=ref.verse;
-          var row=document.getElementById('vr-'+verse);
-          if(row){
-            var main=document.getElementById('main');
-            main.scrollTop+=row.getBoundingClientRect().top-main.getBoundingClientRect().top-60;
-            row.classList.add('hl-selected');
-            setTimeout(function(){row.classList.remove('hl-selected');},3000);
-          }
-        },400);
-      });
+      var b=BOOKS[ref.bookIdx];
+      var refLabel=langOrder==='ko-en'
+        ?b.ko+' '+ref.chapter+'장'+(ref.verse>1?' '+ref.verse+'절':'')
+        :b.en+' '+ref.chapter+(ref.verse>1?':'+ref.verse:'');
+      var results=document.getElementById('search-results');
+      results.innerHTML='';
+      var div=document.createElement('div');
+      div.className='search-result-item';
+      div.innerHTML='<div class="search-result-accent"></div><div style="flex:1;min-width:0">'
+        +'<div class="search-result-text">'+(langOrder==='ko-en'?'바로 이동 / Go to passage':'Go to passage / 바로 이동')+'</div>'
+        +'<div class="search-result-ref">'+esc(refLabel)+'</div>'
+        +'</div>';
+      div.onclick=function(){searchNavigate(ref.bookIdx,ref.chapter,ref.verse);};
+      results.appendChild(div);
+      // Also navigate on Enter
+      document.getElementById('search-input')._pendingRef=ref;
       return;
     }
+    document.getElementById('search-input')._pendingRef=null;
     searchState={q:q,isKo:isKorean(q),loading:false,hasMore:false,nextOffset:0,nextPage:1};
     document.getElementById('search-results').innerHTML='';
     loadMoreResults();
@@ -1270,6 +1272,12 @@ document.getElementById('search-results').addEventListener('scroll',function(){
   var el=this;
   if(el.scrollTop+el.clientHeight>=el.scrollHeight-100){
     if(searchState.hasMore&&!searchState.loading) loadMoreResults();
+  }
+});
+document.getElementById('search-input').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){
+    var ref=this._pendingRef;
+    if(ref) searchNavigate(ref.bookIdx,ref.chapter,ref.verse);
   }
 });
 }); // end window load
@@ -1376,6 +1384,8 @@ async function loadMoreResults(){
 
 function searchNavigate(bookIdx,chapter,verse){
   closeSearch();
+  // Clear any previous search highlight
+  document.querySelectorAll('.verse-row.hl-selected').forEach(function(r){r.classList.remove('hl-selected');});
   bi=bookIdx;ci=chapter;loaded=true;inIntroMode=false;
   window._lastIntroData=null;window._lastIntroBk=null;
   updateLabel();
@@ -1386,7 +1396,12 @@ function searchNavigate(bookIdx,chapter,verse){
         var main=document.getElementById('main');
         main.scrollTop+=row.getBoundingClientRect().top-main.getBoundingClientRect().top-60;
         row.classList.add('hl-selected');
-        setTimeout(function(){row.classList.remove('hl-selected');},3000);
+        // Remove on next touch/click anywhere
+        function clearHighlight(){row.classList.remove('hl-selected');document.removeEventListener('touchstart',clearHighlight);document.removeEventListener('click',clearHighlight);}
+        setTimeout(function(){
+          document.addEventListener('touchstart',clearHighlight,{passive:true,once:true});
+          document.addEventListener('click',clearHighlight,{once:true});
+        },500);
       }
     },400);
   });
