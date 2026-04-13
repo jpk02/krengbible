@@ -1286,9 +1286,9 @@ function isKorean(str){return /[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(s
 
 // Try to parse a reference like "ps 1", "1 cor 1:1", "시편 1장", "고전 1:1"
 function tryParseReference(q){
-  var cleaned=q.trim().replace(/：/g,':').replace(/장/g,'').replace(/절/g,'').trim();
-  // Match pattern: optional number prefix + book name + chapter + optional :verse
-  var m=cleaned.match(/^(.+?)\s+(\d+)(?::(\d+))?$/);
+  var cleaned=q.trim().replace(/：/g,':').replace(/장/g,' ').replace(/절/g,'').replace(/:/g,' ').trim();
+  // Match pattern: book name + optional space + chapter + optional :verse
+  var m=cleaned.match(/^(.+?)\s*(\d+)(?:\s+(\d+))?$/);
   if(!m)return null;
   var bookQ=m[1].trim().toLowerCase(),ch=parseInt(m[2]),verse=m[3]?parseInt(m[3]):1;
   var idx=BOOKS.findIndex(function(b){
@@ -1302,11 +1302,10 @@ function tryParseReference(q){
     // Abbreviated like "cor" matches "Corinthians" or "1cor"
     var words=enL.split(' ');
     for(var w of words){if(w.startsWith(bookQ)&&bookQ.length>=3)return true;}
-    // Korean matches
-    var koL=b.ko;
-    if(koL.startsWith(m[1].trim()))return true;
-    // Korean abbreviated e.g. 고전 for 고린도전서
-    if(bookQ.length>=2&&koL.includes(m[1].trim().slice(0,2)))return true;
+    // Korean matches - must start with query
+    var koQ=m[1].trim();
+    if(b.ko===koQ)return true;
+    if(b.ko.startsWith(koQ)&&koQ.length>=2)return true;
     return false;
   });
   if(idx===-1)return null;
