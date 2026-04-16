@@ -1066,6 +1066,7 @@ function render(koData,esvData,bk,ch){
   document.getElementById('main').addEventListener('scroll',hideFnPopup,{passive:true});
   document.addEventListener('click',function(e){if(!e.target.classList.contains('fn-ref'))hideFnPopup();});
 })();
+var HL_KEY='krengbible_hl',hlSelected=null;
 var NOTES_KEY='krengbible_notes';
 function notesLoad(){try{return JSON.parse(localStorage.getItem(NOTES_KEY)||'{}');}catch(e){return {};}}
 function notesSave(d){try{localStorage.setItem(NOTES_KEY,JSON.stringify(d));}catch(e){}}
