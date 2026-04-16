@@ -311,7 +311,7 @@ body.dark .votd-read-btn{background:#2a3d66}
 body.dark .hl-bar{background:#1e1e1e;border-top-color:#333}
 .hl-bar-handle{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:4px;background:#d8d4ce;border-radius:2px}
 body.dark .hl-bar-handle{background:#444}
-.hl-bar-swatches{display:flex;gap:10px;align-items:center;background:#f5f4f2;border-radius:50px;padding:10px 16px;flex:1}
+.hl-bar-swatches{display:flex;gap:10px;align-items:center;background:#f5f4f2;border-radius:50px;padding:10px 16px}
 .hl-bar-swatch{width:34px;height:34px;border-radius:50%;cursor:pointer;border:3px solid transparent;flex-shrink:0;transition:transform 0.1s}
 .hl-bar-swatch:active{transform:scale(1.15)}
 .hl-bar-swatch.active{border-color:#333}
@@ -1089,22 +1089,15 @@ function hlRenderSaved(hlData,filter){
       var bk2=BOOKS[bI];if(!bk2)return;
       var ref=isKo?bk2.ko+' '+ch+':'+v:bk2.en+' '+ch+':'+v;
       var color=hlData[k];
-      var verseText='';
       var accentColor=color?colorMap[color]:(darkMode?'#3a3a3a':'#e0ddd8');
       html+='<div onclick="hlJumpTo('+bI+','+ch+','+v+')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
       html+='<div style="display:flex;gap:0">';
       html+='<div style="width:5px;min-width:5px;background:'+accentColor+'"></div>';
       html+='<div style="padding:14px 16px;flex:1;min-width:0">';
-      if(verseText){html+='<div style="font-size:15px;line-height:1.75;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';'+(isKo?'font-family:\'Noto Sans KR\',sans-serif;':'')+' word-break:keep-all;margin-bottom:8px">'+esc(verseText)+'</div>';}
       html+='<div style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(ref);
       if(color)html+=' · <span style="color:'+colorMap[color]+'">●</span>';
       html+='</div>';
       html+='</div></div>';
-      if(note){
-        html+='<div style="background:'+(darkMode?'#2a2a2a':'#f7f5f2')+';padding:10px 16px 12px 21px;border-top:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
-        html+='<div style="font-size:13px;line-height:1.6;color:'+(darkMode?'#bbb':'#555')+'">'+esc(note)+'</div>';
-        html+='</div>';
-      }
       html+='</div>';
     });
   });
