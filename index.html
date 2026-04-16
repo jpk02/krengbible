@@ -329,19 +329,20 @@ body.dark .hl-bar-notes svg{color:#e8e5e0}
 .hl-bar-notes svg{width:24px;height:24px;color:#333}
 .hl-bar-saved{background:none;border:none;cursor:pointer;color:#1b2a4a;font:500 12px inherit;padding:0;margin-left:auto;letter-spacing:.02em}
 body.dark .hl-bar-saved{color:#8899bb}
-.notes-modal{position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center}
+.notes-modal{position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center}
 .notes-modal.hidden{display:none}
-.notes-box{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:560px;padding:20px 20px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
-body.dark .notes-box{background:#1a1a1a}
-body.dark #notes-verse{background:#242424;color:#e8e5e0}
-.notes-ref{font-size:12px;font-weight:600;color:#1b2a4a;margin-bottom:2px}
-body.dark .notes-ref{color:#8899bb}
-.notes-textarea{width:100%;border:1px solid #e8e5e0;border-radius:10px;padding:12px 14px;font:16px inherit;color:#1c1c1c;resize:none;height:120px;outline:none;background:#fafaf9}
-body.dark .notes-textarea{background:#2a2a2a;border-color:#444;color:#e8e5e0}
-.notes-btns{display:flex;gap:8px;justify-content:flex-end}
-.notes-btn{border:none;border-radius:24px;font:500 13px inherit;cursor:pointer;padding:8px 20px}
-.notes-btn.cancel{background:#efecea;color:#555}
-body.dark .notes-btn.cancel{background:#333;color:#bbb}
+.notes-box{background:#fdfcfb;border-radius:24px 24px 0 0;width:100%;max-width:560px;padding:12px 20px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+body.dark .notes-box{background:#1e1e1e}
+#notes-verse{font-size:14px;line-height:1.7;color:#555;padding:10px 0 10px;border-bottom:1px solid #f0ede8}
+body.dark #notes-verse{color:#aaa;border-bottom-color:#2a2a2a}
+.notes-ref{font-size:11px;font-weight:700;color:#1b2a4a;letter-spacing:.02em}
+body.dark .notes-ref{color:#7a8eaa}
+.notes-textarea{width:100%;border:none;border-radius:0;padding:6px 0;font:16px inherit;color:#1c1c1c;resize:none;height:90px;outline:none;background:transparent}
+body.dark .notes-textarea{background:transparent;color:#e8e5e0}
+.notes-btns{display:flex;gap:8px;justify-content:flex-end;padding-top:2px}
+.notes-btn{border:none;border-radius:24px;font:600 13px inherit;cursor:pointer;padding:9px 22px}
+.notes-btn.cancel{background:#efecea;color:#888}
+body.dark .notes-btn.cancel{background:#2a2a2a;color:#888}
 .notes-btn.save{background:#1b2a4a;color:#fff}
 body.dark .notes-btn.save{background:#2a3d66}
 .saved-item{padding:14px 20px;border-bottom:.5px solid #f0ede8;cursor:pointer}
@@ -1084,57 +1085,66 @@ function notesLoad(){try{return JSON.parse(localStorage.getItem(NOTES_KEY)||'{}'
 function notesSave(d){try{localStorage.setItem(NOTES_KEY,JSON.stringify(d));}catch(e){}}
 function notesKey(b,c,v){return b+'_'+c+'_'+v;}
 
+var _notesBi=0,_notesCi=0,_notesN='';
 function hlOpenNotes(){
   if(!hlSelected)return;
   var n=hlSelected.id.replace('vr-','');
+  // Store context so save works even if hlSelected clears
+  _notesBi=bi;_notesCi=ci;_notesN=n;
   var k=notesKey(bi,ci,n);
   var notes=notesLoad();
   var bk=BOOKS[bi];
   var isEn=langOrder==='en-ko';
-  // Bilingual ref — preferred lang first
   var koRef=bk.ko+' '+ci+':'+n;
   var enRef=bk.en+' '+ci+':'+n;
-  var ref=isEn?enRef+' / '+koRef:koRef+' / '+enRef;
+  var ref=isEn?enRef+' · '+koRef:koRef+' · '+enRef;
   document.getElementById('notes-ref').textContent=ref;
-  // Show verse text — get from DOM
   var koText=hlSelected.querySelector('.ko-side .vt');
   var enText=hlSelected.querySelector('.en-side .vt');
   var verseEl=document.getElementById('notes-verse');
   if(verseEl){
     var html='';
     if(isEn){
-      if(enText)html+='<div style="color:#1c1c1c;margin-bottom:'+(koText?'6px':'0')+'">'+enText.textContent+'</div>';
-      if(koText)html+='<div style="color:#888;font-family:\'Noto Sans KR\',sans-serif;font-size:13px">'+koText.textContent+'</div>';
+      if(enText)html+='<div style="color:#1c1c1c;margin-bottom:'+(koText?'5px':'0')+'">'+enText.textContent+'</div>';
+      if(koText)html+='<div style="color:#aaa;font-family:\'Noto Sans KR\',sans-serif;font-size:13px">'+koText.textContent+'</div>';
     } else {
-      if(koText)html+='<div style="font-family:\'Noto Sans KR\',sans-serif;color:#1c1c1c;margin-bottom:'+(enText?'6px':'0')+'">'+koText.textContent+'</div>';
-      if(enText)html+='<div style="color:#888;font-size:13px">'+enText.textContent+'</div>';
+      if(koText)html+='<div style="font-family:\'Noto Sans KR\',sans-serif;color:#1c1c1c;margin-bottom:'+(enText?'5px':'0')+'">'+koText.textContent+'</div>';
+      if(enText)html+='<div style="color:#aaa;font-size:13px">'+enText.textContent+'</div>';
     }
     verseEl.innerHTML=html;
   }
-  // Lang-aware buttons
   document.getElementById('notes-cancel-btn').textContent=isEn?'Cancel':'취소';
   document.getElementById('notes-save-btn').textContent=isEn?'Save':'저장';
-  // Placeholder
-  document.getElementById('notes-textarea').placeholder=isEn?'Add a note...':'메모를 입력하세요...';
+  document.getElementById('notes-textarea').placeholder='';
   document.getElementById('notes-textarea').value=notes[k]||'';
   document.getElementById('notes-modal').classList.remove('hidden');
-  setTimeout(function(){document.getElementById('notes-textarea').focus();},100);
+  setTimeout(function(){document.getElementById('notes-textarea').focus();},150);
 }
 function hlCloseNotes(){
   document.getElementById('notes-modal').classList.add('hidden');
 }
 function hlSaveNote(){
-  if(!hlSelected)return;
-  var n=hlSelected.id.replace('vr-','');
-  var k=notesKey(bi,ci,n);
-  var vk=bi+'_'+ci+'_'+n;
+  // Use stored context — not hlSelected which may have been cleared
+  var n=_notesN,b=_notesBi,c=_notesCi;
+  if(!n)return;
+  var k=notesKey(b,c,n);
+  var vk=b+'_'+c+'_'+n;
   var notes=notesLoad();
   var text=document.getElementById('notes-textarea').value.trim();
-  if(text){notes[k]=text;vtCache(vk);}
+  if(text){notes[k]=text;}
   else delete notes[k];
   notesSave(notes);
+  // Cache verse text for saved list
+  var row=document.getElementById('vr-'+n);
+  if(row&&text){
+    var koEl=row.querySelector('.ko-side .vt');
+    var enEl=row.querySelector('.en-side .vt');
+    var vt=vtLoad();
+    vt[vk]={ko:koEl?koEl.textContent.trim():'',en:enEl?enEl.textContent.trim():''};
+    vtSave(vt);
+  }
   hlCloseNotes();
-  updateNoteIndicator(hlSelected,!!text);
+  if(hlSelected)updateNoteIndicator(hlSelected,!!text);
 }
 function updateNoteIndicator(row,hasNote){
   var existing=row.querySelector('.note-dot');
@@ -1856,9 +1866,10 @@ document.addEventListener('keydown',function(e){if(e.target.tagName==='SELECT'||
 </script>
 <div id="notes-modal" class="notes-modal hidden" onclick="if(event.target===this)hlCloseNotes()">
   <div class="notes-box">
+    <div style="display:flex;justify-content:center;padding:0 0 8px"><div style="width:36px;height:4px;border-radius:2px;background:#ddd"></div></div>
     <div class="notes-ref" id="notes-ref"></div>
-    <div id="notes-verse" style="font-size:14px;line-height:1.7;color:#555;background:#f7f5f2;border-radius:10px;padding:10px 14px;margin-bottom:2px"></div>
-    <textarea class="notes-textarea" id="notes-textarea" placeholder="메모를 입력하세요 / Add a note..."></textarea>
+    <div id="notes-verse"></div>
+    <textarea class="notes-textarea" id="notes-textarea" placeholder=""></textarea>
     <div class="notes-btns">
       <button class="notes-btn cancel" id="notes-cancel-btn" onclick="hlCloseNotes()">취소</button>
       <button class="notes-btn save" id="notes-save-btn" onclick="hlSaveNote()">저장</button>
