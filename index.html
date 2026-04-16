@@ -306,23 +306,27 @@ body.dark .votd-secondary{color:#e8e5e0!important}
 .votd-read-btn:active{opacity:.85}
 body.dark .votd-read-btn{background:#2a3d66}
 .verse-row.hl-selected .vt{text-decoration:underline;text-decoration-style:dashed;text-decoration-color:#888;text-decoration-thickness:2px;text-underline-offset:4px}
-.hl-bar{position:fixed;bottom:0;left:0;right:0;z-index:1200;background:#fff;border-top:1px solid #e8e5e0;padding:18px 28px 10px;display:flex;align-items:center;gap:16px;transform:translateY(100%);transition:transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94);pointer-events:none}
+.hl-bar{position:fixed;bottom:0;left:0;right:0;z-index:1200;background:#fff;border-top:1px solid #e8e5e0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;gap:12px;transform:translateY(100%);transition:transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94);pointer-events:none}
 .hl-bar.visible{transform:translateY(0);pointer-events:auto}
 body.dark .hl-bar{background:#1e1e1e;border-top-color:#333}
 .hl-bar-handle{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:4px;background:#d8d4ce;border-radius:2px}
 body.dark .hl-bar-handle{background:#444}
-.hl-bar-swatches{display:flex;gap:14px;align-items:center}
-.hl-bar-swatch{width:32px;height:32px;border-radius:50%;cursor:pointer;border:3px solid transparent;flex-shrink:0;transition:transform 0.1s}
+.hl-bar-swatches{display:flex;gap:10px;align-items:center;background:#f5f4f2;border-radius:50px;padding:10px 16px;flex:1}
+.hl-bar-swatch{width:34px;height:34px;border-radius:50%;cursor:pointer;border:3px solid transparent;flex-shrink:0;transition:transform 0.1s}
 .hl-bar-swatch:active{transform:scale(1.15)}
 .hl-bar-swatch.active{border-color:#333}
 body.dark .hl-bar-swatch.active{border-color:#fff}
-.hl-bar-copy{background:none;border:none;cursor:pointer;color:#555;padding:0;line-height:1;display:flex;flex-direction:column;align-items:center;gap:3px;margin-left:4px}
-body.dark .hl-bar-copy{color:#aaa}
-.hl-bar-copy svg{width:26px;height:26px}
-body.dark .hl-bar-copy span,body.dark .hl-bar-notes span{color:#666}
-.hl-bar-notes{background:none;border:none;cursor:pointer;color:#555;padding:0;line-height:1;display:flex;flex-direction:column;align-items:center;gap:3px;margin-left:4px}
+.hl-bar-copy{background:none;border:none;cursor:pointer;color:#333;padding:8px 12px;line-height:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+body.dark .hl-bar-copy{color:#e8e5e0}
+body.dark .hl-bar-copy svg{color:#e8e5e0}
+.hl-bar-copy svg{width:24px;height:24px}
+body.dark .hl-bar-copy span,body.dark .hl-bar-notes span{color:#e8e5e0}
+body.dark .hl-bar-swatches{background:#2a2a2a}
+.hl-bar-notes{background:none;border:none;cursor:pointer;color:#333;padding:8px 12px;line-height:1;display:flex;flex-direction:column;align-items:center;gap:4px}
 body.dark .hl-bar-notes{color:#aaa}
-.hl-bar-notes svg{width:24px;height:24px}
+body.dark .hl-bar-notes{color:#e8e5e0}
+body.dark .hl-bar-notes svg{color:#e8e5e0}
+.hl-bar-notes svg{width:24px;height:24px;color:#333}
 .hl-bar-saved{background:none;border:none;cursor:pointer;color:#1b2a4a;font:500 12px inherit;padding:0;margin-left:auto;letter-spacing:.02em}
 body.dark .hl-bar-saved{color:#8899bb}
 .notes-modal{position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center}
@@ -539,13 +543,13 @@ header{display:none!important}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
     </svg>
-    <span style="font-size:9px;color:#888;letter-spacing:.02em">복사/Copy</span>
+    <span id="hl-copy-label" style="font-size:11px;font-weight:600;color:#333;letter-spacing:.01em">복사</span>
   </button>
   <button class="hl-bar-notes" id="hl-notes-btn" onclick="hlOpenNotes()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
     </svg>
-    <span style="font-size:9px;color:#888;letter-spacing:.02em">저장/Save</span>
+    <span id="hl-notes-label" style="font-size:11px;font-weight:600;color:#333;letter-spacing:.01em">저장</span>
   </button>
 </div>
 <div id="fn-popup" class="fn-popup" style="opacity:0;display:none"></div>
@@ -636,6 +640,10 @@ function toggleLangOrder(btn){
   if(darkLabel)darkLabel.textContent=isEn?'Dark Mode / 다크 모드':'다크 모드 / Dark Mode';
   if(progLabel)progLabel.textContent=isEn?'Progress / 읽기 진도':'읽기 진도 / Progress';
   if(savedLabel)savedLabel.textContent=isEn?'Saved / 저장된 구절':'저장된 구절 / Saved';
+  var copyLabel=document.getElementById('hl-copy-label');
+  var notesLabel=document.getElementById('hl-notes-label');
+  if(copyLabel)copyLabel.textContent=isEn?'Copy':'복사';
+  if(notesLabel)notesLabel.textContent=isEn?'Note':'저장';
   updateLabel();
   if(loaded)applyLangOrder();
   var koSide=document.querySelector('.title-row .ko-side');
