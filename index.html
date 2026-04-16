@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -1208,43 +1208,42 @@ function updateNoteIndicator(row,hasNote){
   }
 }
 
-function hlOpenSaved(){
-  var hlData=hlLoad();
-  var notesData=notesLoad();
+var _savedFilter='all';
+function hlRenderSaved(hlData,notesData,filter){
   var isKo=langOrder==='ko-en';
-  var title=isKo?'저장된 구절 / Saved':'Saved / 저장된 구절';
-  var titleEl=document.getElementById('saved-title');
-  if(titleEl){titleEl.textContent=title;titleEl.style.color=darkMode?'#e8e5e0':'#1c1c1c';}
-  var allKeys=new Set([...Object.keys(hlData),...Object.keys(notesData)]);
   var list=document.getElementById('saved-list');
-  if(allKeys.size===0){
+  var allKeys=new Set([...Object.keys(hlData),...Object.keys(notesData)]);
+  // Apply filter
+  var filtered=[...allKeys].filter(function(k){
+    if(filter==='highlights')return !!hlData[k];
+    if(filter==='notes')return !!notesData[k];
+    return true;
+  });
+  if(filtered.length===0){
+    var emptyMsg=filter==='highlights'?(isKo?'저장된 하이라이트가 없습니다':'No highlights yet'):
+                 filter==='notes'?(isKo?'저장된 노트가 없습니다':'No notes yet'):
+                 (isKo?'저장된 구절이 없습니다':'No saved verses yet');
     list.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:12px">'
       +'<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><path d="M19 21l-7-4-7 4V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>'
-      +'<span style="font-size:14px;color:#bbb">'+(isKo?'저장된 구절이 없습니다 / No saved verses':'No saved verses / 저장된 구절이 없습니다')+'</span>'
+      +'<span style="font-size:14px;color:#bbb">'+emptyMsg+'</span>'
       +'</div>';
-    document.getElementById('saved-modal').classList.remove('hidden');
     return;
   }
   var colorMap={y:'#fde047',g:'#86efac',b:'#93c5fd',p:'#d8b4fe',r:'#fca5a5'};
-  var colorNameKo={y:'노란색',g:'초록색',b:'파란색',p:'보라색',r:'빨간색'};
-  var colorNameEn={y:'Yellow',g:'Green',b:'Blue',p:'Purple',r:'Red'};
-  var sorted=[...allKeys].sort(function(a,b){
+  var sorted=filtered.sort(function(a,b){
     var pa=a.split('_').map(Number),pb=b.split('_').map(Number);
     return pa[0]-pb[0]||pa[1]-pb[1]||pa[2]-pb[2];
   });
-  // Group by book
   var byBook={};
   sorted.forEach(function(k){
-    var parts=k.split('_');
-    var bIdx=parseInt(parts[0]);
+    var bIdx=parseInt(k.split('_')[0]);
     if(!byBook[bIdx])byBook[bIdx]=[];
     byBook[bIdx].push(k);
   });
-  var html='<div style="padding:8px 0 40px">';
+  var html='<div style="padding:4px 16px 60px;display:flex;flex-direction:column;gap:12px">';
   Object.keys(byBook).sort(function(a,b){return a-b;}).forEach(function(bIdx){
     var bk=BOOKS[parseInt(bIdx)];if(!bk)return;
-    var bookName=isKo?bk.ko:bk.en;
-    html+='<div style="padding:16px 20px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;color:'+(darkMode?'#8899bb':'#1b2a4a')+'">'+(isKo?bk.ko+' / '+bk.en:bk.en+' / '+bk.ko)+'</div>';
+    html+='<div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:'+(darkMode?'#8899bb':'#1b2a4a')+';padding:8px 4px 0">'+(isKo?bk.ko+' / '+bk.en:bk.en+' / '+bk.ko)+'</div>';
     byBook[bIdx].forEach(function(k){
       var parts=k.split('_');
       var bI=parseInt(parts[0]),ch=parseInt(parts[1]),v=parseInt(parts[2]);
@@ -1255,20 +1254,63 @@ function hlOpenSaved(){
       var note=notesData[k];
       var vt=vtLoad()[k]||null;
       var verseText=vt?(isKo?vt.ko:vt.en):'';
-      html+='<div onclick="hlJumpTo('+bI+','+ch+','+v+')" style="padding:12px 20px;border-bottom:.5px solid '+(darkMode?'#2a2a2a':'#f0ede8')+';cursor:pointer;display:flex;gap:12px;align-items:flex-start">';
-      if(color){html+='<div style="width:4px;min-width:4px;border-radius:2px;background:'+colorMap[color]+';margin-top:3px;align-self:stretch"></div>';}
-      else{html+='<div style="width:4px;min-width:4px"></div>';}
-      html+='<div style="flex:1;min-width:0">';
-      html+='<div style="font-size:11px;font-weight:700;color:'+(darkMode?'#8899bb':'#1b2a4a')+';margin-bottom:4px">'+esc(ref);
-      if(color)html+=' · <span style="color:'+colorMap[color]+';font-size:10px">●</span> '+(isKo?colorNameKo[color]:colorNameEn[color]);
+      var accentColor=color?colorMap[color]:(darkMode?'#3a3a3a':'#e0ddd8');
+      html+='<div onclick="hlJumpTo('+bI+','+ch+','+v+')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
+      html+='<div style="display:flex;gap:0">';
+      html+='<div style="width:5px;min-width:5px;background:'+accentColor+'"></div>';
+      html+='<div style="padding:14px 16px;flex:1;min-width:0">';
+      if(verseText){html+='<div style="font-size:15px;line-height:1.75;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';'+(isKo?'font-family:\'Noto Sans KR\',sans-serif;':'')+' word-break:keep-all;margin-bottom:8px">'+esc(verseText)+'</div>';}
+      html+='<div style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(ref);
+      if(color)html+=' · <span style="color:'+colorMap[color]+'">●</span>';
       html+='</div>';
-      if(verseText){html+='<div style="font-size:14px;line-height:1.75;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';margin-bottom:'+(note?'6px':'2px')+';'+(isKo?'font-family:\'Noto Sans KR\',sans-serif;':'')+' word-break:keep-all">'+esc(verseText)+'</div>';}
-      if(note){html+='<div style="font-size:12px;line-height:1.55;color:'+(darkMode?'#aaa':'#888')+';font-style:italic;display:flex;gap:5px;align-items:flex-start"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:2px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'+esc(note)+'</div>';}
       html+='</div></div>';
+      if(note){
+        html+='<div style="background:'+(darkMode?'#2a2a2a':'#f7f5f2')+';padding:10px 16px 12px 21px;border-top:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
+        html+='<div style="font-size:13px;line-height:1.6;color:'+(darkMode?'#bbb':'#555')+'">'+esc(note)+'</div>';
+        html+='</div>';
+      }
+      html+='</div>';
     });
   });
   html+='</div>';
   list.innerHTML=html;
+}
+function hlSetFilter(filter){
+  _savedFilter=filter;
+  var isKo=langOrder==='ko-en';
+  var hlData=hlLoad(),notesData=notesLoad();
+  // Update filter button styles
+  var dm=darkMode;
+  document.querySelectorAll('.saved-filter-btn').forEach(function(btn){
+    var active=btn.dataset.filter===filter;
+    btn.style.background=active?(dm?'#e8e5e0':'#1b2a4a'):(dm?'#2a2a2a':'#efecea');
+    btn.style.color=active?(dm?'#1a1a1a':'#fff'):(dm?'#aaa':'#555');
+  });
+  hlRenderSaved(hlData,notesData,filter);
+}
+function hlOpenSaved(){
+  var hlData=hlLoad();
+  var notesData=notesLoad();
+  var isKo=langOrder==='ko-en';
+  var title=isKo?'저장된 구절 / Saved':'Saved / 저장된 구절';
+  var titleEl=document.getElementById('saved-title');
+  if(titleEl){titleEl.textContent=title;titleEl.style.color=darkMode?'#e8e5e0':'#1c1c1c';}
+  // Render filter tabs
+  var allLabel=isKo?'전체':'All';
+  var hlLabel=isKo?'하이라이트':'Highlights';
+  var notesLabel2=isKo?'노트':'Notes';
+  var dm=darkMode;
+  var filtersHTML='';
+  [{f:'all',l:allLabel},{f:'highlights',l:hlLabel},{f:'notes',l:notesLabel2}].forEach(function(item){
+    var active=_savedFilter===item.f;
+    filtersHTML+='<button class="saved-filter-btn" data-filter="'+item.f+'" onclick="hlSetFilter(\''+item.f+'\')" style="'
+      +'background:'+(active?(dm?'#e8e5e0':'#1b2a4a'):(dm?'#2a2a2a':'#efecea'))+';'
+      +'color:'+(active?(dm?'#1a1a1a':'#fff'):(dm?'#aaa':'#555'))+';'
+      +'border:none;border-radius:20px;font:600 12px inherit;padding:7px 16px;cursor:pointer;letter-spacing:.01em">'
+      +item.l+'</button>';
+  });
+  document.getElementById('saved-filters').innerHTML=filtersHTML;
+  hlRenderSaved(hlData,notesData,_savedFilter);
   var overlay=document.getElementById('saved-modal');
   overlay.style.transform='';overlay.style.transition='';
   overlay.classList.remove('hidden');
@@ -1932,6 +1974,7 @@ document.addEventListener('keydown',function(e){if(e.target.tagName==='SELECT'||
     </button>
     <span style="font-size:15px;font-weight:600;color:#1c1c1c;flex:1" id="saved-title">저장된 구절 / Saved</span>
   </div>
+  <div id="saved-filters" style="display:flex;gap:8px;padding:0 16px 12px;flex-shrink:0"></div>
   <div id="saved-list" style="flex:1;overflow-y:auto;overscroll-behavior:contain"></div>
 </div>
 <div class="edge-nav left"><button class="edge-btn" id="edge-bp" onclick="step(-1)" disabled>&#8249;</button></div>
