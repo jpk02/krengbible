@@ -256,7 +256,7 @@ body.dark .intro-map-legend-name span{color:#e8e5e0!important}
 body.dark .intro-map-legend-desc{color:#e8e5e0}
 /* #6: Tab bar — remove full-width border, keep only active underline */
 .ch-tabs{display:flex;gap:0;padding:0 0 0 20px;flex-shrink:0;border-bottom:none}
-.ch-tab{background:none;border:none;font:500 13px inherit;color:#999;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;touch-action:manipulation}
+.ch-tab{background:none;border:none;font:600 11px inherit;color:#999;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;touch-action:manipulation;letter-spacing:.01em}
 .ch-tab.active{color:#1b2a4a;border-bottom:2px solid #1b2a4a}
 body.dark .ch-tab.active{color:#e8e5e0;border-bottom-color:#e8e5e0}
 /* #1: Commentary — plain text, no selectable blocks */
@@ -306,7 +306,7 @@ body.dark .votd-secondary{color:#e8e5e0!important}
 .votd-read-btn:active{opacity:.85}
 body.dark .votd-read-btn{background:#2a3d66}
 .verse-row.hl-selected .vt{text-decoration:underline;text-decoration-style:dashed;text-decoration-color:#888;text-decoration-thickness:2px;text-underline-offset:4px}
-.hl-bar{position:fixed;bottom:0;left:0;right:0;z-index:1200;background:#fff;border-top:1px solid #e8e5e0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;gap:12px;transform:translateY(100%);transition:transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94);pointer-events:none}
+.hl-bar{position:fixed;bottom:0;left:0;right:0;z-index:1200;background:#fff;border-top:1px solid #e8e5e0;padding:16px 16px 4px;display:flex;align-items:center;justify-content:space-between;gap:12px;transform:translateY(100%);transition:transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94);pointer-events:none}
 .hl-bar.visible{transform:translateY(0);pointer-events:auto}
 body.dark .hl-bar{background:#1e1e1e;border-top-color:#333}
 .hl-bar-handle{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:4px;background:#d8d4ce;border-radius:2px}
