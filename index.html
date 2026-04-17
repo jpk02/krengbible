@@ -1047,6 +1047,9 @@ function render(koData,esvData,bk,ch){
   document.addEventListener('click',function(e){if(!e.target.classList.contains('fn-ref'))hideFnPopup();});
 })();
 var HL_KEY='krengbible_hl',hlSelected=null;
+var VT_KEY='krengbible_vt';
+function vtLoad(){try{return JSON.parse(localStorage.getItem(VT_KEY)||'{}');}catch(e){return {};}}
+function vtSave(d){try{localStorage.setItem(VT_KEY,JSON.stringify(d));}catch(e){}}
 
 function hlOpenSaved(){
   var hlData=hlLoad();
@@ -1088,14 +1091,17 @@ function hlOpenSaved(){
       var bk2=BOOKS[bI];if(!bk2)return;
       var ref=isKo?bk2.ko+' '+ch+':'+v:bk2.en+' '+ch+':'+v;
       var color=hlData[k];
-      var accentColor=color?colorMap[color]:(darkMode?'#3a3a3a':'#e0ddd8');
+      var vt=vtLoad()[k]||null;
+      var verseText=vt?(isKo?vt.ko:vt.en):'';
+      var accentColor=color?colorMap[color]:'#e0ddd8';
       html+='<div onclick="hlJumpTo('+bI+','+ch+','+v+')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
-      html+='<div style="display:flex;gap:0">';
+      html+='<div style="display:flex">';
       html+='<div style="width:5px;min-width:5px;background:'+accentColor+'"></div>';
       html+='<div style="padding:14px 16px;flex:1;min-width:0">';
-      html+='<div style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(ref);
-      if(color)html+=' · <span style="color:'+colorMap[color]+'">●</span>';
-      html+='</div>';
+      if(verseText){
+        html+='<div style="font-size:15px;line-height:1.8;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';'+(isKo?'font-family:\'Noto Sans KR\',sans-serif;word-break:keep-all;':'')+' margin-bottom:8px">'+esc(verseText)+'</div>';
+      }
+      html+='<div style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(ref)+'</div>';
       html+='</div></div>';
       html+='</div>';
     });
@@ -1182,7 +1188,17 @@ function hlApply(color){
   var n=hlSelected.id.replace('vr-',''),k=hlKey(bi,ci,n),data=hlLoad();
   var current=data[k]||null;
   if(color&&color===current)color=null;
-  if(color)data[k]=color;else delete data[k];
+  if(color){
+    data[k]=color;
+    // Cache verse text for saved window
+    var vtData=vtLoad();
+    var koEl=hlSelected.querySelector('.ko-side .vt');
+    var enEl=hlSelected.querySelector('.en-side .vt');
+    vtData[k]={ko:koEl?koEl.textContent.trim():'',en:enEl?enEl.textContent.trim():''};
+    vtSave(vtData);
+  } else {
+    delete data[k];
+  }
   hlSave(data);
   hlSelected.classList.remove('hl-y','hl-g','hl-b','hl-p','hl-r');
   if(color)hlSelected.classList.add('hl-'+color);
