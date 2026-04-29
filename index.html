@@ -1763,6 +1763,16 @@ if(window.visualViewport){
     // Add extra buffer for iOS autocomplete bar + pill (approx 50px)
     searchResults.style.paddingBottom=keyboardHeight>50?(keyboardHeight+50)+'px':'8px';
   });
+  // Keep hl-bar above Safari URL bar
+  function positionHlBar(){
+    var bar=document.getElementById('hl-bar');
+    if(!bar)return;
+    var vv=window.visualViewport;
+    var bottomOffset=window.innerHeight-(vv.offsetTop+vv.height);
+    bar.style.bottom=Math.max(0,bottomOffset)+'px';
+  }
+  window.visualViewport.addEventListener('resize',positionHlBar);
+  window.visualViewport.addEventListener('scroll',positionHlBar);
 }
 document.addEventListener('keydown',function(e){if(e.target.tagName==='SELECT'||e.target.id==='passage-input'||e.target.id==='search-input')return;if(e.key==='ArrowRight')step(1);if(e.key==='ArrowLeft')step(-1);});
 </script>
