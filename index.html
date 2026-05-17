@@ -405,7 +405,97 @@ header{display:none!important}
 .mob-sheet{align-items:flex-end!important}
 .mob-sheet-inner{border-radius:16px 16px 0 0!important;max-height:85vh!important;max-width:100%!important}
 .prog-chapters{grid-template-columns:repeat(6,1fr)!important}
+/* Auth modal */
+.auth-overlay{position:fixed;inset:0;z-index:1500;background:var(--bg);display:flex;flex-direction:column}
+.auth-overlay.hidden{display:none}
+.auth-wrap{flex:1;overflow-y:auto;padding:20px;max-width:480px;margin:0 auto;width:100%}
+.auth-blurb{font-size:14px;color:#555;line-height:1.5;margin-bottom:22px}
+body.dark .auth-blurb{color:#999}
+.auth-label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#555;margin-bottom:6px}
+body.dark .auth-label{color:#999}
+.auth-input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #d8d4ce;background:#efecea;font:15px inherit;color:#111;outline:none;margin-bottom:14px}
+.auth-input:focus{border-color:#1b2a4a;background:#fff}
+body.dark .auth-input{background:#2a2a2a;border-color:#444;color:#e8e5e0}
+body.dark .auth-input:focus{border-color:#8899bb}
+.auth-btn{width:100%;padding:13px;border-radius:10px;border:none;background:#1b2a4a;color:#fff;font:600 15px inherit;cursor:pointer;margin-top:8px}
+.auth-btn:disabled{opacity:.5}
+body.dark .auth-btn{background:#2a3d66}
+.auth-link{background:none;border:none;color:#1b2a4a;font:500 13px inherit;cursor:pointer;padding:0;text-decoration:underline}
+body.dark .auth-link{color:#8899bb}
+.auth-err{color:#dc2626;font-size:13px;margin-top:10px}
+.auth-info{color:#1b2a4a;font-size:13px;margin-top:10px}
+body.dark .auth-info{color:#8899bb}
+.auth-card{background:#fff;border:1px solid #e8e5e0;border-radius:12px;padding:16px;margin-bottom:14px}
+body.dark .auth-card{background:#242424;border-color:#333}
+.auth-card-email{font-size:14px;font-weight:600;color:#1c1c1c;margin-bottom:4px}
+body.dark .auth-card-email{color:#e8e5e0}
+.auth-card-status{display:flex;align-items:center;gap:6px;font-size:12px;color:#999;margin-bottom:12px}
+body.dark .auth-card-status{color:#888}
+.auth-status-dot{width:7px;height:7px;border-radius:4px}
+.auth-row{display:flex;gap:8px;margin-top:10px}
+.auth-row-btn{flex:1;padding:10px;border-radius:8px;border:1px solid #d8d4ce;background:transparent;font:500 13px inherit;cursor:pointer;color:#111}
+.auth-row-btn.danger{border-color:#dc2626;color:#dc2626}
+body.dark .auth-row-btn{border-color:#444;color:#e8e5e0}
+body.dark .auth-row-btn.danger{border-color:#f87171;color:#f87171}
 </style>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, onAuthStateChanged, sendPasswordResetEmail, sendEmailVerification,
+  deleteUser, EmailAuthProvider, reauthenticateWithCredential,
+  setPersistence, browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCrIbFW4Yt_AVid0Zw3JEDgJYI_G2w6JOM",
+  authDomain: "krengbible.firebaseapp.com",
+  projectId: "krengbible",
+  storageBucket: "krengbible.firebasestorage.app",
+  messagingSenderId: "871488415040",
+  appId: "1:871488415040:web:9ec46e06b12741ae2346a5"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const fbAuth = getAuth(fbApp);
+const fbDB = getFirestore(fbApp);
+setPersistence(fbAuth, browserLocalPersistence).catch(() => undefined);
+
+window.fbAuth = fbAuth;
+window.fbDB = fbDB;
+window.fbCurrentUser = null;
+window.fb = {
+  signIn: (email, pwd) => signInWithEmailAndPassword(fbAuth, email, pwd),
+  signUp: async (email, pwd) => {
+    const c = await createUserWithEmailAndPassword(fbAuth, email, pwd);
+    sendEmailVerification(c.user).catch(() => undefined);
+    return c;
+  },
+  signOut: () => signOut(fbAuth),
+  resetPassword: (email) => sendPasswordResetEmail(fbAuth, email),
+  resendVerification: () => fbAuth.currentUser
+    ? sendEmailVerification(fbAuth.currentUser)
+    : Promise.reject(new Error('Not signed in')),
+  deleteAccount: async (password) => {
+    const u = fbAuth.currentUser;
+    if (!u) throw new Error('Not signed in');
+    if (password && u.email) {
+      const cred = EmailAuthProvider.credential(u.email, password);
+      await reauthenticateWithCredential(u, cred);
+    }
+    return deleteUser(u);
+  },
+  collection, doc, getDocs, setDoc, deleteDoc, onSnapshot
+};
+
+onAuthStateChanged(fbAuth, (user) => {
+  window.fbCurrentUser = user;
+  if (window.onFbAuthChange) window.onFbAuthChange(user);
+});
+</script>
 </head>
 <body>
 <header><div class="logo"><span>krengbible.com</span></div></header>
@@ -428,7 +518,7 @@ header{display:none!important}
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
     </button>
     <button class="desk-icon-btn" onclick="sheetOpen('progress')" title="읽기 진도">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
     </button>
   </div>
   <div class="mob-nav">
@@ -462,11 +552,15 @@ header{display:none!important}
           </button>
           <button class="more-menu-item" onclick="sheetOpen('progress');toggleMoreMenu()">
             <span id="menu-prog-label">읽기 진도 / Progress</span>
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
           </button>
           <button class="more-menu-item" onclick="hlOpenSaved();toggleMoreMenu()">
             <span id="menu-saved-label">저장된 구절 / Saved</span>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+          </button>
+          <button class="more-menu-item" onclick="authOpen();toggleMoreMenu()">
+            <span id="menu-account-label">계정 / Account</span>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </button>
         </div>
       </div>
@@ -541,8 +635,8 @@ let bi=42,ci=3,fs=15,pendingBook=null,loaded=false,langOrder="ko-en",darkMode=fa
     document.body.classList.add('dark');
   }
   applyFs();
-  document.getElementById('fminus').addEventListener('click',()=>{fs=Math.max(11,fs-1);applyFs();});
-  document.getElementById('fplus').addEventListener('click',()=>{fs=Math.min(22,fs+1);applyFs();});
+  document.getElementById('fminus').addEventListener('click',()=>{fs=Math.max(11,fs-1);applyFs();if(typeof fbPushSettings==='function')fbPushSettings();});
+  document.getElementById('fplus').addEventListener('click',()=>{fs=Math.min(22,fs+1);applyFs();if(typeof fbPushSettings==='function')fbPushSettings();});
   const inp=document.getElementById('passage-input');
   if(inp) inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();parseAndLoad(inp.value.trim());}});
   updateLabel();
@@ -649,6 +743,7 @@ function toggleLangOrder(btn){
     if(progView==='overview')progShowOverview();
     else if(pendingBook===null)sheetOpen('passage');
   }
+  if(typeof fbPushSettings==='function') fbPushSettings();
 }
 function applyLangOrder(){
   var sid='lang-order-style',ex=document.getElementById(sid);if(ex)ex.remove();
@@ -664,16 +759,18 @@ function toggleDark(){
   darkMode=!darkMode;
   document.body.classList.toggle('dark',darkMode);
   localStorage.setItem('krengbible_dark',darkMode?'1':'0');
+  if(typeof fbPushSettings==='function') fbPushSettings();
 }
 var PROGRESS_KEY='krengbible_progress';
 function progLoad(){try{return JSON.parse(localStorage.getItem(PROGRESS_KEY)||'{}');}catch(e){return {};}}
 function progSave(d){try{localStorage.setItem(PROGRESS_KEY,JSON.stringify(d));}catch(e){}}
 function progKey(b,c){return b+'_'+c;}
-function progMarkRead(b,c,src){var d=progLoad(),k=progKey(b,c);if(!d[k]){d[k]={date:new Date().toISOString().slice(0,10),source:src};progSave(d);}}
+function progMarkRead(b,c,src){var d=progLoad(),k=progKey(b,c);if(!d[k]){d[k]={date:new Date().toISOString().slice(0,10),source:src};progSave(d);if(typeof stampProg==='function'){stampProg(k);fbPushProgress(k);}}}
 function progToggleManual(b,c){
   var d=progLoad(),k=progKey(b,c);
   if(d[k])delete d[k];else d[k]={date:new Date().toISOString().slice(0,10),source:'manual'};
   progSave(d);
+  if(typeof stampProg==='function'){stampProg(k);fbPushProgress(k);}
   var grid=document.getElementById('prog-ch-'+b);
   if(grid&&grid.style.display!=='none'){
     var bk=BOOKS[b],data=progLoad(),h='';
@@ -939,7 +1036,7 @@ function sheetSelectBook(idx){
 }
 function sheetSelectCh(ch){bi=pendingBook;ci=ch;loaded=true;sheetClose();updateLabel();load();}
 function sheetClose(){document.getElementById('mob-sheet').classList.add('hidden');pendingBook=null;}
-function adjFont(d){fs=Math.min(22,Math.max(11,fs+d));applyFs();var p=document.querySelector('.mob-font-preview');if(p)p.textContent='가 Aa — '+fs+'px';}
+function adjFont(d){fs=Math.min(22,Math.max(11,fs+d));applyFs();var p=document.querySelector('.mob-font-preview');if(p)p.textContent='가 Aa — '+fs+'px';if(typeof fbPushSettings==='function')fbPushSettings();}
 async function load(){
   var bk=BOOKS[bi];
   var ebp=document.getElementById('edge-bp');if(ebp)ebp.disabled=(bi===0&&ci===1);
@@ -950,6 +1047,7 @@ async function load(){
   if(er.status==='rejected'){document.getElementById('content').innerHTML='<div class="errbox"><b>ESV Error:</b> '+esc(er.reason?.message||'Failed')+'</div>';return;}
   render(kr.value,er.value,bk,ci);
   loaded=true;document.getElementById('main').scrollTop=0;updateLabel();
+  if(typeof fbPushPosition==='function') fbPushPosition();
   // Re-enable scrolling for chapter reading
   var mainEl=document.getElementById('main');
   if(mainEl)mainEl.style.overflowY='';
@@ -958,13 +1056,19 @@ async function load(){
   var footer=document.getElementById('main-footer');
   if(footer)footer.innerHTML='개역개정판 &copy; 대한성서공회 &nbsp;&middot;&nbsp; ESV&reg; &copy; 2001 Crossway &middot; <a href="https://www.esv.org" target="_blank" style="color:#bbb">esv.org</a> &middot; Used by permission';
 }
+function reorderKoFn(v){
+  if(!v||typeof v.text!=='string')return v;
+  return Object.assign({}, v, {text: v.text
+    .replace(/^\(KN:(\d+)\)(\S+)/, '$2(KN:$1)')
+    .replace(/(\s)\(KN:(\d+)\)(\S+)/g, '$1$3(KN:$2)')});
+}
 async function fetchKo(bk,ch){
   var r=await fetch(WORKER+'/nkrv/'+bk.n+'/'+ch);
   if(!r.ok)throw new Error('Worker error '+r.status);
   var d=await r.json();if(d.error)throw new Error(d.error);
-  if(Array.isArray(d))return{verses:d,footnotes:{}};
+  if(Array.isArray(d))return{verses:d.map(reorderKoFn),footnotes:{}};
   if(!d.verses||d.verses.length===0)throw new Error('No verses');
-  return{verses:d.verses,footnotes:d.footnotes||{}};
+  return{verses:d.verses.map(reorderKoFn),footnotes:d.footnotes||{}};
 }
 async function fetchEsv(bk,ch){
   var esvQ=bk.en+' '+ch;if(bk.ch===1)esvQ=bk.en+' 1:1-999';
@@ -1221,6 +1325,7 @@ function hlApply(color){
   if(hlSelectedSet.size===0&&!hlSelected)return;
   var rows=hlSelectedSet.size>0?hlSelectedSet:new Set([hlSelected]);
   var data=hlLoad();
+  var changedKeys=[];
   rows.forEach(function(row){
     var n=row.id.replace('vr-',''),k=hlKey(bi,ci,n);
     var current=data[k]||null;
@@ -1237,9 +1342,12 @@ function hlApply(color){
     }
     row.classList.remove('hl-y','hl-g','hl-b','hl-p','hl-r');
     if(newColor)row.classList.add('hl-'+newColor);
+    if(typeof stampHl==='function') stampHl(k);
+    changedKeys.push(k);
   });
   hlSave(data);
   hlHideToolbar();
+  if(typeof fbPushHighlight==='function') changedKeys.forEach(fbPushHighlight);
 }
 var hlSelectedSet=new Set(); // tracks all selected verse rows
 
@@ -1834,6 +1942,489 @@ if(window.visualViewport){
   window.visualViewport.addEventListener('scroll',positionHlBar);
 }
 document.addEventListener('keydown',function(e){if(e.target.tagName==='SELECT'||e.target.id==='passage-input'||e.target.id==='search-input')return;if(e.key==='ArrowRight')step(1);if(e.key==='ArrowLeft')step(-1);});
+
+// ============================================================
+// Firebase Auth + Sync
+// ============================================================
+var HL_TS_KEY='krengbible_hl_ts';
+var PROGRESS_TS_KEY='krengbible_progress_ts';
+var SETTINGS_TS_KEY='krengbible_settings_ts';
+var POSITION_TS_KEY='krengbible_position_ts';
+
+function hlTsLoad(){try{return JSON.parse(localStorage.getItem(HL_TS_KEY)||'{}');}catch(e){return {};}}
+function hlTsSave(d){try{localStorage.setItem(HL_TS_KEY,JSON.stringify(d));}catch(e){}}
+function progTsLoad(){try{return JSON.parse(localStorage.getItem(PROGRESS_TS_KEY)||'{}');}catch(e){return {};}}
+function progTsSave(d){try{localStorage.setItem(PROGRESS_TS_KEY,JSON.stringify(d));}catch(e){}}
+function settingsTsLoad(){return parseInt(localStorage.getItem(SETTINGS_TS_KEY)||'0',10)||0;}
+function settingsTsSave(t){localStorage.setItem(SETTINGS_TS_KEY, String(t));}
+function positionTsLoad(){return parseInt(localStorage.getItem(POSITION_TS_KEY)||'0',10)||0;}
+function positionTsSave(t){localStorage.setItem(POSITION_TS_KEY, String(t));}
+
+function stampHl(key){var t=hlTsLoad();t[key]=Date.now();hlTsSave(t);return t[key];}
+function stampProg(key){var t=progTsLoad();t[key]=Date.now();progTsSave(t);return t[key];}
+function stampSettings(){var t=Date.now();settingsTsSave(t);return t;}
+function stampPosition(){var t=Date.now();positionTsSave(t);return t;}
+
+var fbSyncUnsubs=[];
+var fbSyncSuppress=0;
+var fbActiveUid=null;
+
+function fbSuppress(fn){fbSyncSuppress++;try{return fn();}finally{fbSyncSuppress--;}}
+function fbIsSuppressed(){return fbSyncSuppress>0;}
+
+window.onFbAuthChange=function(user){
+  updateAuthUI();
+  if(user){ fbStartSync(user.uid); }
+  else{ fbStopSync(); }
+};
+
+async function fbStartSync(uid){
+  if(!window.fbDB) return;
+  if(fbActiveUid===uid) return;
+  if(fbActiveUid) fbStopSync();
+  fbActiveUid=uid;
+  try{
+    await fbMergeHighlights(uid);
+    await fbMergeProgress(uid);
+    await fbMergeSettings(uid);
+    await fbMergePosition(uid);
+  }catch(e){ console.warn('Sync merge failed:', e); }
+  fbSyncUnsubs.push(fbListenHighlights(uid));
+  fbSyncUnsubs.push(fbListenProgress(uid));
+  fbSyncUnsubs.push(fbListenSettings(uid));
+  fbSyncUnsubs.push(fbListenPosition(uid));
+}
+
+function fbStopSync(){
+  fbSyncUnsubs.forEach(u=>{try{u();}catch(e){}});
+  fbSyncUnsubs=[];
+  fbActiveUid=null;
+}
+
+async function fbMergeHighlights(uid){
+  var fb=window.fb;
+  var snap=await fb.getDocs(fb.collection(window.fbDB,'users',uid,'highlights'));
+  var remote={};
+  snap.forEach(function(d){
+    var data=d.data();
+    remote[d.id]={color:data.color||null,ko:data.ko||'',en:data.en||'',ts:typeof data._updatedAt==='number'?data._updatedAt:0,deleted:data.deleted===true};
+  });
+  var localHl=hlLoad(), localVt=vtLoad(), localTs=hlTsLoad();
+  var allKeys=new Set([...Object.keys(remote),...Object.keys(localHl)]);
+  var nextHl={},nextVt={},nextTs={},pushes=[];
+  allKeys.forEach(function(k){
+    var r=remote[k];
+    var lTs=localTs[k]||0;
+    var lHas=k in localHl;
+    if(r && r.ts > lTs){
+      if(!r.deleted && r.color){ nextHl[k]=r.color; nextVt[k]={ko:r.ko,en:r.en}; }
+      nextTs[k]=r.ts;
+    } else if(lTs > (r?r.ts:0) || !r){
+      if(lHas){ nextHl[k]=localHl[k]; nextVt[k]=localVt[k]||{ko:'',en:''}; }
+      nextTs[k]=lTs;
+      pushes.push({key:k, payload: lHas ? {color:localHl[k],ko:(localVt[k]||{}).ko||'',en:(localVt[k]||{}).en||'',_updatedAt:lTs} : {deleted:true,_updatedAt:lTs}});
+    } else {
+      if(r && !r.deleted && r.color){ nextHl[k]=r.color; nextVt[k]={ko:r.ko,en:r.en}; }
+      else if(lHas){ nextHl[k]=localHl[k]; nextVt[k]=localVt[k]||{ko:'',en:''}; }
+      nextTs[k]=Math.max(lTs,(r?r.ts:0));
+    }
+  });
+  fbSuppress(function(){ hlSave(nextHl); vtSave(nextVt); hlTsSave(nextTs); });
+  if(typeof hlApplyAll==='function') hlApplyAll();
+  await Promise.all(pushes.map(function(p){
+    return fb.setDoc(fb.doc(window.fbDB,'users',uid,'highlights',p.key), p.payload).catch(function(){});
+  }));
+}
+
+async function fbMergeProgress(uid){
+  var fb=window.fb;
+  var snap=await fb.getDocs(fb.collection(window.fbDB,'users',uid,'progress'));
+  var remote={};
+  snap.forEach(function(d){
+    var data=d.data();
+    remote[d.id]={date:data.date,source:data.source||'manual',ts:typeof data._updatedAt==='number'?data._updatedAt:0,deleted:data.deleted===true};
+  });
+  var localProg=progLoad(), localTs=progTsLoad();
+  var allKeys=new Set([...Object.keys(remote),...Object.keys(localProg)]);
+  var nextProg={},nextTs={},pushes=[];
+  allKeys.forEach(function(k){
+    var r=remote[k];
+    var lTs=localTs[k]||0;
+    var lHas=k in localProg;
+    if(r && r.ts > lTs){
+      if(!r.deleted && r.date) nextProg[k]={date:r.date,source:r.source};
+      nextTs[k]=r.ts;
+    } else if(lTs > (r?r.ts:0) || !r){
+      if(lHas) nextProg[k]=localProg[k];
+      nextTs[k]=lTs;
+      pushes.push({key:k, payload: lHas ? Object.assign({},localProg[k],{_updatedAt:lTs}) : {deleted:true,_updatedAt:lTs}});
+    } else {
+      if(r && !r.deleted && r.date) nextProg[k]={date:r.date,source:r.source};
+      else if(lHas) nextProg[k]=localProg[k];
+      nextTs[k]=Math.max(lTs,(r?r.ts:0));
+    }
+  });
+  fbSuppress(function(){ progSave(nextProg); progTsSave(nextTs); });
+  await Promise.all(pushes.map(function(p){
+    return fb.setDoc(fb.doc(window.fbDB,'users',uid,'progress',p.key), p.payload).catch(function(){});
+  }));
+}
+
+async function fbMergeSettings(uid){
+  var fb=window.fb;
+  var snap=await fb.getDocs(fb.collection(window.fbDB,'users',uid,'meta'));
+  var docData=null;
+  snap.forEach(function(d){ if(d.id==='settings') docData=d.data(); });
+  var lTs=settingsTsLoad();
+  if(docData){
+    var rTs=typeof docData._updatedAt==='number'?docData._updatedAt:0;
+    if(rTs > lTs){
+      fbSuppress(function(){ fbApplyRemoteSettings(docData); settingsTsSave(rTs); });
+      return;
+    }
+  }
+  fb.setDoc(fb.doc(window.fbDB,'users',uid,'meta','settings'), {
+    theme: darkMode?'dark':'light', fontSize: fs, langOrder: langOrder, _updatedAt: lTs
+  }).catch(function(){});
+}
+
+async function fbMergePosition(uid){
+  var fb=window.fb;
+  var snap=await fb.getDocs(fb.collection(window.fbDB,'users',uid,'meta'));
+  var docData=null;
+  snap.forEach(function(d){ if(d.id==='position') docData=d.data(); });
+  var lTs=positionTsLoad();
+  if(docData){
+    var rTs=typeof docData._updatedAt==='number'?docData._updatedAt:0;
+    if(rTs > lTs && typeof docData.bookIndex==='number' && typeof docData.chapter==='number'){
+      fbSuppress(function(){ bi=docData.bookIndex; ci=docData.chapter; positionTsSave(rTs); updateLabel(); });
+      return;
+    }
+  }
+  if(loaded){
+    fb.setDoc(fb.doc(window.fbDB,'users',uid,'meta','position'), {bookIndex:bi, chapter:ci, _updatedAt:lTs}).catch(function(){});
+  }
+}
+
+function fbApplyRemoteSettings(data){
+  if(typeof data.theme==='string'){
+    var newDark=data.theme==='dark';
+    if(darkMode!==newDark){
+      darkMode=newDark;
+      document.body.classList.toggle('dark', darkMode);
+      localStorage.setItem('krengbible_dark', darkMode?'1':'0');
+    }
+  }
+  if(typeof data.fontSize==='number'){
+    fs=Math.max(11, Math.min(22, data.fontSize));
+    applyFs();
+  }
+  if(data.langOrder && (data.langOrder==='ko-en' || data.langOrder==='en-ko') && langOrder!==data.langOrder){
+    langOrder=data.langOrder;
+    applyLangOrder();
+    updateLabel();
+    var deskBtn=document.getElementById('desk-lang-btn');
+    if(deskBtn) deskBtn.textContent=langOrder==='ko-en'?'한':'Eng';
+    var mobLangText=document.getElementById('mob-lang-text');
+    if(mobLangText) mobLangText.textContent=langOrder==='ko-en'?'한':'Eng';
+  }
+}
+
+function fbListenHighlights(uid){
+  var fb=window.fb;
+  return fb.onSnapshot(fb.collection(window.fbDB,'users',uid,'highlights'), function(snap){
+    if(snap.metadata.hasPendingWrites) return;
+    fbSuppress(function(){
+      snap.docChanges().forEach(function(change){
+        var id=change.doc.id;
+        var data=change.doc.data();
+        var rTs=typeof data._updatedAt==='number'?data._updatedAt:0;
+        var localTs=hlTsLoad();
+        var lTs=localTs[id]||0;
+        if(rTs <= lTs) return;
+        var hl=hlLoad(), vt=vtLoad();
+        localTs[id]=rTs;
+        if(change.type==='removed' || data.deleted===true){
+          delete hl[id]; hlSave(hl); hlTsSave(localTs);
+        } else if(data.color){
+          hl[id]=data.color;
+          vt[id]={ko:data.ko||'', en:data.en||''};
+          hlSave(hl); vtSave(vt); hlTsSave(localTs);
+        }
+      });
+      if(typeof hlApplyAll==='function') hlApplyAll();
+    });
+  });
+}
+
+function fbListenProgress(uid){
+  var fb=window.fb;
+  return fb.onSnapshot(fb.collection(window.fbDB,'users',uid,'progress'), function(snap){
+    if(snap.metadata.hasPendingWrites) return;
+    fbSuppress(function(){
+      snap.docChanges().forEach(function(change){
+        var id=change.doc.id;
+        var data=change.doc.data();
+        var rTs=typeof data._updatedAt==='number'?data._updatedAt:0;
+        var localTs=progTsLoad();
+        var lTs=localTs[id]||0;
+        if(rTs <= lTs) return;
+        var prog=progLoad();
+        localTs[id]=rTs;
+        if(change.type==='removed' || data.deleted===true){
+          delete prog[id]; progSave(prog); progTsSave(localTs);
+        } else if(data.date){
+          prog[id]={date:data.date,source:data.source||'manual'};
+          progSave(prog); progTsSave(localTs);
+        }
+      });
+      if(!document.getElementById('mob-sheet').classList.contains('hidden') && progView==='overview'){
+        progShowOverview();
+      }
+    });
+  });
+}
+
+function fbListenSettings(uid){
+  var fb=window.fb;
+  return fb.onSnapshot(fb.doc(window.fbDB,'users',uid,'meta','settings'), function(snap){
+    if(snap.metadata.hasPendingWrites) return;
+    var data=snap.data(); if(!data) return;
+    var rTs=typeof data._updatedAt==='number'?data._updatedAt:0;
+    var lTs=settingsTsLoad();
+    if(rTs <= lTs) return;
+    fbSuppress(function(){ fbApplyRemoteSettings(data); settingsTsSave(rTs); });
+  });
+}
+
+function fbListenPosition(uid){
+  var fb=window.fb;
+  return fb.onSnapshot(fb.doc(window.fbDB,'users',uid,'meta','position'), function(snap){
+    if(snap.metadata.hasPendingWrites) return;
+    var data=snap.data(); if(!data) return;
+    var rTs=typeof data._updatedAt==='number'?data._updatedAt:0;
+    var lTs=positionTsLoad();
+    if(rTs <= lTs) return;
+    if(typeof data.bookIndex!=='number' || typeof data.chapter!=='number') return;
+    fbSuppress(function(){
+      bi=data.bookIndex; ci=data.chapter;
+      positionTsSave(rTs);
+      updateLabel();
+    });
+  });
+}
+
+function fbPushHighlight(key){
+  if(fbIsSuppressed() || !fbActiveUid || !window.fb) return;
+  var hl=hlLoad(), vt=vtLoad(), ts=hlTsLoad();
+  var t=ts[key]||Date.now();
+  ts[key]=t; hlTsSave(ts);
+  if(key in hl){
+    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'highlights',key), {
+      color:hl[key], ko:(vt[key]||{}).ko||'', en:(vt[key]||{}).en||'', _updatedAt:t
+    }).catch(function(){});
+  } else {
+    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'highlights',key), {deleted:true,_updatedAt:t}).catch(function(){});
+  }
+}
+
+function fbPushProgress(key){
+  if(fbIsSuppressed() || !fbActiveUid || !window.fb) return;
+  var prog=progLoad(), ts=progTsLoad();
+  var t=ts[key]||Date.now();
+  ts[key]=t; progTsSave(ts);
+  if(key in prog){
+    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'progress',key), Object.assign({},prog[key],{_updatedAt:t})).catch(function(){});
+  } else {
+    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'progress',key), {deleted:true,_updatedAt:t}).catch(function(){});
+  }
+}
+
+var _fbSettingsTimer=null;
+function fbPushSettings(){
+  if(fbIsSuppressed() || !fbActiveUid || !window.fb) return;
+  clearTimeout(_fbSettingsTimer);
+  _fbSettingsTimer=setTimeout(function(){
+    var t=stampSettings();
+    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'meta','settings'), {
+      theme: darkMode?'dark':'light', fontSize: fs, langOrder: langOrder, _updatedAt: t
+    }).catch(function(){});
+  }, 500);
+}
+
+var _fbPositionTimer=null;
+function fbPushPosition(){
+  if(fbIsSuppressed() || !fbActiveUid || !window.fb) return;
+  clearTimeout(_fbPositionTimer);
+  _fbPositionTimer=setTimeout(function(){
+    var t=stampPosition();
+    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'meta','position'), {
+      bookIndex:bi, chapter:ci, _updatedAt: t
+    }).catch(function(){});
+  }, 1000);
+}
+
+// ---------- Auth UI ----------
+function updateAuthUI(){
+  var user=window.fbCurrentUser;
+  var so=document.getElementById('auth-signed-out');
+  var si=document.getElementById('auth-signed-in');
+  if(!so || !si) return;
+  if(user){
+    so.style.display='none'; si.style.display='block';
+    document.getElementById('auth-card-email').textContent=user.email||'';
+    var dot=document.getElementById('auth-status-dot');
+    var txt=document.getElementById('auth-status-text');
+    var rb=document.getElementById('auth-resend-btn');
+    if(user.emailVerified){
+      dot.style.background='#16a34a';
+      txt.textContent='Signed in & verified';
+      if(rb) rb.style.display='none';
+    } else {
+      dot.style.background='#eab308';
+      txt.textContent='Email not verified';
+      if(rb) rb.style.display='';
+    }
+  } else {
+    so.style.display='block'; si.style.display='none';
+  }
+}
+
+var _authMode='signin';
+function authOpen(){
+  document.getElementById('auth-modal').classList.remove('hidden');
+  authShowSignIn();
+  updateAuthUI();
+}
+function authClose(){
+  document.getElementById('auth-modal').classList.add('hidden');
+  document.getElementById('auth-err').textContent='';
+  document.getElementById('auth-info').textContent='';
+  document.getElementById('auth-email').value='';
+  document.getElementById('auth-password').value='';
+}
+function authShowSignIn(){
+  _authMode='signin';
+  document.getElementById('auth-submit-btn').textContent='Sign in';
+  document.getElementById('auth-pwd-label').style.display='';
+  document.getElementById('auth-password').style.display='';
+  document.getElementById('auth-link-reset').style.display='';
+  document.getElementById('auth-link-signup').style.display='';
+  document.getElementById('auth-link-signin').style.display='none';
+  document.getElementById('auth-link-back').style.display='none';
+  document.getElementById('auth-blurb').textContent='Sign in to sync highlights, progress, and your current chapter across all your devices (web and mobile app).';
+}
+function authShowSignUp(){
+  _authMode='signup';
+  document.getElementById('auth-submit-btn').textContent='Create account';
+  document.getElementById('auth-pwd-label').style.display='';
+  document.getElementById('auth-password').style.display='';
+  document.getElementById('auth-link-reset').style.display='none';
+  document.getElementById('auth-link-signup').style.display='none';
+  document.getElementById('auth-link-signin').style.display='';
+  document.getElementById('auth-link-back').style.display='none';
+  document.getElementById('auth-blurb').textContent='Create an account to sync your data across devices. Your existing local highlights and progress will be uploaded.';
+}
+function authShowReset(){
+  _authMode='reset';
+  document.getElementById('auth-submit-btn').textContent='Send reset email';
+  document.getElementById('auth-pwd-label').style.display='none';
+  document.getElementById('auth-password').style.display='none';
+  document.getElementById('auth-link-reset').style.display='none';
+  document.getElementById('auth-link-signup').style.display='none';
+  document.getElementById('auth-link-signin').style.display='none';
+  document.getElementById('auth-link-back').style.display='';
+  document.getElementById('auth-blurb').textContent='Enter your email and we will send you a link to reset your password.';
+}
+
+function authSubmit(){
+  var email=document.getElementById('auth-email').value.trim();
+  var pwd=document.getElementById('auth-password').value;
+  var err=document.getElementById('auth-err');
+  var info=document.getElementById('auth-info');
+  err.textContent=''; info.textContent='';
+  if(!email){ err.textContent='Email is required.'; return; }
+  if(_authMode!=='reset' && pwd.length<6){ err.textContent='Password must be at least 6 characters.'; return; }
+  if(!window.fb){ err.textContent='Firebase not loaded yet — try again.'; return; }
+  var btn=document.getElementById('auth-submit-btn');
+  btn.disabled=true;
+  var orig=btn.textContent; btn.textContent='Working…';
+  var p;
+  if(_authMode==='signin') p=window.fb.signIn(email,pwd);
+  else if(_authMode==='signup') p=window.fb.signUp(email,pwd);
+  else p=window.fb.resetPassword(email);
+  p.then(function(){
+    btn.disabled=false; btn.textContent=orig;
+    if(_authMode==='reset'){ info.textContent='Check your inbox for a reset link.'; }
+    else { /* auth state change will refresh UI */ }
+  }).catch(function(e){
+    btn.disabled=false; btn.textContent=orig;
+    err.textContent=mapFbAuthErr(e.code, e.message);
+  });
+}
+
+function mapFbAuthErr(code, fallback){
+  var map={
+    'auth/invalid-email':'That email address looks invalid.',
+    'auth/user-not-found':'No account found for this email.',
+    'auth/wrong-password':'Wrong password.',
+    'auth/invalid-credential':'Email or password is incorrect.',
+    'auth/email-already-in-use':'An account already exists for this email.',
+    'auth/weak-password':'Password should be at least 6 characters.',
+    'auth/network-request-failed':'Network error. Check your connection.',
+    'auth/too-many-requests':'Too many attempts. Try again in a few minutes.'
+  };
+  return map[code] || fallback || 'Something went wrong.';
+}
+
+function authResend(){
+  if(!window.fb) return;
+  window.fb.resendVerification().then(function(){
+    alert('Verification email sent. Check your inbox.');
+  }).catch(function(e){
+    alert('Could not send: '+(e.message||'unknown error'));
+  });
+}
+
+function authDoSignOut(){
+  if(!window.fb) return;
+  window.fb.signOut().then(function(){
+    // updateAuthUI fires via onAuthStateChanged
+  }).catch(function(){});
+}
+
+function authDoDelete(){
+  if(!confirm('Permanently delete your account and all synced data? This cannot be undone.')) return;
+  var pwd=prompt('Re-enter your password to confirm:');
+  if(!pwd) return;
+  var uid=window.fbCurrentUser && window.fbCurrentUser.uid;
+  if(!uid) return;
+  var fb=window.fb;
+  (async function(){
+    try{
+      // Wipe Firestore data before deleting auth user
+      for(var coll of ['highlights','progress','meta']){
+        var snap=await fb.getDocs(fb.collection(window.fbDB,'users',uid,coll));
+        await Promise.all(snap.docs.map(function(d){return fb.deleteDoc(d.ref).catch(function(){});}));
+      }
+      await fb.deleteAccount(pwd);
+      alert('Account deleted.');
+    } catch(e){
+      alert('Could not delete: '+(e.message||'unknown error'));
+    }
+  })();
+}
+
+// Expose globally for inline onclick handlers
+window.authOpen=authOpen;
+window.authClose=authClose;
+window.authShowSignIn=authShowSignIn;
+window.authShowSignUp=authShowSignUp;
+window.authShowReset=authShowReset;
+window.authSubmit=authSubmit;
+window.authResend=authResend;
+window.authDoSignOut=authDoSignOut;
+window.authDoDelete=authDoDelete;
 </script>
 <div id="saved-modal" class="search-overlay hidden">
   <div class="search-top">
@@ -1846,5 +2437,55 @@ document.addEventListener('keydown',function(e){if(e.target.tagName==='SELECT'||
 </div>
 <div class="edge-nav left"><button class="edge-btn" id="edge-bp" onclick="step(-1)" disabled>&#8249;</button></div>
 <div class="edge-nav right"><button class="edge-btn" id="edge-bn" onclick="step(1)" disabled>&#8250;</button></div>
+
+<div id="auth-modal" class="auth-overlay hidden">
+  <div class="search-top">
+    <button class="search-back" onclick="authClose()">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <span style="font-size:15px;font-weight:600;flex:1" id="auth-title">계정 / Account</span>
+  </div>
+  <div class="auth-wrap">
+    <!-- Signed-in view -->
+    <div id="auth-signed-in" style="display:none">
+      <div class="auth-card">
+        <div class="auth-card-email" id="auth-card-email"></div>
+        <div class="auth-card-status">
+          <span class="auth-status-dot" id="auth-status-dot"></span>
+          <span id="auth-status-text"></span>
+        </div>
+        <button id="auth-resend-btn" class="auth-row-btn" style="width:100%;display:none;margin-top:8px" onclick="authResend()">Resend verification email</button>
+        <div class="auth-row">
+          <button class="auth-row-btn" onclick="authDoSignOut()">Sign out</button>
+          <button class="auth-row-btn danger" onclick="authDoDelete()">Delete account</button>
+        </div>
+      </div>
+      <div class="auth-blurb" style="font-size:12px;margin-top:8px">
+        Your highlights, progress, and reading position sync to all your devices automatically.
+      </div>
+    </div>
+    <!-- Signed-out view -->
+    <div id="auth-signed-out">
+      <div class="auth-blurb" id="auth-blurb">
+        Sign in to sync highlights, progress, and your current chapter across all your devices (web and mobile app).
+      </div>
+      <div id="auth-form">
+        <div class="auth-label">Email</div>
+        <input type="email" id="auth-email" class="auth-input" autocomplete="email" placeholder="you@example.com">
+        <div class="auth-label" id="auth-pwd-label">Password</div>
+        <input type="password" id="auth-password" class="auth-input" autocomplete="current-password" placeholder="At least 6 characters">
+        <button id="auth-submit-btn" class="auth-btn" onclick="authSubmit()">Sign in</button>
+        <div id="auth-err" class="auth-err"></div>
+        <div id="auth-info" class="auth-info"></div>
+        <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px;align-items:center">
+          <button id="auth-link-reset" class="auth-link" onclick="authShowReset()">Forgot password?</button>
+          <button id="auth-link-signup" class="auth-link" onclick="authShowSignUp()">Don't have an account? Create one</button>
+          <button id="auth-link-signin" class="auth-link" onclick="authShowSignIn()" style="display:none">Already have an account? Sign in</button>
+          <button id="auth-link-back" class="auth-link" onclick="authShowSignIn()" style="display:none">Back to sign in</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
