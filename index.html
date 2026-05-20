@@ -993,6 +993,7 @@ function sheetOpen(mode){
   document.getElementById('mob-sheet').classList.remove('hidden');
   var body=document.getElementById('mob-sheet-body');
   if(mode==='progress'){progShowOverview();return;}
+  progView='';
   if(mode==='passage'){
     document.getElementById('mob-sheet-title').textContent=langOrder==='en-ko'?'Select Book / 책 선택':'책 선택 / Select Book';
     pendingBook=null;
