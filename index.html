@@ -213,6 +213,8 @@ body.dark .prog-bar-track{background:#2a2a2a}
 .prog-ch.auto{background:#1b2a4a;color:#fff}
 .prog-ch.manual{background:#1b2a4a;color:#fff}
 .prog-back-btn{background:none;border:none;color:#1b2a4a;font:500 13px inherit;cursor:pointer;padding:4px 0}
+.testament-section-hdr{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#999;padding:14px 20px 6px;background:var(--bg)}
+body.dark .testament-section-hdr{color:#888}
 body.dark .prog-ch.unread{background:#2a2a2a;color:#e8e5e0}
 body.dark .prog-ch.auto,body.dark .prog-ch.manual{background:#e8e5e0;color:#111}
 body.dark .prog-bar-fill{background:#e8e5e0}
@@ -842,7 +844,11 @@ function progShowOverview(){
   html+='<div class="prog-testament" style="padding:0 20px 0"><div class="prog-testament-title">'+(langOrder==='en-ko'?'New Testament / 신약':'신약 / New Testament')+'</div>';
   html+='<div class="prog-bar-row"><span class="prog-bar-label">'+ntS.read+'/'+ntS.total+'</span><div class="prog-bar-track"><div class="prog-bar-fill" style="width:'+Math.round(ntS.read/ntS.total*100)+'%"></div></div><span class="prog-bar-pct">'+Math.round(ntS.read/ntS.total*100)+'%</span></div></div></div>';
   html+='<div class="prog-book-list">';
+  var otHdr=langOrder==='en-ko'?'Old Testament / 구약':'구약 / Old Testament';
+  var ntHdr=langOrder==='en-ko'?'New Testament / 신약':'신약 / New Testament';
   BOOKS.forEach(function(b,i){
+    if(i===0) html+='<div class="testament-section-hdr">'+otHdr+'</div>';
+    if(i===39) html+='<div class="testament-section-hdr">'+ntHdr+'</div>';
     var rc=0;for(var c=1;c<=b.ch;c++)if(data[progKey(i,c)])rc++;
     var pct=Math.round(rc/b.ch*100);
     var cls=rc===b.ch?'complete':rc>0?'partial':'';
@@ -991,7 +997,11 @@ function sheetOpen(mode){
     document.getElementById('mob-sheet-title').textContent=langOrder==='en-ko'?'Select Book / 책 선택':'책 선택 / Select Book';
     pendingBook=null;
     var h='<div class="mob-book-list">';
+    var otHdr=langOrder==='en-ko'?'Old Testament / 구약':'구약 / Old Testament';
+    var ntHdr=langOrder==='en-ko'?'New Testament / 신약':'신약 / New Testament';
     BOOKS.forEach(function(b,i){
+      if(i===0) h+='<div class="testament-section-hdr">'+otHdr+'</div>';
+      if(i===39) h+='<div class="testament-section-hdr">'+ntHdr+'</div>';
       var p=langOrder==='en-ko'?b.en:b.ko,s=langOrder==='en-ko'?b.ko:b.en;
       var isActive=loaded&&i===bi;
       h+='<div class="mob-book-row'+(isActive?' active':'')+'" id="book-row-'+i+'">';
