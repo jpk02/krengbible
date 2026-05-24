@@ -431,15 +431,34 @@ body.dark .notes-doc-title{color:#f4f1eb}
 .notes-doc-meta{font:500 12px/1.4 'DM Sans',-apple-system,sans-serif;color:#a89f8e;letter-spacing:.04em;text-transform:uppercase;margin-bottom:34px}
 body.dark .notes-doc-meta{color:#6b6760}
 
-.note-entry{padding:18px 0 22px;position:relative}
+/* Note entry — outer wrapper holds the swipe content + revealable delete */
+.note-entry{position:relative;overflow:hidden;touch-action:pan-y}
 .note-entry+.note-entry{border-top:1px solid #eee7d8;margin-top:6px}
 body.dark .note-entry+.note-entry{border-top-color:#222}
+.note-entry-content{
+  display:block;padding:18px 0 22px;background:#fbfaf7;position:relative;z-index:1;
+  transform:translateX(0);transition:transform .22s cubic-bezier(.32,.72,.36,1);
+  will-change:transform;
+}
+body.dark .note-entry-content{background:#161616}
+.note-entry.swiped .note-entry-content{transform:translateX(-92px)}
+.note-entry-delete{
+  position:absolute;top:0;bottom:0;right:0;width:92px;
+  background:#dc2626;color:#fff;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  font:600 11px/1 'DM Sans','Noto Sans KR',-apple-system,sans-serif;
+  letter-spacing:.08em;text-transform:uppercase;
+  opacity:0;transition:opacity .15s;z-index:0;
+}
+.note-entry.swiped .note-entry-delete{opacity:1}
+.note-entry-delete:hover{background:#b91c1c}
+.note-entry-delete svg{width:18px;height:18px;display:block;margin-bottom:4px}
+.note-entry-delete-inner{display:flex;flex-direction:column;align-items:center;gap:3px}
+
 .note-entry-ref{font:600 10px/1.4 'DM Sans',-apple-system,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#a89f8e;margin-bottom:10px}
 body.dark .note-entry-ref{color:#7a756a}
 .note-entry-text{font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;color:#222;white-space:pre-wrap;word-break:break-word;cursor:text;margin:0;letter-spacing:.002em}
 body.dark .note-entry-text{color:#d8d5d0}
-.note-entry-text:empty::before{content:attr(data-placeholder);color:#c2bbac;font-style:italic}
-body.dark .note-entry-text:empty::before{color:#555}
 
 .note-entry-textarea{width:100%;border:none;outline:none;resize:none;background:transparent;padding:0;margin:0;display:block;
   font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;
@@ -449,25 +468,28 @@ body.dark .note-entry-textarea{color:#d8d5d0}
 .note-entry-textarea::placeholder{color:#c2bbac;font-style:italic}
 body.dark .note-entry-textarea::placeholder{color:#555}
 
-.note-entry-actions{display:flex;gap:18px;margin-top:14px;align-items:center;opacity:0;transition:opacity .2s;height:0;overflow:hidden}
-.note-entry.editing .note-entry-actions{opacity:1;height:auto}
-.note-entry-action{background:none;border:none;cursor:pointer;font:500 12px/1 'DM Sans',-apple-system,sans-serif;color:#8c8470;letter-spacing:.04em;padding:0;text-transform:uppercase;transition:color .15s}
-.note-entry-action:hover{color:#1b2a4a}
-.note-entry-action.primary{color:#1b2a4a;font-weight:600}
-.note-entry-action.primary:hover{color:#0d1a36}
-.note-entry-action.danger{color:#b04a44;margin-left:auto}
-.note-entry-action.danger:hover{color:#8c322d}
-body.dark .note-entry-action{color:#7a756a}
-body.dark .note-entry-action:hover{color:#bbb}
-body.dark .note-entry-action.primary{color:#8899bb}
-body.dark .note-entry-action.primary:hover{color:#a8b9d8}
-body.dark .note-entry-action.danger{color:#c0625e}
-body.dark .note-entry-action.danger:hover{color:#d97a76}
-
-.notes-add-link{display:inline-block;margin-top:28px;background:none;border:none;cursor:pointer;font:500 14px/1.4 'DM Sans','Noto Sans KR',-apple-system,sans-serif;color:#8c8470;letter-spacing:.01em;padding:0;transition:color .15s}
-.notes-add-link:hover{color:#1b2a4a}
-body.dark .notes-add-link{color:#7a756a}
-body.dark .notes-add-link:hover{color:#a8b9d8}
+/* Editing mode — prominent top-right action buttons */
+.note-entry.editing{overflow:visible}
+.note-entry.editing .note-entry-content{padding-top:54px;transform:none!important;background:transparent}
+body.dark .note-entry.editing .note-entry-content{background:transparent}
+.note-entry-edit-actions{
+  position:absolute;top:14px;right:0;display:flex;gap:8px;align-items:center;z-index:3;
+}
+.note-entry-edit-actions .ne-btn{
+  border:none;cursor:pointer;
+  font:600 11px/1 'DM Sans','Noto Sans KR',-apple-system,sans-serif;
+  letter-spacing:.08em;text-transform:uppercase;
+  padding:10px 16px;border-radius:8px;transition:background .15s, color .15s, transform .1s;
+}
+.note-entry-edit-actions .ne-btn:active{transform:scale(0.97)}
+.ne-btn.save{background:#1b2a4a;color:#fff;box-shadow:0 1px 2px rgba(27,42,74,.18)}
+.ne-btn.save:hover{background:#0d1a36}
+.ne-btn.cancel{background:#efecea;color:#555}
+.ne-btn.cancel:hover{background:#e5e1dc;color:#1c1c1c}
+body.dark .ne-btn.save{background:#3a4d75;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+body.dark .ne-btn.save:hover{background:#4a5d85}
+body.dark .ne-btn.cancel{background:#2a2a2a;color:#d8d5d0}
+body.dark .ne-btn.cancel:hover{background:#333;color:#fff}
 
 .notes-empty{padding:40px 0;color:#a89f8e;font:400 14px/1.6 'DM Sans','Noto Sans KR',-apple-system,sans-serif}
 body.dark .notes-empty{color:#6b6760}
@@ -1322,7 +1344,8 @@ function notesOpenFromSelection(){
   notesOpen();
 }
 
-// Opens notes panel for current chapter (no pending new editor unless one is already queued).
+// Opens notes panel for current chapter.  If an editor is pending/active, focuses the
+// textarea SYNCHRONOUSLY so iOS shows the keyboard as part of the user gesture.
 function notesOpen(){
   var overlay=document.getElementById('notes-modal');
   var backdrop=document.getElementById('notes-backdrop');
@@ -1330,10 +1353,16 @@ function notesOpen(){
   notesRender();
   overlay.classList.remove('hidden');
   if(backdrop) backdrop.classList.remove('hidden');
-  setTimeout(function(){
-    var ta=document.getElementById('note-new-textarea')||document.getElementById('note-edit-textarea');
-    if(ta){try{ta.focus();notesAutosize(ta);}catch(e){}}
-  },80);
+  // Sync focus — must stay in the user gesture stack for iOS to surface the keyboard.
+  var ta=document.getElementById('note-new-textarea')||document.getElementById('note-edit-textarea');
+  if(ta){
+    try{
+      ta.focus();
+      notesAutosize(ta);
+      var len=ta.value.length;
+      ta.setSelectionRange(len,len);
+    }catch(e){}
+  }
 }
 function notesClose(){
   var overlay=document.getElementById('notes-modal');
@@ -1343,18 +1372,15 @@ function notesClose(){
   notesEditingId=null;
   notesPendingNew=null;
 }
-// Start a brand-new note from the "+ Add note" link. Uses current verse selection
-// if one exists, otherwise defaults to verse 1 of current chapter.
+// Start a brand-new note for the current selection (or verse 1 fallback) and focus it.
 function notesStartNewBlank(){
   var range=notesSelectionRange();
   if(!range) range={bookIdx:bi,chapter:ci,startVerse:1,endVerse:1};
   notesPendingNew=range;
   notesEditingId=null;
   notesRender();
-  setTimeout(function(){
-    var ta=document.getElementById('note-new-textarea');
-    if(ta){try{ta.focus();notesAutosize(ta);}catch(e){}}
-  },50);
+  var ta=document.getElementById('note-new-textarea');
+  if(ta){try{ta.focus();notesAutosize(ta);}catch(e){}}
 }
 // Auto-size a textarea to fit its content.
 function notesAutosize(ta){
@@ -1391,9 +1417,17 @@ function notesRender(){
   }
 
   function renderEntry(n){
-    return '<div class="note-entry" data-note-id="'+n.id+'" onclick="notesEditStart(\''+n.id+'\')">'
-      +'<div class="note-entry-ref">'+esc(verseRef(n))+'</div>'
-      +'<p class="note-entry-text">'+esc(n.text||'')+'</p>'
+    return '<div class="note-entry" data-note-id="'+n.id+'">'
+      +'<div class="note-entry-content" onclick="notesEntryClick(event,\''+n.id+'\')">'
+        +'<div class="note-entry-ref">'+esc(verseRef(n))+'</div>'
+        +'<p class="note-entry-text">'+esc(n.text||'')+'</p>'
+      +'</div>'
+      +'<button class="note-entry-delete" onmousedown="event.preventDefault()" onclick="event.stopPropagation();notesDelete(\''+n.id+'\')">'
+        +'<span class="note-entry-delete-inner">'
+          +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>'
+          +'<span>'+(isKo?'삭제':'Delete')+'</span>'
+        +'</span>'
+      +'</button>'
     +'</div>';
   }
 
@@ -1402,18 +1436,17 @@ function notesRender(){
     var existing=isNew?'':esc(n.text||'');
     var saveFn=isNew?'notesSaveNew()':('notesSaveEdit(\''+n.id+'\')');
     var cancelFn=isNew?'notesCancelNew()':'notesCancelEdit()';
-    var deleteBtn = isNew ? '' :
-      '<button class="note-entry-action danger" onmousedown="event.preventDefault()" onclick="event.stopPropagation();notesDelete(\''+n.id+'\')">'+(isKo?'삭제':'Delete')+'</button>';
     var placeholder = isKo?'노트를 작성하세요...':'Write your note...';
     return '<div class="note-entry editing" data-note-id="'+(n.id||'new')+'" onclick="event.stopPropagation()">'
-      +'<div class="note-entry-ref">'+esc(verseRef(n))+'</div>'
-      +'<textarea id="'+taId+'" class="note-entry-textarea" placeholder="'+placeholder+'" '
-        +'oninput="notesAutosize(this)" '
-        +'onkeydown="notesEditorKey(event,'+(isNew?'true':'false')+(isNew?'':',\''+n.id+'\'')+')">'+existing+'</textarea>'
-      +'<div class="note-entry-actions">'
-        +'<button class="note-entry-action primary" onmousedown="event.preventDefault()" onclick="'+saveFn+'">'+(isKo?'저장':'Save')+'</button>'
-        +'<button class="note-entry-action" onmousedown="event.preventDefault()" onclick="'+cancelFn+'">'+(isKo?'취소':'Cancel')+'</button>'
-        +deleteBtn
+      +'<div class="note-entry-edit-actions">'
+        +'<button class="ne-btn cancel" onmousedown="event.preventDefault()" onclick="'+cancelFn+'">'+(isKo?'취소':'Cancel')+'</button>'
+        +'<button class="ne-btn save" onmousedown="event.preventDefault()" onclick="'+saveFn+'">'+(isKo?'저장':'Save')+'</button>'
+      +'</div>'
+      +'<div class="note-entry-content">'
+        +'<div class="note-entry-ref">'+esc(verseRef(n))+'</div>'
+        +'<textarea id="'+taId+'" class="note-entry-textarea" placeholder="'+placeholder+'" '
+          +'oninput="notesAutosize(this)" '
+          +'onkeydown="notesEditorKey(event,'+(isNew?'true':'false')+(isNew?'':',\''+n.id+'\'')+')">'+existing+'</textarea>'
       +'</div>'
     +'</div>';
   }
@@ -1449,20 +1482,20 @@ function notesRender(){
   }
 
   if(!body){
-    body='<div class="notes-empty">'+(isKo?'이 장에 아직 노트가 없습니다. 아래에서 첫 노트를 시작하세요.':'No notes for this chapter yet. Start your first note below.')+'</div>';
+    body='<div class="notes-empty">'+(isKo?'구절을 선택한 후 노트 아이콘을 눌러 첫 노트를 작성하세요.':'Select a verse and tap the notes icon to start your first note.')+'</div>';
   }
   html+=body;
-  html+='<button class="notes-add-link" onclick="notesStartNewBlank()">+ '+(isKo?'노트 추가':'Add note')+'</button>';
 
   list.innerHTML=html;
 
   // Autosize any open textarea now that it's in the DOM.
-  setTimeout(function(){
-    var nta=document.getElementById('note-new-textarea');
-    var eta=document.getElementById('note-edit-textarea');
-    if(nta) notesAutosize(nta);
-    if(eta) notesAutosize(eta);
-  },0);
+  var nta=document.getElementById('note-new-textarea');
+  var eta=document.getElementById('note-edit-textarea');
+  if(nta) notesAutosize(nta);
+  if(eta) notesAutosize(eta);
+
+  // Wire up swipe-to-delete on non-editing entries.
+  notesAttachSwipe();
 }
 
 // Save on Cmd/Ctrl+Enter; cancel on Escape.
@@ -1475,6 +1508,79 @@ function notesEditorKey(e,isNew,id){
     if(isNew) notesCancelNew(); else notesCancelEdit();
   }
 }
+
+// Tap on a note: if swipe-open, just close the swipe; otherwise enter edit mode.
+function notesEntryClick(e,id){
+  var entry=e.currentTarget && e.currentTarget.closest('.note-entry');
+  if(entry && entry.classList.contains('swiped')){
+    entry.classList.remove('swiped');
+    return;
+  }
+  // Close any other open swipes before editing.
+  document.querySelectorAll('#notes-list .note-entry.swiped').forEach(function(el){el.classList.remove('swiped');});
+  notesEditStart(id);
+}
+
+// Attach iOS-style swipe-left-to-delete to each non-editing note entry.
+function notesAttachSwipe(){
+  var entries=document.querySelectorAll('#notes-list .note-entry:not(.editing)');
+  entries.forEach(function(el){
+    if(el._swipeBound) return;
+    el._swipeBound=true;
+    var content=el.querySelector('.note-entry-content');
+    if(!content) return;
+    var sx=0,sy=0,dragging=false,startTx=0,locked=false;
+    el.addEventListener('touchstart',function(e){
+      sx=e.touches[0].clientX; sy=e.touches[0].clientY;
+      dragging=false; locked=false;
+      startTx = el.classList.contains('swiped') ? -92 : 0;
+    },{passive:true});
+    el.addEventListener('touchmove',function(e){
+      var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
+      if(!dragging && !locked){
+        if(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)*1.2){
+          dragging=true;
+          // Close any other swiped entries when a new swipe begins.
+          document.querySelectorAll('#notes-list .note-entry.swiped').forEach(function(o){if(o!==el)o.classList.remove('swiped');});
+        } else if(Math.abs(dy) > 8){
+          locked=true; // vertical scroll, ignore horizontal
+          return;
+        } else {
+          return;
+        }
+      }
+      if(dragging){
+        var newTx = Math.min(20, Math.max(-130, startTx + dx));
+        content.style.transition='none';
+        content.style.transform='translateX('+newTx+'px)';
+      }
+    },{passive:true});
+    el.addEventListener('touchend',function(e){
+      content.style.transition='';
+      content.style.transform='';
+      if(!dragging) return;
+      var dx=(e.changedTouches[0]?e.changedTouches[0].clientX:sx)-sx;
+      var finalTx = startTx + dx;
+      if(finalTx < -46){
+        el.classList.add('swiped');
+      } else {
+        el.classList.remove('swiped');
+      }
+    });
+    el.addEventListener('touchcancel',function(){
+      content.style.transition='';
+      content.style.transform='';
+      dragging=false;
+    });
+  });
+}
+
+// Tap anywhere outside notes-list closes any open swipe (mobile UX).
+document.addEventListener('touchstart',function(e){
+  var inEntry=e.target.closest && e.target.closest('.note-entry');
+  if(inEntry) return;
+  document.querySelectorAll('#notes-list .note-entry.swiped').forEach(function(el){el.classList.remove('swiped');});
+},{passive:true});
 
 function notesSaveNew(){
   var ta=document.getElementById('note-new-textarea');
