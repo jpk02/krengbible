@@ -450,17 +450,16 @@ body.dark .notes-doc-meta{color:#6b6760}
   transform:translateX(0);transition:transform .22s cubic-bezier(.32,.72,.36,1);
 }
 body.dark .note-entry-content{background:#161616}
-.note-entry.swiped .note-entry-content{transform:translateX(-92px)}
 .note-entry-delete{
-  position:absolute;top:0;bottom:0;right:0;width:92px;
-  background:#c44a44;color:#fff;border:none;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:4px;
+  position:absolute;top:0;bottom:0;left:0;right:0;
+  background:#c44a44;color:#fff;
+  display:flex;align-items:center;justify-content:flex-end;
+  padding-right:28px;
   font:600 11px/1 'DM Sans','Noto Sans KR',-apple-system,sans-serif;
-  letter-spacing:.08em;text-transform:uppercase;z-index:0;
+  letter-spacing:.08em;text-transform:uppercase;
+  z-index:0;border:none;pointer-events:none;
 }
-.note-entry-delete:hover{background:#a83c37}
 body.dark .note-entry-delete{background:#b04a44}
-body.dark .note-entry-delete:hover{background:#943732}
 .note-entry-delete svg{width:18px;height:18px;display:block;margin-bottom:4px}
 .note-entry-delete-inner{display:flex;flex-direction:column;align-items:center;gap:3px}
 
@@ -468,13 +467,18 @@ body.dark .note-entry-delete:hover{background:#943732}
 body.dark .note-entry-ref{color:#7a756a}
 .note-entry-time{font:500 10px/1.4 'DM Sans','Noto Sans KR',-apple-system,sans-serif;letter-spacing:.02em;text-transform:none;color:#c2bbac;margin-left:auto;font-style:italic}
 body.dark .note-entry-time{color:#5a564d}
-.note-entry-text{font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;color:#222;white-space:pre-wrap;word-break:break-word;cursor:text;margin:0;letter-spacing:.002em}
-body.dark .note-entry-text{color:#d8d5d0}
-
-.note-entry-textarea{width:100%;border:none;outline:none;resize:none;background:transparent;padding:0;margin:0;display:block;box-shadow:none;
-  -webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent;
+.note-entry-text,.note-entry-textarea{
   font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;
-  color:#222;letter-spacing:.002em;min-height:1.75em;overflow:hidden;
+  color:#222;letter-spacing:.002em;
+  white-space:pre-wrap;word-break:break-word;
+  margin:0;padding:0;
+}
+body.dark .note-entry-text,body.dark .note-entry-textarea{color:#d8d5d0}
+.note-entry-text{cursor:text;display:block}
+.note-entry-textarea{
+  width:100%;border:none;outline:none;resize:none;background:transparent;display:block;
+  box-shadow:none;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent;
+  overflow:hidden;
 }
 body.dark .note-entry-textarea{color:#d8d5d0}
 .note-entry-textarea::placeholder{color:#c2bbac;font-style:italic}
@@ -1510,12 +1514,12 @@ function notesRender(){
         +'</div>'
         +'<p class="note-entry-text">'+esc(n.text||'')+'</p>'
       +'</div>'
-      +'<button class="note-entry-delete" onmousedown="event.preventDefault()" onclick="event.stopPropagation();notesDelete(\''+n.id+'\')">'
+      +'<div class="note-entry-delete" aria-hidden="true">'
         +'<span class="note-entry-delete-inner">'
           +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>'
           +'<span>'+(isKo?'삭제':'Delete')+'</span>'
         +'</span>'
-      +'</button>'
+      +'</div>'
     +'</div>';
   }
 
@@ -1525,9 +1529,13 @@ function notesRender(){
     var saveFn=isNew?'notesSaveNew()':('notesSaveEdit(\''+n.id+'\')');
     var cancelFn=isNew?'notesCancelNew()':'notesCancelEdit()';
     var placeholder = isKo?'노트를 작성하세요...':'Write your note...';
+    var time = (!isNew && n._updatedAt) ? notesRelTime(n._updatedAt, isKo) : '';
     return '<div class="note-entry editing" data-note-id="'+(n.id||'new')+'" onclick="event.stopPropagation()">'
       +'<div class="note-entry-content">'
-        +'<div class="note-entry-ref">'+esc(verseRef(n))+'</div>'
+        +'<div class="note-entry-ref">'
+          +'<span>'+esc(verseRef(n))+'</span>'
+          +(time?'<span class="note-entry-time">'+esc(time)+'</span>':'')
+        +'</div>'
         +'<textarea id="'+taId+'" class="note-entry-textarea" placeholder="'+placeholder+'" '
           +'oninput="notesAutosize(this)" '
           +'onfocus="this.closest(\'.note-entry\').classList.add(\'focused\')" '
@@ -1611,7 +1619,10 @@ function notesEntryClick(e,id){
   notesEditStart(id);
 }
 
-// Attach iOS-style swipe-left-to-delete to each non-editing note entry.
+// Swipe-left to delete.  Drag the card with the finger; if released past the
+// commit threshold (~45% of card width), the card animates off-screen and the
+// note is deleted in a single gesture (no tap-the-trash-can step).  Releasing
+// below the threshold snaps back to origin.
 function notesAttachSwipe(){
   var entries=document.querySelectorAll('#notes-list .note-entry:not(.editing)');
   entries.forEach(function(el){
@@ -1619,59 +1630,67 @@ function notesAttachSwipe(){
     el._swipeBound=true;
     var content=el.querySelector('.note-entry-content');
     if(!content) return;
-    var sx=0,sy=0,dragging=false,startTx=0,locked=false;
+    var sx=0,sy=0,dragging=false,locked=false;
     el.addEventListener('touchstart',function(e){
       sx=e.touches[0].clientX; sy=e.touches[0].clientY;
       dragging=false; locked=false;
-      startTx = el.classList.contains('swiped') ? -92 : 0;
     },{passive:true});
     el.addEventListener('touchmove',function(e){
       var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
       if(!dragging && !locked){
-        // Trigger drag with very little horizontal movement so swipe feels responsive.
         if(Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy)){
           dragging=true;
-          document.querySelectorAll('#notes-list .note-entry.swiped').forEach(function(o){if(o!==el)o.classList.remove('swiped');});
         } else if(Math.abs(dy) > 8){
-          locked=true; // vertical scroll, ignore horizontal
+          locked=true;
           return;
         } else {
           return;
         }
       }
       if(dragging){
-        var newTx = Math.min(20, Math.max(-130, startTx + dx));
+        // Only allow left swipe (right rubber-bands).
+        var pull = dx < 0 ? dx : dx*0.25;
         content.style.transition='none';
-        content.style.transform='translateX('+newTx+'px)';
+        content.style.transform='translateX('+pull+'px)';
       }
     },{passive:true});
     el.addEventListener('touchend',function(e){
-      content.style.transition='';
-      content.style.transform='';
-      if(!dragging) return;
+      if(!dragging){ content.style.transition=''; content.style.transform=''; return; }
       var dx=(e.changedTouches[0]?e.changedTouches[0].clientX:sx)-sx;
-      var finalTx = startTx + dx;
-      // Snap to open with a small swipe (~18px) — feels light and quick.
-      if(finalTx < -18){
-        el.classList.add('swiped');
+      var width=el.offsetWidth||300;
+      var commitThreshold = -Math.max(110, width*0.45);
+      if(dx < commitThreshold){
+        // Commit delete — fling the card off-screen and remove the note.
+        var noteId=el.getAttribute('data-note-id');
+        content.style.transition='transform .22s cubic-bezier(.32,.72,.36,1)';
+        content.style.transform='translateX(-'+(width+40)+'px)';
+        // Fade out the whole entry slightly for a softer exit.
+        el.style.transition='opacity .22s ease, max-height .22s ease, margin .22s ease, padding .22s ease';
+        el.style.maxHeight=el.offsetHeight+'px';
+        // Defer the actual delete until the animation completes.
+        setTimeout(function(){
+          el.style.maxHeight='0';
+          el.style.opacity='0';
+          el.style.marginTop='0';
+          el.style.paddingTop='0';
+          el.style.paddingBottom='0';
+        },80);
+        setTimeout(function(){
+          notesDelete(noteId, true);
+        },300);
       } else {
-        el.classList.remove('swiped');
+        // Snap back.
+        content.style.transition='transform .22s cubic-bezier(.32,.72,.36,1)';
+        content.style.transform='';
       }
     });
     el.addEventListener('touchcancel',function(){
-      content.style.transition='';
+      content.style.transition='transform .22s cubic-bezier(.32,.72,.36,1)';
       content.style.transform='';
       dragging=false;
     });
   });
 }
-
-// Tap anywhere outside notes-list closes any open swipe (mobile UX).
-document.addEventListener('touchstart',function(e){
-  var inEntry=e.target.closest && e.target.closest('.note-entry');
-  if(inEntry) return;
-  document.querySelectorAll('#notes-list .note-entry.swiped').forEach(function(el){el.classList.remove('swiped');});
-},{passive:true});
 
 function notesSaveNew(){
   var ta=document.getElementById('note-new-textarea');
