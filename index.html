@@ -444,12 +444,10 @@ body.dark .notes-doc-meta{color:#6b6760}
 
 /* Note entry — outer wrapper holds the swipe content + revealable delete */
 .note-entry{position:relative;overflow:hidden;touch-action:pan-y}
-.note-entry+.note-entry{border-top:1px solid #eee7d8;margin-top:6px}
-body.dark .note-entry+.note-entry{border-top-color:#222}
+.note-entry+.note-entry{margin-top:10px}
 .note-entry-content{
   display:block;padding:18px 0 22px;background:#fbfaf7;position:relative;z-index:1;
   transform:translateX(0);transition:transform .22s cubic-bezier(.32,.72,.36,1);
-  will-change:transform;
 }
 body.dark .note-entry-content{background:#161616}
 .note-entry.swiped .note-entry-content{transform:translateX(-92px)}
@@ -473,7 +471,8 @@ body.dark .note-entry-time{color:#5a564d}
 .note-entry-text{font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;color:#222;white-space:pre-wrap;word-break:break-word;cursor:text;margin:0;letter-spacing:.002em}
 body.dark .note-entry-text{color:#d8d5d0}
 
-.note-entry-textarea{width:100%;border:none;outline:none;resize:none;background:transparent;padding:0;margin:0;display:block;
+.note-entry-textarea{width:100%;border:none;outline:none;resize:none;background:transparent;padding:0;margin:0;display:block;box-shadow:none;
+  -webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent;
   font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;
   color:#222;letter-spacing:.002em;min-height:1.75em;overflow:hidden;
 }
@@ -486,8 +485,9 @@ body.dark .note-entry-textarea::placeholder{color:#555}
 .note-entry.editing .note-entry-content{transform:none!important;background:transparent}
 body.dark .note-entry.editing .note-entry-content{background:transparent}
 .note-entry-edit-actions{
-  display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:18px;
+  display:none;justify-content:flex-end;align-items:center;gap:6px;margin-top:18px;
 }
+.note-entry.editing.focused .note-entry-edit-actions{display:flex}
 .note-entry-edit-actions .ne-btn{
   border:none;cursor:pointer;
   font:500 13px/1 'DM Sans','Noto Sans KR',-apple-system,sans-serif;
@@ -1461,6 +1461,17 @@ function notesAutosize(ta){
   ta.style.height='auto';
   ta.style.height=(ta.scrollHeight)+'px';
 }
+// On blur, hide the save/cancel buttons after a short delay (long enough for a tap
+// on the buttons themselves to register, but short enough to feel snappy).
+function notesOnEditorBlur(ta){
+  setTimeout(function(){
+    var entry=ta.closest('.note-entry');
+    if(!entry) return;
+    // If the textarea is focused again (e.g., tap on buttons preserved focus), keep .focused.
+    if(document.activeElement===ta) return;
+    entry.classList.remove('focused');
+  },120);
+}
 
 // Renders the chapter as a single document: title at top, notes flowing as paragraphs
 // ordered by verse.  Each entry is a small verse marker (e.g. "VERSE 5") followed by
@@ -1519,6 +1530,8 @@ function notesRender(){
         +'<div class="note-entry-ref">'+esc(verseRef(n))+'</div>'
         +'<textarea id="'+taId+'" class="note-entry-textarea" placeholder="'+placeholder+'" '
           +'oninput="notesAutosize(this)" '
+          +'onfocus="this.closest(\'.note-entry\').classList.add(\'focused\')" '
+          +'onblur="notesOnEditorBlur(this)" '
           +'onkeydown="notesEditorKey(event,'+(isNew?'true':'false')+(isNew?'':',\''+n.id+'\'')+')">'+existing+'</textarea>'
         +'<div class="note-entry-edit-actions">'
           +'<button class="ne-btn cancel" onmousedown="event.preventDefault()" onclick="'+cancelFn+'">'+(isKo?'취소':'Cancel')+'</button>'
@@ -1690,10 +1703,9 @@ function notesEditStart(id){
   }
   notesEditingId=id;
   notesRender();
-  setTimeout(function(){
-    var t=document.getElementById('note-edit-textarea');
-    if(t){try{t.focus();var v=t.value;t.value='';t.value=v;}catch(e){}}
-  },50);
+  // No auto-focus: the user has only tapped to view the note as editable.  The textarea
+  // is in place but the keyboard / save+cancel buttons stay hidden until they explicitly
+  // tap into the text.
 }
 function notesCancelEdit(){ notesEditingId=null; notesRender(); }
 function notesSaveEdit(id){
