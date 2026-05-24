@@ -408,68 +408,70 @@ header{display:none!important}
 .mob-sheet{align-items:flex-end!important}
 .mob-sheet-inner{border-radius:16px 16px 0 0!important;max-height:85vh!important;max-width:100%!important}
 .prog-chapters{grid-template-columns:repeat(6,1fr)!important}
-/* Notes side pane */
-.notes-pane{position:fixed;top:0;right:0;width:380px;max-width:100vw;height:100vh;height:100dvh;background:var(--bg);z-index:1500;display:flex;flex-direction:column;border-left:1px solid #ede9e3;box-shadow:-6px 0 18px rgba(0,0,0,.06);transform:translateX(0);transition:transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)}
+/* Notes — document-style side pane */
+.notes-pane{position:fixed;top:0;right:0;width:440px;max-width:100vw;height:100vh;height:100dvh;background:#fbfaf7;z-index:1500;display:flex;flex-direction:column;border-left:1px solid #ece8e0;box-shadow:-16px 0 40px rgba(0,0,0,.04);transform:translateX(0);transition:transform 0.32s cubic-bezier(0.32,0.72,0.36,1)}
 .notes-pane.hidden{transform:translateX(100%);pointer-events:none}
-body.dark .notes-pane{border-left-color:#333;box-shadow:-6px 0 18px rgba(0,0,0,.4)}
-.notes-pane-top{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #ede9e3;flex-shrink:0}
-body.dark .notes-pane-top{border-bottom-color:#333}
-.notes-pane-title{font-size:14px;font-weight:600;color:#1c1c1c;flex:1;min-width:0;line-height:1.3}
-body.dark .notes-pane-title{color:#e8e5e0}
-.notes-pane-count{font-size:11px;font-weight:500;color:#888;margin-top:2px}
-body.dark .notes-pane-count{color:#999}
-.notes-pane-close{background:none;border:none;cursor:pointer;color:#555;padding:6px;line-height:0;border-radius:6px}
-.notes-pane-close:hover{background:#efecea}
-body.dark .notes-pane-close{color:#e8e5e0}
-body.dark .notes-pane-close:hover{background:#2a2a2a}
-.notes-pane-add{background:#1b2a4a;color:#fff;border:none;border-radius:8px;padding:7px 12px;font:600 12px inherit;cursor:pointer;letter-spacing:.02em;display:inline-flex;align-items:center;gap:5px}
-.notes-pane-add:hover{background:#2a3d66}
-body.dark .notes-pane-add{background:#2a3d66}
-body.dark .notes-pane-add:hover{background:#3a4d75}
-.notes-pane-add svg{width:14px;height:14px}
-.notes-pane-actions{padding:10px 16px;border-bottom:1px solid #ede9e3;flex-shrink:0;display:flex;justify-content:flex-end}
-body.dark .notes-pane-actions{border-bottom-color:#333}
-.notes-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1499;opacity:1;transition:opacity 0.25s}
+body.dark .notes-pane{background:#161616;border-left-color:#1f1f1f;box-shadow:-16px 0 40px rgba(0,0,0,.55)}
+.notes-pane-close{position:absolute;top:18px;right:18px;background:none;border:none;cursor:pointer;color:#9a9488;padding:6px;line-height:0;border-radius:50%;z-index:2;transition:color .15s,background .15s}
+.notes-pane-close:hover{color:#1c1c1c;background:rgba(0,0,0,.04)}
+body.dark .notes-pane-close{color:#777}
+body.dark .notes-pane-close:hover{color:#f0ede8;background:rgba(255,255,255,.06)}
+.notes-pane-close svg{width:20px;height:20px}
+.notes-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1499;opacity:1;transition:opacity .25s}
 .notes-backdrop.hidden{opacity:0;pointer-events:none}
-@media (min-width: 901px){
-  .notes-backdrop{display:none}
+@media (min-width: 901px){ .notes-backdrop{display:none} }
+@media (max-width: 900px){ .notes-pane{width:88vw;max-width:460px} }
+@media (max-width: 480px){ .notes-pane{width:100vw;max-width:100vw} }
+
+.notes-doc{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:48px 40px 120px;-webkit-overflow-scrolling:touch}
+@media (max-width: 480px){ .notes-doc{padding:44px 28px 120px} }
+
+.notes-doc-title{font:600 30px/1.15 'DM Sans','Noto Sans KR',-apple-system,sans-serif;letter-spacing:-.015em;color:#1a1a1a;margin:0 0 2px}
+body.dark .notes-doc-title{color:#f4f1eb}
+.notes-doc-meta{font:500 12px/1.4 'DM Sans',-apple-system,sans-serif;color:#a89f8e;letter-spacing:.04em;text-transform:uppercase;margin-bottom:34px}
+body.dark .notes-doc-meta{color:#6b6760}
+
+.note-entry{padding:18px 0 22px;position:relative}
+.note-entry+.note-entry{border-top:1px solid #eee7d8;margin-top:6px}
+body.dark .note-entry+.note-entry{border-top-color:#222}
+.note-entry-ref{font:600 10px/1.4 'DM Sans',-apple-system,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#a89f8e;margin-bottom:10px}
+body.dark .note-entry-ref{color:#7a756a}
+.note-entry-text{font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;color:#222;white-space:pre-wrap;word-break:break-word;cursor:text;margin:0;letter-spacing:.002em}
+body.dark .note-entry-text{color:#d8d5d0}
+.note-entry-text:empty::before{content:attr(data-placeholder);color:#c2bbac;font-style:italic}
+body.dark .note-entry-text:empty::before{color:#555}
+
+.note-entry-textarea{width:100%;border:none;outline:none;resize:none;background:transparent;padding:0;margin:0;display:block;
+  font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;
+  color:#222;letter-spacing:.002em;min-height:1.75em;overflow:hidden;
 }
-@media (max-width: 900px){
-  .notes-pane{width:88vw;max-width:420px}
-}
-@media (max-width: 480px){
-  .notes-pane{width:100vw;max-width:100vw}
-}
-/* Notes content */
-.notes-wrap{padding:8px 16px 120px;display:flex;flex-direction:column;gap:10px;flex:1;overflow-y:auto;overscroll-behavior:contain}
-.note-item{background:#fff;border:.5px solid #ede9e3;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;cursor:pointer}
-.note-item:active{background:#f7f5f2}
-body.dark .note-item{background:#242424;border-color:#333}
-body.dark .note-item:active{background:#1a1a1a}
-.note-item.editing{background:#fffdf2;border-color:#d8d4ce}
-body.dark .note-item.editing{background:#2a2820;border-color:#555}
-.note-verse-badge{display:inline-block;font-size:11px;font-weight:700;color:#1b2a4a;background:#efecea;border-radius:6px;padding:2px 8px;align-self:flex-start}
-body.dark .note-verse-badge{color:#8899bb;background:#2a2a2a}
-.note-text{font-size:14px;line-height:1.6;color:#1c1c1c;white-space:pre-wrap;word-break:break-word}
-body.dark .note-text{color:#e8e5e0}
-.note-actions{display:flex;gap:10px;margin-top:4px;font-size:12px}
-.note-action-btn{background:none;border:none;color:#1b2a4a;font:500 12px inherit;cursor:pointer;padding:2px 0;letter-spacing:.02em}
-.note-action-btn.danger{color:#dc2626}
-body.dark .note-action-btn{color:#8899bb}
-body.dark .note-action-btn.danger{color:#f87171}
-.note-editor-card{background:#fffdf2;border:1px solid #1b2a4a;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
-body.dark .note-editor-card{background:#2a2820;border-color:#8899bb}
-.note-textarea{width:100%;min-height:90px;padding:10px 12px;border-radius:8px;border:1px solid #d8d4ce;background:#fff;font:14px inherit;line-height:1.6;color:#1c1c1c;outline:none;resize:vertical}
-.note-textarea:focus{border-color:#1b2a4a}
-body.dark .note-textarea{background:#1a1a1a;border-color:#444;color:#e8e5e0}
-body.dark .note-textarea:focus{border-color:#8899bb}
-.note-editor-actions{display:flex;justify-content:flex-end;gap:8px}
-.note-editor-btn{padding:7px 14px;border:none;border-radius:8px;font:500 13px inherit;cursor:pointer}
-.note-editor-btn.save{background:#1b2a4a;color:#fff}
-.note-editor-btn.cancel{background:#efecea;color:#555}
-body.dark .note-editor-btn.save{background:#2a3d66;color:#fff}
-body.dark .note-editor-btn.cancel{background:#333;color:#ccc}
-.note-empty{text-align:center;color:#bbb;font-size:14px;padding:30px 20px}
+body.dark .note-entry-textarea{color:#d8d5d0}
+.note-entry-textarea::placeholder{color:#c2bbac;font-style:italic}
+body.dark .note-entry-textarea::placeholder{color:#555}
+
+.note-entry-actions{display:flex;gap:18px;margin-top:14px;align-items:center;opacity:0;transition:opacity .2s;height:0;overflow:hidden}
+.note-entry.editing .note-entry-actions{opacity:1;height:auto}
+.note-entry-action{background:none;border:none;cursor:pointer;font:500 12px/1 'DM Sans',-apple-system,sans-serif;color:#8c8470;letter-spacing:.04em;padding:0;text-transform:uppercase;transition:color .15s}
+.note-entry-action:hover{color:#1b2a4a}
+.note-entry-action.primary{color:#1b2a4a;font-weight:600}
+.note-entry-action.primary:hover{color:#0d1a36}
+.note-entry-action.danger{color:#b04a44;margin-left:auto}
+.note-entry-action.danger:hover{color:#8c322d}
+body.dark .note-entry-action{color:#7a756a}
+body.dark .note-entry-action:hover{color:#bbb}
+body.dark .note-entry-action.primary{color:#8899bb}
+body.dark .note-entry-action.primary:hover{color:#a8b9d8}
+body.dark .note-entry-action.danger{color:#c0625e}
+body.dark .note-entry-action.danger:hover{color:#d97a76}
+
+.notes-add-link{display:inline-block;margin-top:28px;background:none;border:none;cursor:pointer;font:500 14px/1.4 'DM Sans','Noto Sans KR',-apple-system,sans-serif;color:#8c8470;letter-spacing:.01em;padding:0;transition:color .15s}
+.notes-add-link:hover{color:#1b2a4a}
+body.dark .notes-add-link{color:#7a756a}
+body.dark .notes-add-link:hover{color:#a8b9d8}
+
+.notes-empty{padding:40px 0;color:#a89f8e;font:400 14px/1.6 'DM Sans','Noto Sans KR',-apple-system,sans-serif}
+body.dark .notes-empty{color:#6b6760}
+
 .hl-bar-notes{background:none;border:none;cursor:pointer;color:#555;padding:4px 6px;line-height:1;display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0}
 body.dark .hl-bar-notes{color:#e8e5e0}
 body.dark .hl-bar-notes svg{color:#e8e5e0}
@@ -789,11 +791,9 @@ function toggleLangOrder(btn){
   if(savedLabel)savedLabel.textContent=isEn?'Saved / 저장됨':'저장됨 / Saved';
   var copyLabel=document.getElementById('hl-copy-label'); if(copyLabel)copyLabel.textContent=isEn?'Copy':'복사';
   var notesLabel=document.getElementById('hl-notes-label'); if(notesLabel)notesLabel.textContent=isEn?'Notes':'노트';
-  var addLabel=document.getElementById('notes-add-label'); if(addLabel)addLabel.textContent=isEn?'New note':'새 노트';
   var notesPane=document.getElementById('notes-modal');
   if(notesPane && !notesPane.classList.contains('hidden') && typeof notesRender==='function'){
-    // Re-render pane title + count + cards in new language
-    if(typeof notesOpen==='function') notesOpen();
+    notesRender();
   }
   updateLabel();
   if(loaded)applyLangOrder();
@@ -1327,22 +1327,12 @@ function notesOpen(){
   var overlay=document.getElementById('notes-modal');
   var backdrop=document.getElementById('notes-backdrop');
   if(!overlay) return;
-  var isKo=langOrder==='ko-en';
-  var bk=BOOKS[bi];
-  var titleEl=document.getElementById('notes-title');
-  if(titleEl){
-    var ref=bk?(isKo?bk.ko+' '+ci+'장':bk.en+' '+ci):'';
-    titleEl.textContent=(isKo?'노트':'Notes')+(ref?' — '+ref:'');
-  }
-  var addLabel=document.getElementById('notes-add-label');
-  if(addLabel) addLabel.textContent=isKo?'새 노트':'New note';
   notesRender();
   overlay.classList.remove('hidden');
   if(backdrop) backdrop.classList.remove('hidden');
-  // Focus the pending new-note textarea if one was queued.
   setTimeout(function(){
-    var ta=document.getElementById('note-new-textarea');
-    if(ta){try{ta.focus();}catch(e){}}
+    var ta=document.getElementById('note-new-textarea')||document.getElementById('note-edit-textarea');
+    if(ta){try{ta.focus();notesAutosize(ta);}catch(e){}}
   },80);
 }
 function notesClose(){
@@ -1353,7 +1343,7 @@ function notesClose(){
   notesEditingId=null;
   notesPendingNew=null;
 }
-// Start a brand-new note from the "+ New note" button. Uses current verse selection
+// Start a brand-new note from the "+ Add note" link. Uses current verse selection
 // if one exists, otherwise defaults to verse 1 of current chapter.
 function notesStartNewBlank(){
   var range=notesSelectionRange();
@@ -1363,16 +1353,25 @@ function notesStartNewBlank(){
   notesRender();
   setTimeout(function(){
     var ta=document.getElementById('note-new-textarea');
-    if(ta){try{ta.focus();}catch(e){}}
+    if(ta){try{ta.focus();notesAutosize(ta);}catch(e){}}
   },50);
 }
+// Auto-size a textarea to fit its content.
+function notesAutosize(ta){
+  if(!ta) return;
+  ta.style.height='auto';
+  ta.style.height=(ta.scrollHeight)+'px';
+}
 
-// Renders all notes for the current chapter sorted by start verse, inserting an inline editor
-// at the position corresponding to the editing target (existing note or pending new note).
+// Renders the chapter as a single document: title at top, notes flowing as paragraphs
+// ordered by verse.  Each entry is a small verse marker (e.g. "VERSE 5") followed by
+// the note text — click any note to edit it inline; the editor inherits identical
+// typography so it feels like editing a Word doc.
 function notesRender(){
   var list=document.getElementById('notes-list');
   if(!list) return;
   var isKo=langOrder==='ko-en';
+  var bk=BOOKS[bi];
   var all=notesLoad();
   var chapterNotes=[];
   Object.keys(all).forEach(function(id){
@@ -1384,80 +1383,97 @@ function notesRender(){
     return (a.startVerse-b.startVerse)||(a.endVerse-b.endVerse)||((a._updatedAt||0)-(b._updatedAt||0));
   });
 
-  // Helpers for rendering a single note card vs editor card.
-  function verseLabel(n){
-    var rng=n.startVerse===n.endVerse?String(n.startVerse):(n.startVerse+'-'+n.endVerse);
-    var bk=BOOKS[n.bookIdx];if(!bk) return rng;
-    return (isKo?bk.ko:bk.en)+' '+n.chapter+':'+rng;
+  function verseRef(n){
+    if(n.startVerse===n.endVerse){
+      return isKo ? (n.startVerse+'절') : ('Verse '+n.startVerse);
+    }
+    return isKo ? (n.startVerse+'–'+n.endVerse+'절') : ('Verses '+n.startVerse+'–'+n.endVerse);
   }
-  function renderItem(n){
-    var label=verseLabel(n);
-    return '<div class="note-item" onclick="notesEditStart(\''+n.id+'\')">'
-      +'<span class="note-verse-badge">'+esc(label)+'</span>'
-      +'<div class="note-text">'+esc(n.text||'')+'</div>'
-      +'<div class="note-actions">'
-        +'<button class="note-action-btn" onclick="event.stopPropagation();notesEditStart(\''+n.id+'\')">'+(isKo?'수정':'Edit')+'</button>'
-        +'<button class="note-action-btn danger" onclick="event.stopPropagation();notesDelete(\''+n.id+'\')">'+(isKo?'삭제':'Delete')+'</button>'
-      +'</div>'
+
+  function renderEntry(n){
+    return '<div class="note-entry" data-note-id="'+n.id+'" onclick="notesEditStart(\''+n.id+'\')">'
+      +'<div class="note-entry-ref">'+esc(verseRef(n))+'</div>'
+      +'<p class="note-entry-text">'+esc(n.text||'')+'</p>'
     +'</div>';
   }
+
   function renderEditor(n,isNew){
-    var label=verseLabel(n);
     var taId=isNew?'note-new-textarea':'note-edit-textarea';
     var existing=isNew?'':esc(n.text||'');
-    var saveOnclick=isNew?'notesSaveNew()':('notesSaveEdit(\''+n.id+'\')');
-    var cancelOnclick=isNew?'notesCancelNew()':'notesCancelEdit()';
-    return '<div class="note-editor-card">'
-      +'<span class="note-verse-badge">'+esc(label)+'</span>'
-      +'<textarea id="'+taId+'" class="note-textarea" placeholder="'+(isKo?'노트 작성...':'Write a note...')+'">'+existing+'</textarea>'
-      +'<div class="note-editor-actions">'
-        +'<button class="note-editor-btn cancel" onclick="'+cancelOnclick+'">'+(isKo?'취소':'Cancel')+'</button>'
-        +'<button class="note-editor-btn save" onclick="'+saveOnclick+'">'+(isKo?'저장':'Save')+'</button>'
+    var saveFn=isNew?'notesSaveNew()':('notesSaveEdit(\''+n.id+'\')');
+    var cancelFn=isNew?'notesCancelNew()':'notesCancelEdit()';
+    var deleteBtn = isNew ? '' :
+      '<button class="note-entry-action danger" onmousedown="event.preventDefault()" onclick="event.stopPropagation();notesDelete(\''+n.id+'\')">'+(isKo?'삭제':'Delete')+'</button>';
+    var placeholder = isKo?'노트를 작성하세요...':'Write your note...';
+    return '<div class="note-entry editing" data-note-id="'+(n.id||'new')+'" onclick="event.stopPropagation()">'
+      +'<div class="note-entry-ref">'+esc(verseRef(n))+'</div>'
+      +'<textarea id="'+taId+'" class="note-entry-textarea" placeholder="'+placeholder+'" '
+        +'oninput="notesAutosize(this)" '
+        +'onkeydown="notesEditorKey(event,'+(isNew?'true':'false')+(isNew?'':',\''+n.id+'\'')+')">'+existing+'</textarea>'
+      +'<div class="note-entry-actions">'
+        +'<button class="note-entry-action primary" onmousedown="event.preventDefault()" onclick="'+saveFn+'">'+(isKo?'저장':'Save')+'</button>'
+        +'<button class="note-entry-action" onmousedown="event.preventDefault()" onclick="'+cancelFn+'">'+(isKo?'취소':'Cancel')+'</button>'
+        +deleteBtn
       +'</div>'
     +'</div>';
   }
 
-  // Update the count badge in the header (shows saved-note count for this chapter).
-  var countEl=document.getElementById('notes-count');
-  if(countEl){
-    var n=chapterNotes.length;
-    countEl.textContent = n===0
-      ? (isKo?'아직 노트가 없습니다':'No notes yet')
-      : (isKo?(n+'개의 노트'):(n+' note'+(n===1?'':'s')));
-  }
+  // Document header — Genesis 1 style title with subtle meta below.
+  var title=bk?(isKo?(bk.ko+' '+ci+'장'):(bk.en+' '+ci)):'';
+  var nCount=chapterNotes.length;
+  var metaText = nCount===0
+    ? (isKo?'노트 없음':'No notes yet')
+    : (isKo?(nCount+'개의 노트'):(nCount+' note'+(nCount===1?'':'s')));
+  var html=''
+    +'<h1 class="notes-doc-title">'+esc(title)+'</h1>'
+    +'<div class="notes-doc-meta">'+esc(metaText)+'</div>';
 
-  // Compose ordered output: walk through existing notes by verse; insert pending new editor
-  // at the position matching its startVerse so the user is editing "in place" within ordering.
-  var html='';
+  // Body: existing notes in verse order, with pending new editor inserted at correct slot.
+  var body='';
   var inserted=false;
   var pendingSV=notesPendingNew?notesPendingNew.startVerse:null;
-
   for(var i=0;i<chapterNotes.length;i++){
-    var nItem=chapterNotes[i];
-    if(notesPendingNew && !inserted && pendingSV<=nItem.startVerse){
-      html+=renderEditor(notesPendingNew,true);
+    var n=chapterNotes[i];
+    if(notesPendingNew && !inserted && pendingSV<=n.startVerse){
+      body+=renderEditor(notesPendingNew,true);
       inserted=true;
     }
-    if(notesEditingId===nItem.id){
-      html+=renderEditor(nItem,false);
+    if(notesEditingId===n.id){
+      body+=renderEditor(n,false);
     } else {
-      html+=renderItem(nItem);
+      body+=renderEntry(n);
     }
   }
   if(notesPendingNew && !inserted){
-    html+=renderEditor(notesPendingNew,true);
+    body+=renderEditor(notesPendingNew,true);
   }
 
-  // If absolutely nothing to show (no notes, no pending editor), show empty hint
-  // with a call to action.
-  if(!html){
-    html='<div class="note-empty">'
-      +(isKo?'이 장에 노트가 없습니다':'No notes for this chapter')
-      +'<div style="margin-top:10px;font-size:12px;color:#aaa">'
-      +(isKo?'구절을 선택하거나 위의 "새 노트"를 누르세요':'Select a verse or tap "New note" above')
-      +'</div></div>';
+  if(!body){
+    body='<div class="notes-empty">'+(isKo?'이 장에 아직 노트가 없습니다. 아래에서 첫 노트를 시작하세요.':'No notes for this chapter yet. Start your first note below.')+'</div>';
   }
+  html+=body;
+  html+='<button class="notes-add-link" onclick="notesStartNewBlank()">+ '+(isKo?'노트 추가':'Add note')+'</button>';
+
   list.innerHTML=html;
+
+  // Autosize any open textarea now that it's in the DOM.
+  setTimeout(function(){
+    var nta=document.getElementById('note-new-textarea');
+    var eta=document.getElementById('note-edit-textarea');
+    if(nta) notesAutosize(nta);
+    if(eta) notesAutosize(eta);
+  },0);
+}
+
+// Save on Cmd/Ctrl+Enter; cancel on Escape.
+function notesEditorKey(e,isNew,id){
+  if((e.metaKey||e.ctrlKey) && e.key==='Enter'){
+    e.preventDefault();
+    if(isNew) notesSaveNew(); else notesSaveEdit(id);
+  } else if(e.key==='Escape'){
+    e.preventDefault();
+    if(isNew) notesCancelNew(); else notesCancelEdit();
+  }
 }
 
 function notesSaveNew(){
@@ -2987,22 +3003,10 @@ window.authDoDelete=authDoDelete;
 </div>
 <div id="notes-backdrop" class="notes-backdrop hidden" onclick="notesClose()"></div>
 <div id="notes-modal" class="notes-pane hidden" role="dialog" aria-label="Notes">
-  <div class="notes-pane-top">
-    <div style="flex:1;min-width:0">
-      <div class="notes-pane-title" id="notes-title">노트 / Notes</div>
-      <div class="notes-pane-count" id="notes-count"></div>
-    </div>
-    <button class="notes-pane-close" onclick="notesClose()" aria-label="Close">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-    </button>
-  </div>
-  <div class="notes-pane-actions">
-    <button class="notes-pane-add" onclick="notesStartNewBlank()" id="notes-add-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-      <span id="notes-add-label">새 노트</span>
-    </button>
-  </div>
-  <div id="notes-list" class="notes-wrap"></div>
+  <button class="notes-pane-close" onclick="notesClose()" aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+  </button>
+  <div id="notes-list" class="notes-doc"></div>
 </div>
 <div class="edge-nav left"><button class="edge-btn" id="edge-bp" onclick="step(-1)" disabled>&#8249;</button></div>
 <div class="edge-nav right"><button class="edge-btn" id="edge-bn" onclick="step(1)" disabled>&#8250;</button></div>
