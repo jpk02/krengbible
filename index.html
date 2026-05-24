@@ -428,11 +428,17 @@ body.dark .notes-pane{background:#161616;border-left-color:#1f1f1f;box-shadow:-1
 body.dark .notes-pane-close{color:#777}
 body.dark .notes-pane-close:hover{color:#f0ede8;background:rgba(255,255,255,.06)}
 .notes-pane-close svg{width:20px;height:20px}
-.notes-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1499;opacity:1;transition:opacity .25s}
-.notes-backdrop.hidden{opacity:0;pointer-events:none}
-@media (min-width: 901px){ .notes-backdrop{display:none} }
+.notes-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1499;opacity:1;transition:opacity .12s}
+.notes-backdrop.hidden{opacity:0;visibility:hidden;pointer-events:none}
+/* Desktop: pane sits beside the verse content; no backdrop needed */
+@media (min-width: 901px){ .notes-backdrop{display:none!important} }
 @media (max-width: 900px){ .notes-pane{width:88vw;max-width:460px} }
-@media (max-width: 480px){ .notes-pane{width:100vw;max-width:100vw} }
+/* Small mobile: pane covers full viewport, so the backdrop is permanently
+   hidden behind it and only flashes during slide-off — disable entirely */
+@media (max-width: 480px){
+  .notes-pane{width:100vw;max-width:100vw}
+  .notes-backdrop{display:none!important}
+}
 
 .notes-doc{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:48px 40px 120px;-webkit-overflow-scrolling:touch}
 @media (max-width: 480px){ .notes-doc{padding:44px 28px 120px} }
