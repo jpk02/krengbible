@@ -1096,7 +1096,7 @@ async function fetchEsv(bk,ch){
   if(!r.ok)throw new Error('ESV proxy error '+r.status);
   var d=await r.json();if(!d.passages||!d.passages[0])throw new Error('No ESV data');
   var txt=d.passages[0],verses={},footnotes={},aL=txt.split('\n'),pL=[],fL=[],inFn=false;
-  for(var l of aL){if(!inFn&&/^\s*\(\d+\)\s/.test(l)&&!l.match(/^\s*\(\d+\)\s*\[/))inFn=true;if(inFn)fL.push(l);else pL.push(l);}
+  for(var l of aL){if(!inFn && /^\s*Footnotes?\s*$/i.test(l)){inFn=true;continue;}if(inFn)fL.push(l);else pL.push(l);}
   for(var l of fL){var m=l.match(/\((\d+)\)\s*(.+)/);if(m)footnotes[m[1]]=m[2].trim();}
   for(var vp of pL.join(' ').split(/(?=\[\d+\])/)){var p=vp.trim();if(!p)continue;var m=p.match(/^\[(\d+)\]\s*([\s\S]*)/);if(m)verses[+m[1]]=m[2].replace(/\s+/g,' ').replace(/\s*Footnotes?\s*$/i,'').trim();}
   return{verses,headings:{},footnotes};
