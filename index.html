@@ -1110,17 +1110,21 @@ function render(koData,esvData,bk,ch){
   h+='<div id="tab-text-content" style="padding-top:8px">';
   kv.forEach(function(v){
     var n=v.verse;
-    var rangeMatch=typeof v.text==='string'&&v.text.match(/^(\d+)-(\d+)$/);
+    var nStr=String(n);
+    var rangeMatch=nStr.match(/^(\d+)-(\d+)$/);
     var er='',displayN=n;
     if(rangeMatch){
-      // Grouped verse label like "1-3" — concatenate ESV verses for that range
+      // Grouped verse like "5-6" — concatenate ESV verses for that range
       var start=parseInt(rangeMatch[1]),end=parseInt(rangeMatch[2]);
       displayN=start+'-'+end;
       var combined=[];
       for(var vi=start;vi<=end;vi++){if(en[vi])combined.push(en[vi]);}
       er=combined.join(' ');
-      // Korean text is just the range label — show nothing meaningful
-      v.text='';
+      // Legacy fallback: if a stale KV entry has the text field set to "5-6"
+      // (from before the worker's range-support fix), clear it.
+      if(typeof v.text==='string' && v.text.match(/^(\d+)-(\d+)$/)){
+        v.text='';
+      }
     } else {
       var firstN=+n;
       er=en[firstN]||en[n]||'';
