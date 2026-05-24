@@ -455,8 +455,10 @@ body.dark .note-entry-delete:hover{background:#943732}
 .note-entry-delete svg{width:18px;height:18px;display:block;margin-bottom:4px}
 .note-entry-delete-inner{display:flex;flex-direction:column;align-items:center;gap:3px}
 
-.note-entry-ref{font:600 10px/1.4 'DM Sans',-apple-system,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#a89f8e;margin-bottom:10px}
+.note-entry-ref{font:600 10px/1.4 'DM Sans',-apple-system,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#a89f8e;margin-bottom:10px;display:flex;align-items:baseline;gap:10px}
 body.dark .note-entry-ref{color:#7a756a}
+.note-entry-time{font:500 10px/1.4 'DM Sans','Noto Sans KR',-apple-system,sans-serif;letter-spacing:.02em;text-transform:none;color:#c2bbac;margin-left:auto;font-style:italic}
+body.dark .note-entry-time{color:#5a564d}
 .note-entry-text{font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;color:#222;white-space:pre-wrap;word-break:break-word;cursor:text;margin:0;letter-spacing:.002em}
 body.dark .note-entry-text{color:#d8d5d0}
 
@@ -1325,6 +1327,23 @@ function notesTsLoad(){try{return JSON.parse(localStorage.getItem(NOTES_TS_KEY)|
 function notesTsSave(d){try{localStorage.setItem(NOTES_TS_KEY,JSON.stringify(d));}catch(e){}}
 function stampNote(id){var t=notesTsLoad();t[id]=Date.now();notesTsSave(t);return t[id];}
 function notesNewId(){return 'n_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);}
+// Relative timestamp like "2h ago" / "Yesterday" / "Dec 5".  Bilingual.
+function notesRelTime(ts, isKo){
+  if(!ts) return '';
+  var now=Date.now(), diff=Math.max(0, now-ts);
+  var sec=Math.floor(diff/1000);
+  if(sec < 45) return isKo?'방금':'just now';
+  var min=Math.floor(sec/60);
+  if(min < 60) return isKo?(min+'분 전'):(min+'m ago');
+  var hr=Math.floor(min/60);
+  if(hr < 24) return isKo?(hr+'시간 전'):(hr+'h ago');
+  var day=Math.floor(hr/24);
+  if(day===1) return isKo?'어제':'yesterday';
+  if(day < 7) return isKo?(day+'일 전'):(day+'d ago');
+  var d=new Date(ts);
+  if(isKo) return (d.getMonth()+1)+'월 '+d.getDate()+'일';
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
 
 // Compute verse range from current highlight selection.
 function notesSelectionRange(){
@@ -1354,6 +1373,11 @@ function notesOpen(){
   notesRender();
   overlay.classList.remove('hidden');
   if(backdrop) backdrop.classList.remove('hidden');
+  // Attach outside-click handler (capture phase so we can swallow before delegates fire).
+  if(!notesOutsideBound){
+    document.addEventListener('click', notesOutsideClick, true);
+    notesOutsideBound=true;
+  }
   // Sync focus — must stay in the user gesture stack for iOS to surface the keyboard.
   var ta=document.getElementById('note-new-textarea')||document.getElementById('note-edit-textarea');
   if(ta){
@@ -1372,6 +1396,28 @@ function notesClose(){
   if(backdrop) backdrop.classList.add('hidden');
   notesEditingId=null;
   notesPendingNew=null;
+  if(notesOutsideBound){
+    document.removeEventListener('click', notesOutsideClick, true);
+    notesOutsideBound=false;
+  }
+}
+var notesOutsideBound=false;
+// If a brand-new editor is open and the user taps outside it (inside the pane),
+// dismiss the editor — but only when its textarea is empty, so we never throw
+// away typed-but-unsaved work.  Swallows the event so a tap on an existing note
+// doesn't accidentally enter edit mode for that note.
+function notesOutsideClick(e){
+  if(!notesPendingNew) return;
+  if(!e.target||!e.target.closest) return;
+  var inPane=e.target.closest('#notes-modal');
+  if(!inPane) return; // outside pane — backdrop/etc. handles
+  if(e.target.closest('.note-entry.editing[data-note-id="new"]')) return;
+  if(e.target.closest('.notes-pane-close')) return;
+  var ta=document.getElementById('note-new-textarea');
+  if(ta && ta.value.trim()) return; // preserve typed work
+  e.stopPropagation();
+  e.preventDefault();
+  notesCancelNew();
 }
 // Start a brand-new note for the current selection (or verse 1 fallback) and focus it.
 function notesStartNewBlank(){
@@ -1418,9 +1464,13 @@ function notesRender(){
   }
 
   function renderEntry(n){
+    var time=notesRelTime(n._updatedAt, isKo);
     return '<div class="note-entry" data-note-id="'+n.id+'">'
       +'<div class="note-entry-content" onclick="notesEntryClick(event,\''+n.id+'\')">'
-        +'<div class="note-entry-ref">'+esc(verseRef(n))+'</div>'
+        +'<div class="note-entry-ref">'
+          +'<span>'+esc(verseRef(n))+'</span>'
+          +(time?'<span class="note-entry-time">'+esc(time)+'</span>':'')
+        +'</div>'
         +'<p class="note-entry-text">'+esc(n.text||'')+'</p>'
       +'</div>'
       +'<button class="note-entry-delete" onmousedown="event.preventDefault()" onclick="event.stopPropagation();notesDelete(\''+n.id+'\')">'
