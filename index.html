@@ -493,14 +493,11 @@ body.dark .note-entry-textarea{color:#d8d5d0}
 .note-entry-textarea::placeholder{color:#c2bbac;font-style:italic}
 body.dark .note-entry-textarea::placeholder{color:#555}
 
-/* Editing mode — actions flow inline at bottom-right of the entry */
-.note-entry.editing{overflow:visible}
-.note-entry.editing .note-entry-content{transform:none!important;background:transparent}
-body.dark .note-entry.editing .note-entry-content{background:transparent}
+/* When the contenteditable is focused, surface the action buttons */
 .note-entry-edit-actions{
   display:none;justify-content:flex-end;align-items:center;gap:6px;margin-top:18px;
 }
-.note-entry.editing.focused .note-entry-edit-actions{display:flex}
+.note-entry.focused .note-entry-edit-actions{display:flex}
 .note-entry-edit-actions .ne-btn{
   border:none;cursor:pointer;
   font:500 13px/1 'DM Sans','Noto Sans KR',-apple-system,sans-serif;
@@ -1412,6 +1409,7 @@ function notesOpen(){
   notesRender();
   overlay.classList.remove('hidden');
   if(backdrop) backdrop.classList.remove('hidden');
+  if(typeof syncThemeColor==='function') syncThemeColor();
   // Attach outside-click handler (capture phase so we can swallow before delegates fire).
   if(!notesOutsideBound){
     document.addEventListener('click', notesOutsideClick, true);
@@ -1433,6 +1431,16 @@ function notesClose(){
   if(notesOutsideBound){
     document.removeEventListener('click', notesOutsideClick, true);
     notesOutsideBound=false;
+  }
+  // Re-assert theme-color so iOS doesn't keep the previous chrome shade.
+  // (Briefly toggle to a sibling value to force iOS Safari to re-evaluate.)
+  if(typeof syncThemeColor==='function'){
+    var m=document.getElementById('theme-color-meta');
+    if(m){
+      var orig=darkMode?'#1a1a1a':'#f7f5f2';
+      m.setAttribute('content', darkMode?'#191919':'#f6f4f1');
+      setTimeout(function(){ m.setAttribute('content', orig); }, 30);
+    }
   }
 }
 var notesOutsideBound=false;
@@ -1694,7 +1702,7 @@ function notesRender(){
 // note is deleted in a single gesture (no tap-the-trash-can step).  Releasing
 // below the threshold snaps back to origin.
 function notesAttachSwipe(){
-  var entries=document.querySelectorAll('#notes-list .note-entry:not(.editing)');
+  var entries=document.querySelectorAll('#notes-list .note-entry:not(.is-new)');
   entries.forEach(function(el){
     if(el._swipeBound) return;
     el._swipeBound=true;
