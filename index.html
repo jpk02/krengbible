@@ -408,8 +408,40 @@ header{display:none!important}
 .mob-sheet{align-items:flex-end!important}
 .mob-sheet-inner{border-radius:16px 16px 0 0!important;max-height:85vh!important;max-width:100%!important}
 .prog-chapters{grid-template-columns:repeat(6,1fr)!important}
-/* Notes */
-.notes-wrap{padding:8px 16px 100px;display:flex;flex-direction:column;gap:10px}
+/* Notes side pane */
+.notes-pane{position:fixed;top:0;right:0;width:380px;max-width:100vw;height:100vh;height:100dvh;background:var(--bg);z-index:1500;display:flex;flex-direction:column;border-left:1px solid #ede9e3;box-shadow:-6px 0 18px rgba(0,0,0,.06);transform:translateX(0);transition:transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)}
+.notes-pane.hidden{transform:translateX(100%);pointer-events:none}
+body.dark .notes-pane{border-left-color:#333;box-shadow:-6px 0 18px rgba(0,0,0,.4)}
+.notes-pane-top{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #ede9e3;flex-shrink:0}
+body.dark .notes-pane-top{border-bottom-color:#333}
+.notes-pane-title{font-size:14px;font-weight:600;color:#1c1c1c;flex:1;min-width:0;line-height:1.3}
+body.dark .notes-pane-title{color:#e8e5e0}
+.notes-pane-count{font-size:11px;font-weight:500;color:#888;margin-top:2px}
+body.dark .notes-pane-count{color:#999}
+.notes-pane-close{background:none;border:none;cursor:pointer;color:#555;padding:6px;line-height:0;border-radius:6px}
+.notes-pane-close:hover{background:#efecea}
+body.dark .notes-pane-close{color:#e8e5e0}
+body.dark .notes-pane-close:hover{background:#2a2a2a}
+.notes-pane-add{background:#1b2a4a;color:#fff;border:none;border-radius:8px;padding:7px 12px;font:600 12px inherit;cursor:pointer;letter-spacing:.02em;display:inline-flex;align-items:center;gap:5px}
+.notes-pane-add:hover{background:#2a3d66}
+body.dark .notes-pane-add{background:#2a3d66}
+body.dark .notes-pane-add:hover{background:#3a4d75}
+.notes-pane-add svg{width:14px;height:14px}
+.notes-pane-actions{padding:10px 16px;border-bottom:1px solid #ede9e3;flex-shrink:0;display:flex;justify-content:flex-end}
+body.dark .notes-pane-actions{border-bottom-color:#333}
+.notes-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1499;opacity:1;transition:opacity 0.25s}
+.notes-backdrop.hidden{opacity:0;pointer-events:none}
+@media (min-width: 901px){
+  .notes-backdrop{display:none}
+}
+@media (max-width: 900px){
+  .notes-pane{width:88vw;max-width:420px}
+}
+@media (max-width: 480px){
+  .notes-pane{width:100vw;max-width:100vw}
+}
+/* Notes content */
+.notes-wrap{padding:8px 16px 120px;display:flex;flex-direction:column;gap:10px;flex:1;overflow-y:auto;overscroll-behavior:contain}
 .note-item{background:#fff;border:.5px solid #ede9e3;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;cursor:pointer}
 .note-item:active{background:#f7f5f2}
 body.dark .note-item{background:#242424;border-color:#333}
@@ -757,6 +789,12 @@ function toggleLangOrder(btn){
   if(savedLabel)savedLabel.textContent=isEn?'Saved / 저장됨':'저장됨 / Saved';
   var copyLabel=document.getElementById('hl-copy-label'); if(copyLabel)copyLabel.textContent=isEn?'Copy':'복사';
   var notesLabel=document.getElementById('hl-notes-label'); if(notesLabel)notesLabel.textContent=isEn?'Notes':'노트';
+  var addLabel=document.getElementById('notes-add-label'); if(addLabel)addLabel.textContent=isEn?'New note':'새 노트';
+  var notesPane=document.getElementById('notes-modal');
+  if(notesPane && !notesPane.classList.contains('hidden') && typeof notesRender==='function'){
+    // Re-render pane title + count + cards in new language
+    if(typeof notesOpen==='function') notesOpen();
+  }
   updateLabel();
   if(loaded)applyLangOrder();
   var koSide=document.querySelector('.title-row .ko-side');
@@ -1287,18 +1325,20 @@ function notesOpenFromSelection(){
 // Opens notes panel for current chapter (no pending new editor unless one is already queued).
 function notesOpen(){
   var overlay=document.getElementById('notes-modal');
+  var backdrop=document.getElementById('notes-backdrop');
   if(!overlay) return;
   var isKo=langOrder==='ko-en';
   var bk=BOOKS[bi];
   var titleEl=document.getElementById('notes-title');
   if(titleEl){
     var ref=bk?(isKo?bk.ko+' '+ci+'장':bk.en+' '+ci):'';
-    titleEl.textContent=(isKo?'노트 / Notes':'Notes / 노트')+(ref?' — '+ref:'');
-    titleEl.style.color=darkMode?'#e8e5e0':'#1c1c1c';
+    titleEl.textContent=(isKo?'노트':'Notes')+(ref?' — '+ref:'');
   }
+  var addLabel=document.getElementById('notes-add-label');
+  if(addLabel) addLabel.textContent=isKo?'새 노트':'New note';
   notesRender();
-  overlay.style.transform='';overlay.style.transition='';
   overlay.classList.remove('hidden');
+  if(backdrop) backdrop.classList.remove('hidden');
   // Focus the pending new-note textarea if one was queued.
   setTimeout(function(){
     var ta=document.getElementById('note-new-textarea');
@@ -1307,10 +1347,24 @@ function notesOpen(){
 }
 function notesClose(){
   var overlay=document.getElementById('notes-modal');
-  if(!overlay) return;
-  overlay.classList.add('hidden');
+  var backdrop=document.getElementById('notes-backdrop');
+  if(overlay) overlay.classList.add('hidden');
+  if(backdrop) backdrop.classList.add('hidden');
   notesEditingId=null;
   notesPendingNew=null;
+}
+// Start a brand-new note from the "+ New note" button. Uses current verse selection
+// if one exists, otherwise defaults to verse 1 of current chapter.
+function notesStartNewBlank(){
+  var range=notesSelectionRange();
+  if(!range) range={bookIdx:bi,chapter:ci,startVerse:1,endVerse:1};
+  notesPendingNew=range;
+  notesEditingId=null;
+  notesRender();
+  setTimeout(function(){
+    var ta=document.getElementById('note-new-textarea');
+    if(ta){try{ta.focus();}catch(e){}}
+  },50);
 }
 
 // Renders all notes for the current chapter sorted by start verse, inserting an inline editor
@@ -1363,32 +1417,45 @@ function notesRender(){
     +'</div>';
   }
 
+  // Update the count badge in the header (shows saved-note count for this chapter).
+  var countEl=document.getElementById('notes-count');
+  if(countEl){
+    var n=chapterNotes.length;
+    countEl.textContent = n===0
+      ? (isKo?'아직 노트가 없습니다':'No notes yet')
+      : (isKo?(n+'개의 노트'):(n+' note'+(n===1?'':'s')));
+  }
+
   // Compose ordered output: walk through existing notes by verse; insert pending new editor
   // at the position matching its startVerse so the user is editing "in place" within ordering.
   var html='';
   var inserted=false;
   var pendingSV=notesPendingNew?notesPendingNew.startVerse:null;
 
-  if(chapterNotes.length===0 && !notesPendingNew){
-    html='<div class="note-empty">'+(isKo?'이 장에 노트가 없습니다':'No notes for this chapter')+'</div>';
-    list.innerHTML=html;
-    return;
-  }
-
   for(var i=0;i<chapterNotes.length;i++){
-    var n=chapterNotes[i];
-    if(notesPendingNew && !inserted && pendingSV<=n.startVerse){
+    var nItem=chapterNotes[i];
+    if(notesPendingNew && !inserted && pendingSV<=nItem.startVerse){
       html+=renderEditor(notesPendingNew,true);
       inserted=true;
     }
-    if(notesEditingId===n.id){
-      html+=renderEditor(n,false);
+    if(notesEditingId===nItem.id){
+      html+=renderEditor(nItem,false);
     } else {
-      html+=renderItem(n);
+      html+=renderItem(nItem);
     }
   }
   if(notesPendingNew && !inserted){
     html+=renderEditor(notesPendingNew,true);
+  }
+
+  // If absolutely nothing to show (no notes, no pending editor), show empty hint
+  // with a call to action.
+  if(!html){
+    html='<div class="note-empty">'
+      +(isKo?'이 장에 노트가 없습니다':'No notes for this chapter')
+      +'<div style="margin-top:10px;font-size:12px;color:#aaa">'
+      +(isKo?'구절을 선택하거나 위의 "새 노트"를 누르세요':'Select a verse or tap "New note" above')
+      +'</div></div>';
   }
   list.innerHTML=html;
 }
@@ -2918,14 +2985,24 @@ window.authDoDelete=authDoDelete;
   </div>
   <div id="saved-list" style="flex:1;overflow-y:auto;overscroll-behavior:contain"></div>
 </div>
-<div id="notes-modal" class="search-overlay hidden">
-  <div class="search-top">
-    <button class="search-back" onclick="notesClose()">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+<div id="notes-backdrop" class="notes-backdrop hidden" onclick="notesClose()"></div>
+<div id="notes-modal" class="notes-pane hidden" role="dialog" aria-label="Notes">
+  <div class="notes-pane-top">
+    <div style="flex:1;min-width:0">
+      <div class="notes-pane-title" id="notes-title">노트 / Notes</div>
+      <div class="notes-pane-count" id="notes-count"></div>
+    </div>
+    <button class="notes-pane-close" onclick="notesClose()" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
     </button>
-    <span style="font-size:15px;font-weight:600;color:#1c1c1c;flex:1" id="notes-title">노트 / Notes</span>
   </div>
-  <div id="notes-list" class="notes-wrap" style="flex:1;overflow-y:auto;overscroll-behavior:contain"></div>
+  <div class="notes-pane-actions">
+    <button class="notes-pane-add" onclick="notesStartNewBlank()" id="notes-add-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      <span id="notes-add-label">새 노트</span>
+    </button>
+  </div>
+  <div id="notes-list" class="notes-wrap"></div>
 </div>
 <div class="edge-nav left"><button class="edge-btn" id="edge-bp" onclick="step(-1)" disabled>&#8249;</button></div>
 <div class="edge-nav right"><button class="edge-btn" id="edge-bn" onclick="step(1)" disabled>&#8250;</button></div>
