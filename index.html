@@ -467,19 +467,23 @@ body.dark .note-entry-delete{background:#b04a44}
 body.dark .note-entry-ref{color:#7a756a}
 .note-entry-time{font:500 10px/1.4 'DM Sans','Noto Sans KR',-apple-system,sans-serif;letter-spacing:.02em;text-transform:none;color:#c2bbac;margin-left:auto;font-style:italic}
 body.dark .note-entry-time{color:#5a564d}
-.note-entry-text,.note-entry-textarea{
+.note-entry-text{
   font:400 16px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;
   color:#222;letter-spacing:.002em;
   white-space:pre-wrap;word-break:break-word;
-  margin:0;padding:0;
+  margin:0;padding:0;display:block;cursor:text;
+  outline:none;-webkit-tap-highlight-color:transparent;
+  min-height:1.75em;
 }
-body.dark .note-entry-text,body.dark .note-entry-textarea{color:#d8d5d0}
-.note-entry-text{cursor:text;display:block}
-.note-entry-textarea{
-  width:100%;border:none;outline:none;resize:none;background:transparent;display:block;
-  box-shadow:none;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent;
-  overflow:hidden;
+body.dark .note-entry-text{color:#d8d5d0}
+/* Placeholder for empty contenteditable */
+.note-entry-text:empty::before,
+.note-entry-text[data-empty="1"]::before{
+  content:attr(data-placeholder);
+  color:#c2bbac;font-style:italic;pointer-events:none;
 }
+body.dark .note-entry-text:empty::before,
+body.dark .note-entry-text[data-empty="1"]::before{color:#555}
 body.dark .note-entry-textarea{color:#d8d5d0}
 .note-entry-textarea::placeholder{color:#c2bbac;font-style:italic}
 body.dark .note-entry-textarea::placeholder{color:#555}
@@ -1394,8 +1398,8 @@ function notesOpenFromSelection(){
   notesOpen();
 }
 
-// Opens notes panel for current chapter.  If an editor is pending/active, focuses the
-// textarea SYNCHRONOUSLY so iOS shows the keyboard as part of the user gesture.
+// Opens notes panel for current chapter.  If a pending new editor exists, focuses
+// it SYNCHRONOUSLY so iOS shows the keyboard as part of the user gesture.
 function notesOpen(){
   var overlay=document.getElementById('notes-modal');
   var backdrop=document.getElementById('notes-backdrop');
@@ -1408,15 +1412,10 @@ function notesOpen(){
     document.addEventListener('click', notesOutsideClick, true);
     notesOutsideBound=true;
   }
-  // Sync focus — must stay in the user gesture stack for iOS to surface the keyboard.
-  var ta=document.getElementById('note-new-textarea')||document.getElementById('note-edit-textarea');
-  if(ta){
-    try{
-      ta.focus();
-      notesAutosize(ta);
-      var len=ta.value.length;
-      ta.setSelectionRange(len,len);
-    }catch(e){}
+  // Sync focus on the pending new entry — keeps us inside the user gesture stack
+  // so iOS surfaces the keyboard automatically.
+  if(notesPendingNew){
+    notesFocusEntry('new');
   }
 }
 function notesClose(){
@@ -1432,22 +1431,23 @@ function notesClose(){
   }
 }
 var notesOutsideBound=false;
-// If a brand-new editor is open and the user taps outside it (inside the pane),
-// dismiss the editor — but only when its textarea is empty, so we never throw
-// away typed-but-unsaved work.  Swallows the event so a tap on an existing note
-// doesn't accidentally enter edit mode for that note.
+// If a pending new editor is open and the user taps outside it (inside the pane,
+// not on the pending entry itself), discard the pending entry — but only when
+// empty, so we never throw away typed-but-unsaved work.
 function notesOutsideClick(e){
   if(!notesPendingNew) return;
   if(!e.target||!e.target.closest) return;
   var inPane=e.target.closest('#notes-modal');
-  if(!inPane) return; // outside pane — backdrop/etc. handles
-  if(e.target.closest('.note-entry.editing[data-note-id="new"]')) return;
+  if(!inPane) return;
+  if(e.target.closest('.note-entry[data-note-id="new"]')) return;
   if(e.target.closest('.notes-pane-close')) return;
-  var ta=document.getElementById('note-new-textarea');
-  if(ta && ta.value.trim()) return; // preserve typed work
-  e.stopPropagation();
-  e.preventDefault();
-  notesCancelNew();
+  var pendingEl=document.querySelector('.note-entry[data-note-id="new"]');
+  var textEl=pendingEl && pendingEl.querySelector('.note-entry-text');
+  var text=textEl?notesReadText(textEl):'';
+  if(text) return; // preserve typed work
+  // Don't stopPropagation — let the click do its normal thing (e.g., focus another note).
+  if(pendingEl && pendingEl.parentNode) pendingEl.parentNode.removeChild(pendingEl);
+  notesPendingNew=null;
 }
 // Start a brand-new note for the current selection (or verse 1 fallback) and focus it.
 function notesStartNewBlank(){
@@ -1456,31 +1456,141 @@ function notesStartNewBlank(){
   notesPendingNew=range;
   notesEditingId=null;
   notesRender();
-  var ta=document.getElementById('note-new-textarea');
-  if(ta){try{ta.focus();notesAutosize(ta);}catch(e){}}
+  notesFocusEntry('new');
 }
-// Auto-size a textarea to fit its content.
-function notesAutosize(ta){
-  if(!ta) return;
-  ta.style.height='auto';
-  ta.style.height=(ta.scrollHeight)+'px';
+// Focus the contenteditable for a given note ID and place caret at the end.
+function notesFocusEntry(noteId){
+  var el=document.querySelector('.note-entry[data-note-id="'+noteId+'"] .note-entry-text');
+  if(!el) return;
+  try{
+    el.focus();
+    var range=document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    var sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }catch(e){}
 }
-// On blur, hide the save/cancel buttons after a short delay (long enough for a tap
-// on the buttons themselves to register, but short enough to feel snappy).
-function notesOnEditorBlur(ta){
+function notesOnTextFocus(el){
+  var entry=el.closest('.note-entry');
+  if(entry) entry.classList.add('focused');
+}
+function notesOnTextInput(el){
+  // Toggle data-empty so we can show placeholder via CSS even when browser leaves <br>.
+  var text=(el.innerText||'').replace(/[​ \s]+/g,'');
+  if(text==='') el.setAttribute('data-empty','1'); else el.removeAttribute('data-empty');
+}
+// On blur, save the changes (if any) and hide the action buttons.  Short delay so
+// a tap on Save/Cancel registers first.
+function notesOnTextBlur(el){
   setTimeout(function(){
-    var entry=ta.closest('.note-entry');
+    if(document.activeElement===el) return;
+    var entry=el.closest('.note-entry');
     if(!entry) return;
-    // If the textarea is focused again (e.g., tap on buttons preserved focus), keep .focused.
-    if(document.activeElement===ta) return;
     entry.classList.remove('focused');
-  },120);
+    notesAutoSave(el, entry);
+  },140);
+}
+// Read plain-text content (preserves newlines) from contenteditable.
+function notesReadText(el){
+  return (el.innerText||'').replace(/ /g,' ').trim();
+}
+// Save the contenteditable's content for its note (auto-save on blur).
+function notesAutoSave(el, entry){
+  var noteId=entry.getAttribute('data-note-id');
+  var text=notesReadText(el);
+  if(noteId==='new'){
+    if(!notesPendingNew) return;
+    if(!text){
+      // Empty — quietly remove the pending entry from the DOM.  No re-render so
+      // focus stays on whatever the user just tapped (e.g., another note's text).
+      entry.parentNode && entry.parentNode.removeChild(entry);
+      notesPendingNew=null;
+      return;
+    }
+    var id=notesNewId();
+    var data=notesLoad();
+    data[id]={
+      bookIdx:notesPendingNew.bookIdx,
+      chapter:notesPendingNew.chapter,
+      startVerse:notesPendingNew.startVerse,
+      endVerse:notesPendingNew.endVerse,
+      text:text,
+      _updatedAt:Date.now()
+    };
+    notesSave(data);
+    stampNote(id);
+    notesPendingNew=null;
+    notesRender();
+    if(typeof fbPushNote==='function') fbPushNote(id);
+  } else {
+    var data=notesLoad();
+    if(!data[noteId]) return;
+    if(text===''){
+      // Don't auto-delete on blur; leave the note untouched.
+      el.innerText=data[noteId].text;
+      return;
+    }
+    if(data[noteId].text===text) return; // no change
+    data[noteId].text=text;
+    data[noteId]._updatedAt=Date.now();
+    notesSave(data);
+    stampNote(noteId);
+    notesRender();
+    if(typeof fbPushNote==='function') fbPushNote(noteId);
+  }
+}
+// Save / Cancel button handlers — find the entry's contenteditable and act on it.
+function notesSaveButton(btn){
+  var entry=btn.closest('.note-entry');
+  if(!entry) return;
+  var el=entry.querySelector('.note-entry-text');
+  if(!el) return;
+  notesAutoSave(el, entry); // explicit save = same as blur-save
+  el.blur();
+}
+function notesCancelButton(btn){
+  var entry=btn.closest('.note-entry');
+  if(!entry) return;
+  var noteId=entry.getAttribute('data-note-id');
+  var el=entry.querySelector('.note-entry-text');
+  if(noteId==='new'){
+    notesPendingNew=null;
+    notesRender();
+  } else {
+    var data=notesLoad();
+    if(el && data[noteId]) el.innerText=data[noteId].text;
+    if(el) el.blur();
+    entry.classList.remove('focused');
+  }
+}
+// Keyboard shortcuts: Cmd/Ctrl+Enter saves, Escape cancels, plain Enter inserts \n.
+function notesTextKey(e, el){
+  if((e.metaKey||e.ctrlKey) && e.key==='Enter'){
+    e.preventDefault();
+    var entry=el.closest('.note-entry');
+    notesAutoSave(el, entry);
+    el.blur();
+  } else if(e.key==='Escape'){
+    e.preventDefault();
+    // Find the entry's cancel button and trigger its handler.
+    var entry=el.closest('.note-entry');
+    var noteId=entry.getAttribute('data-note-id');
+    if(noteId==='new'){
+      notesPendingNew=null;
+      notesRender();
+    } else {
+      var data=notesLoad();
+      if(data[noteId]) el.innerText=data[noteId].text;
+      el.blur();
+    }
+  }
 }
 
-// Renders the chapter as a single document: title at top, notes flowing as paragraphs
-// ordered by verse.  Each entry is a small verse marker (e.g. "VERSE 5") followed by
-// the note text — click any note to edit it inline; the editor inherits identical
-// typography so it feels like editing a Word doc.
+// Renders the chapter as a single document: title at top, notes flowing as
+// contenteditable paragraphs ordered by verse.  Tapping any note's text focuses
+// it in place — no DOM swap, no visual height change.
 function notesRender(){
   var list=document.getElementById('notes-list');
   if(!list) return;
@@ -1505,47 +1615,35 @@ function notesRender(){
   }
 
   function renderEntry(n){
-    var time=notesRelTime(n._updatedAt, isKo);
-    return '<div class="note-entry" data-note-id="'+n.id+'">'
-      +'<div class="note-entry-content" onclick="notesEntryClick(event,\''+n.id+'\')">'
-        +'<div class="note-entry-ref">'
-          +'<span>'+esc(verseRef(n))+'</span>'
-          +(time?'<span class="note-entry-time">'+esc(time)+'</span>':'')
-        +'</div>'
-        +'<p class="note-entry-text">'+esc(n.text||'')+'</p>'
-      +'</div>'
-      +'<div class="note-entry-delete" aria-hidden="true">'
-        +'<span class="note-entry-delete-inner">'
-          +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>'
-          +'<span>'+(isKo?'삭제':'Delete')+'</span>'
-        +'</span>'
-      +'</div>'
-    +'</div>';
-  }
-
-  function renderEditor(n,isNew){
-    var taId=isNew?'note-new-textarea':'note-edit-textarea';
-    var existing=isNew?'':esc(n.text||'');
-    var saveFn=isNew?'notesSaveNew()':('notesSaveEdit(\''+n.id+'\')');
-    var cancelFn=isNew?'notesCancelNew()':'notesCancelEdit()';
+    var isNew=!!n._isNew;
+    var noteId=n.id || 'new';
+    var time=(!isNew && n._updatedAt) ? notesRelTime(n._updatedAt, isKo) : '';
     var placeholder = isKo?'노트를 작성하세요...':'Write your note...';
-    var time = (!isNew && n._updatedAt) ? notesRelTime(n._updatedAt, isKo) : '';
-    return '<div class="note-entry editing" data-note-id="'+(n.id||'new')+'" onclick="event.stopPropagation()">'
+    return '<div class="note-entry'+(isNew?' is-new':'')+'" data-note-id="'+noteId+'">'
       +'<div class="note-entry-content">'
         +'<div class="note-entry-ref">'
           +'<span>'+esc(verseRef(n))+'</span>'
           +(time?'<span class="note-entry-time">'+esc(time)+'</span>':'')
         +'</div>'
-        +'<textarea id="'+taId+'" class="note-entry-textarea" placeholder="'+placeholder+'" '
-          +'oninput="notesAutosize(this)" '
-          +'onfocus="this.closest(\'.note-entry\').classList.add(\'focused\')" '
-          +'onblur="notesOnEditorBlur(this)" '
-          +'onkeydown="notesEditorKey(event,'+(isNew?'true':'false')+(isNew?'':',\''+n.id+'\'')+')">'+existing+'</textarea>'
+        +'<div class="note-entry-text" contenteditable="true" '
+          +'data-placeholder="'+esc(placeholder)+'" '
+          +'onfocus="notesOnTextFocus(this)" '
+          +'onblur="notesOnTextBlur(this)" '
+          +'oninput="notesOnTextInput(this)" '
+          +'onkeydown="notesTextKey(event,this)">'
+          +esc(n.text||'')
+        +'</div>'
         +'<div class="note-entry-edit-actions">'
-          +'<button class="ne-btn cancel" onmousedown="event.preventDefault()" onclick="'+cancelFn+'">'+(isKo?'취소':'Cancel')+'</button>'
-          +'<button class="ne-btn save" onmousedown="event.preventDefault()" onclick="'+saveFn+'">'+(isKo?'저장':'Save')+'</button>'
+          +'<button class="ne-btn cancel" onmousedown="event.preventDefault()" onclick="notesCancelButton(this)">'+(isKo?'취소':'Cancel')+'</button>'
+          +'<button class="ne-btn save" onmousedown="event.preventDefault()" onclick="notesSaveButton(this)">'+(isKo?'저장':'Save')+'</button>'
         +'</div>'
       +'</div>'
+      +(isNew?'':'<div class="note-entry-delete" aria-hidden="true">'
+        +'<span class="note-entry-delete-inner">'
+          +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>'
+          +'<span>'+(isKo?'삭제':'Delete')+'</span>'
+        +'</span>'
+      +'</div>')
     +'</div>';
   }
 
@@ -1559,65 +1657,32 @@ function notesRender(){
     +'<h1 class="notes-doc-title">'+esc(title)+'</h1>'
     +'<div class="notes-doc-meta">'+esc(metaText)+'</div>';
 
-  // Body: existing notes in verse order, with pending new editor inserted at correct slot.
-  var body='';
+  // Compose ordered list: existing notes interleaved with pending new at correct slot.
+  var renderList=[];
   var inserted=false;
   var pendingSV=notesPendingNew?notesPendingNew.startVerse:null;
   for(var i=0;i<chapterNotes.length;i++){
     var n=chapterNotes[i];
     if(notesPendingNew && !inserted && pendingSV<=n.startVerse){
-      body+=renderEditor(notesPendingNew,true);
+      renderList.push(Object.assign({_isNew:true,text:''},notesPendingNew));
       inserted=true;
     }
-    if(notesEditingId===n.id){
-      body+=renderEditor(n,false);
-    } else {
-      body+=renderEntry(n);
-    }
+    renderList.push(n);
   }
   if(notesPendingNew && !inserted){
-    body+=renderEditor(notesPendingNew,true);
+    renderList.push(Object.assign({_isNew:true,text:''},notesPendingNew));
   }
 
-  if(!body){
-    body='<div class="notes-empty">'+(isKo?'구절을 선택한 후 노트 아이콘을 눌러 첫 노트를 작성하세요.':'Select a verse and tap the notes icon to start your first note.')+'</div>';
+  if(renderList.length===0){
+    html+='<div class="notes-empty">'+(isKo?'구절을 선택한 후 노트 아이콘을 눌러 첫 노트를 작성하세요.':'Select a verse and tap the notes icon to start your first note.')+'</div>';
+  } else {
+    html+=renderList.map(renderEntry).join('');
   }
-  html+=body;
 
   list.innerHTML=html;
-
-  // Autosize any open textarea now that it's in the DOM.
-  var nta=document.getElementById('note-new-textarea');
-  var eta=document.getElementById('note-edit-textarea');
-  if(nta) notesAutosize(nta);
-  if(eta) notesAutosize(eta);
-
-  // Wire up swipe-to-delete on non-editing entries.
   notesAttachSwipe();
 }
 
-// Save on Cmd/Ctrl+Enter; cancel on Escape.
-function notesEditorKey(e,isNew,id){
-  if((e.metaKey||e.ctrlKey) && e.key==='Enter'){
-    e.preventDefault();
-    if(isNew) notesSaveNew(); else notesSaveEdit(id);
-  } else if(e.key==='Escape'){
-    e.preventDefault();
-    if(isNew) notesCancelNew(); else notesCancelEdit();
-  }
-}
-
-// Tap on a note: if swipe-open, just close the swipe; otherwise enter edit mode.
-function notesEntryClick(e,id){
-  var entry=e.currentTarget && e.currentTarget.closest('.note-entry');
-  if(entry && entry.classList.contains('swiped')){
-    entry.classList.remove('swiped');
-    return;
-  }
-  // Close any other open swipes before editing.
-  document.querySelectorAll('#notes-list .note-entry.swiped').forEach(function(el){el.classList.remove('swiped');});
-  notesEditStart(id);
-}
 
 // Swipe-left to delete.  Drag the card with the finger; if released past the
 // commit threshold (~45% of card width), the card animates off-screen and the
@@ -1692,59 +1757,11 @@ function notesAttachSwipe(){
   });
 }
 
-function notesSaveNew(){
-  var ta=document.getElementById('note-new-textarea');
-  var text=ta?ta.value.trim():'';
-  if(!text||!notesPendingNew){ notesPendingNew=null; notesRender(); return; }
-  var id=notesNewId();
-  var data=notesLoad();
-  data[id]={
-    bookIdx:notesPendingNew.bookIdx,
-    chapter:notesPendingNew.chapter,
-    startVerse:notesPendingNew.startVerse,
-    endVerse:notesPendingNew.endVerse,
-    text:text,
-    _updatedAt:Date.now()
-  };
-  notesSave(data);
-  stampNote(id);
-  notesPendingNew=null;
-  notesRender();
-  if(typeof fbPushNote==='function') fbPushNote(id);
-}
+// Backward-compat helpers for older call sites (e.g., Saved sheet jump).  With the
+// contenteditable refactor, the entry is always editable; these are now no-ops or
+// just dismiss state.
 function notesCancelNew(){ notesPendingNew=null; notesRender(); }
-
-function notesEditStart(id){
-  // If a pending new editor is open and user starts editing existing, discard the pending blank.
-  if(notesPendingNew){
-    var ta=document.getElementById('note-new-textarea');
-    if(!ta||!ta.value.trim()) notesPendingNew=null;
-  }
-  notesEditingId=id;
-  notesRender();
-  // No auto-focus: the user has only tapped to view the note as editable.  The textarea
-  // is in place but the keyboard / save+cancel buttons stay hidden until they explicitly
-  // tap into the text.
-}
 function notesCancelEdit(){ notesEditingId=null; notesRender(); }
-function notesSaveEdit(id){
-  var ta=document.getElementById('note-edit-textarea');
-  var text=ta?ta.value.trim():'';
-  var data=notesLoad();
-  if(!data[id]){ notesEditingId=null; notesRender(); return; }
-  if(!text){
-    // Empty save = delete.
-    notesDelete(id,true);
-    return;
-  }
-  data[id].text=text;
-  data[id]._updatedAt=Date.now();
-  notesSave(data);
-  stampNote(id);
-  notesEditingId=null;
-  notesRender();
-  if(typeof fbPushNote==='function') fbPushNote(id);
-}
 function notesDelete(id,skipConfirm){
   var isKo=langOrder==='ko-en';
   function doDelete(){
@@ -1790,19 +1807,16 @@ function notesJumpTo(bIdx,ch,id){
         if(!all[id]) return;
         var listEl=document.getElementById('notes-list');
         if(!listEl) return;
-        var cards=listEl.querySelectorAll('.note-item');
-        var targetIdx=-1;
-        var sorted=Object.keys(all).filter(function(k){var n=all[k];return n&&!n.deleted&&n.bookIdx===bIdx&&n.chapter===ch;}).sort(function(a,b){
-          var na=all[a],nb=all[b];
-          return (na.startVerse-nb.startVerse)||(na.endVerse-nb.endVerse)||((na._updatedAt||0)-(nb._updatedAt||0));
-        });
-        targetIdx=sorted.indexOf(id);
-        if(targetIdx>=0 && cards[targetIdx]){
-          cards[targetIdx].scrollIntoView({behavior:'smooth',block:'center'});
-          cards[targetIdx].style.transition='background 0.4s';
-          var orig=cards[targetIdx].style.background;
-          cards[targetIdx].style.background=darkMode?'#3a3520':'#fff9d8';
-          setTimeout(function(){cards[targetIdx].style.background=orig;},900);
+        var card=listEl.querySelector('.note-entry[data-note-id="'+id+'"]');
+        if(card){
+          card.scrollIntoView({behavior:'smooth',block:'center'});
+          var pulse=card.querySelector('.note-entry-content');
+          if(pulse){
+            pulse.style.transition='background 0.4s';
+            var orig=pulse.style.background;
+            pulse.style.background=darkMode?'#3a3520':'#fff9d8';
+            setTimeout(function(){pulse.style.background=orig;},900);
+          }
         }
       },180);
     },400);
