@@ -272,6 +272,21 @@ body.dark .comm-label{color:#8899bb}
 .comm-en{font-size:15px;line-height:1.75;color:#1c1c1c;margin-bottom:6px}
 body.dark .comm-ko{color:#e8e5e0}
 body.dark .comm-en{color:#e8e5e0}
+/* Chapter Insights */
+.insights-wrap{padding:24px 22px 60px;display:flex;flex-direction:column;gap:36px;max-width:680px;margin:0 auto}
+.insight-card{}
+.insight-kicker{font:600 10px/1.4 'DM Sans','Noto Sans KR',-apple-system,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#a89f8e;margin-bottom:10px}
+body.dark .insight-kicker{color:#e8e5e0}
+.insight-title{font:600 18px/1.35 'DM Sans','Noto Sans KR',-apple-system,sans-serif;color:#1a1a1a;margin:0 0 14px;letter-spacing:-.01em}
+body.dark .insight-title{color:#f4f1eb}
+.insight-body{font:400 15px/1.75 'Iowan Old Style','Palatino Linotype','Palatino','Book Antiqua',Georgia,'Noto Serif KR','Noto Sans KR',serif;color:#2a2a2a;letter-spacing:.002em}
+.insight-body p{margin:0 0 14px}
+.insight-body p:last-child{margin-bottom:0}
+body.dark .insight-body{color:#e8e5e0}
+.insights-attrib{font:500 11px/1.5 'DM Sans','Noto Sans KR',-apple-system,sans-serif;color:#a89f8e;letter-spacing:.02em;margin-top:24px;padding-top:24px;border-top:1px solid #ede9e3;text-align:center}
+body.dark .insights-attrib{color:#e8e5e0;border-top-color:#333}
+.insights-empty{padding:60px 20px;text-align:center;font:400 14px/1.6 'DM Sans','Noto Sans KR',-apple-system,sans-serif;color:#a89f8e}
+body.dark .insights-empty{color:#e8e5e0}
 .fn-popup{position:fixed;z-index:200;background:#fff;border:1px solid #e8e5e0;border-radius:8px;padding:10px 14px;max-width:280px;font-size:12px;color:#444;line-height:1.6;box-shadow:0 4px 16px rgba(0,0,0,.12);pointer-events:none;transition:opacity .15s}
 body.dark .fn-popup{background:#2a2a2a;border-color:#444;color:#ccc}
 .votd-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px;min-height:60vh}
@@ -848,9 +863,10 @@ function toggleLangOrder(btn){
   var koSide=document.querySelector('.title-row .ko-side');
   var enSide=document.querySelector('.title-row .en-side');
   if(koSide&&enSide){koSide.style.order=langOrder==='ko-en'?1:2;enSide.style.order=langOrder==='ko-en'?2:1;}
-  var tabText=document.getElementById('tab-text');var tabComm=document.getElementById('tab-comm');var tabIntro=document.getElementById('tab-intro');
+  var tabText=document.getElementById('tab-text');var tabComm=document.getElementById('tab-comm');var tabInsights=document.getElementById('tab-insights');var tabIntro=document.getElementById('tab-intro');
   if(tabText)tabText.textContent=langOrder==='ko-en'?'본문':'Passage';
   if(tabComm)tabComm.textContent=langOrder==='ko-en'?'해설':'Commentary';
+  if(tabInsights)tabInsights.textContent=langOrder==='ko-en'?'통찰':'Insights';
   if(tabIntro)tabIntro.textContent=langOrder==='ko-en'?'책 소개':'Book Intro';
   var koBtn=document.querySelector('.votd-btn-ko');
   var enBtn=document.querySelector('.votd-btn-en');
@@ -862,6 +878,10 @@ function toggleLangOrder(btn){
   }
   var tIntroEl=document.getElementById('tab-intro-content');
   var tComm=document.getElementById('tab-comm-content');
+  var tInsightsEl=document.getElementById('tab-insights-content');
+  if(tInsightsEl && tInsightsEl.style.display!=='none' && !tInsightsEl.querySelector('.ldg')){
+    loadInsights();
+  }
   // Re-render whichever tab is visible, invalidate the hidden one so it re-renders on next click
   if(tIntroEl&&tIntroEl.style.display!=='none'&&!tIntroEl.querySelector('.ldg')&&window._lastIntroData&&window._lastIntroBk){
     tIntroEl.innerHTML='';
@@ -1274,8 +1294,8 @@ function render(koData,esvData,bk,ch){
   var kv=koData.verses,kf=koData.footnotes||{};
   var en=esvData.verses,headings=esvData.headings,footnotes=esvData.footnotes;
   var h='<div class="col-headers"></div>';
-  var tl1=langOrder==='ko-en'?'본문':'Passage', tl2=langOrder==='ko-en'?'해설':'Commentary', tl3=langOrder==='ko-en'?'책 소개':'Book Intro';
-  h+='<div class="ch-tabs"><button class="ch-tab active" id="tab-text" onclick="switchTab(\'text\')">'+tl1+'</button><button class="ch-tab" id="tab-comm" onclick="switchTab(\'comm\')">'+tl2+'</button><button class="ch-tab" id="tab-intro" onclick="switchTab(\'intro\')">'+tl3+'</button></div>';
+  var tl1=langOrder==='ko-en'?'본문':'Passage', tl2=langOrder==='ko-en'?'해설':'Commentary', tlInsights=langOrder==='ko-en'?'통찰':'Insights', tl3=langOrder==='ko-en'?'책 소개':'Book Intro';
+  h+='<div class="ch-tabs"><button class="ch-tab active" id="tab-text" onclick="switchTab(\'text\')">'+tl1+'</button><button class="ch-tab" id="tab-comm" onclick="switchTab(\'comm\')">'+tl2+'</button><button class="ch-tab" id="tab-insights" onclick="switchTab(\'insights\')">'+tlInsights+'</button><button class="ch-tab" id="tab-intro" onclick="switchTab(\'intro\')">'+tl3+'</button></div>';
   h+='<div id="tab-text-content" style="padding-top:8px">';
   kv.forEach(function(v){
     var n=v.verse;
@@ -1309,6 +1329,7 @@ function render(koData,esvData,bk,ch){
   fnHidden+='</div>';h+=fnHidden;
   h+='</div>';
   h+='<div id="tab-comm-content" style="display:none"><div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div></div>';
+  h+='<div id="tab-insights-content" style="display:none"><div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div></div>';
   h+='<div id="tab-intro-content" style="display:none"><div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div></div>';
   document.getElementById('content').innerHTML=h;
   applyLangOrder();
@@ -2306,14 +2327,17 @@ function renderBookIntro(d,bk,container){
 function switchTab(tab){
   var tText=document.getElementById('tab-text-content');
   var tComm=document.getElementById('tab-comm-content');
+  var tInsights=document.getElementById('tab-insights-content');
   var tIntro=document.getElementById('tab-intro-content');
   var btnText=document.getElementById('tab-text');
   var btnComm=document.getElementById('tab-comm');
+  var btnInsights=document.getElementById('tab-insights');
   var btnIntro=document.getElementById('tab-intro');
-  if(tText)tText.style.display='none';if(tComm)tComm.style.display='none';if(tIntro)tIntro.style.display='none';
-  if(btnText)btnText.classList.remove('active');if(btnComm)btnComm.classList.remove('active');if(btnIntro)btnIntro.classList.remove('active');
+  if(tText)tText.style.display='none';if(tComm)tComm.style.display='none';if(tInsights)tInsights.style.display='none';if(tIntro)tIntro.style.display='none';
+  if(btnText)btnText.classList.remove('active');if(btnComm)btnComm.classList.remove('active');if(btnInsights)btnInsights.classList.remove('active');if(btnIntro)btnIntro.classList.remove('active');
   if(tab==='text'){if(tText)tText.style.display='';if(btnText)btnText.classList.add('active');}
   else if(tab==='comm'){if(tComm)tComm.style.display='';if(btnComm)btnComm.classList.add('active');if(tComm&&tComm.querySelector('.ldg'))loadCommentary();}
+  else if(tab==='insights'){if(tInsights)tInsights.style.display='';if(btnInsights)btnInsights.classList.add('active');if(tInsights&&tInsights.querySelector('.ldg'))loadInsights();}
   else if(tab==='intro'){if(tIntro)tIntro.style.display='';if(btnIntro)btnIntro.classList.add('active');if(tIntro&&tIntro.querySelector('.ldg'))loadTabIntro();}
 }
 /* #1 & #4: renderCommentary — plain text, no blocks, single bilingual label */
@@ -2365,6 +2389,75 @@ async function loadCommentary(){
   } catch(e){
     tComm.innerHTML='<div class="errbox">Commentary failed: '+esc(e.message)+'</div>';
   }
+}
+
+// ============================================================
+// Chapter Insights — SAMPLE inline data while format is being trialed.
+// Once approved, this moves to a Cloudflare Worker endpoint backed by KV
+// (e.g. WORKER+'/insights/'+bk.n+'/'+ci) populated by an LLM batch run.
+// Key format: "{bookNumber}_{chapter}".
+// ============================================================
+const INSIGHTS_SAMPLE = {
+  "1_48": {
+    cards: [
+      {
+        kicker: "Adoption",
+        title: "Why Joseph brought his Egyptian-born sons into Israel",
+        body: "Manasseh and Ephraim were born in Egypt to Joseph and his Egyptian wife Asenath, daughter of the priest of On.  By birth and circumstance they were Egyptian aristocracy — sons of the second most powerful man in the land, with every reason to identify with Egypt rather than with a clan of immigrant shepherds.\n\nWhen Jacob is old and near death, Joseph brings these two boys to him, and Jacob declares that Ephraim and Manasseh will be counted as his own sons — \"as Reuben and Simeon, they shall be mine.\"  In effect, Jacob adopts his grandsons and elevates them to the status of his own sons, the level of the tribal patriarchs.  This is why later in Israel there is no single \"tribe of Joseph\" in the territorial allotments — instead there are two half-tribes, Ephraim and Manasseh, each receiving an inheritance as a full tribe.  Joseph effectively received a double portion through his sons, which is the firstborn's privilege (a privilege Reuben forfeited).\n\nThe boys themselves are young; the active parties here are the two older men.  But there's an underlying willingness on Joseph's side worth noticing.  He could have kept his sons fully integrated into the Egyptian elite — wealthy, powerful, secure.  Instead he brings them to his dying father to be folded into this covenant family whose future glory was at that point entirely a matter of promise rather than evidence.  This echoes the choice described much later in Hebrews 11, where Moses \"chose rather to suffer affliction with the people of God\" than to enjoy Egypt's privileges."
+      },
+      {
+        kicker: "The blessing reversal",
+        title: "Why Jacob crosses his arms — younger over older",
+        body: "When Jacob blesses the two boys, Joseph carefully positions them: Manasseh, the firstborn, at Jacob's right hand (the place of greater blessing) and Ephraim at the left.  Jacob deliberately crosses his arms, putting his right hand on the younger Ephraim.  Joseph tries to correct him, thinking it's the mistake of failing eyesight, but Jacob insists: he knows what he's doing.  Manasseh will also become a people and be great, but the younger brother will be greater, and \"his descendants shall become a multitude of nations.\"\n\nThis is the same younger-over-older pattern that runs all through Genesis — Isaac over Ishmael, Jacob over Esau, and now Ephraim over Manasseh.  In each case the patriarchal blessing inverts the natural order of primogeniture.  The theological pattern: covenant blessing flows by God's election and grace, not by the conventions of human inheritance."
+      },
+      {
+        kicker: "Tribal trajectory",
+        title: "Did Manasseh actually become bigger than Ephraim?",
+        body: "The answer flips depending on which point in the story you're looking at — which is itself part of the narrative drama.\n\nBy raw census numbers in the wilderness, the two are close and the lead changes hands.  In the first census (Numbers 1), Ephraim is larger: 40,500 versus Manasseh's 32,200.  But by the second census (Numbers 26), Manasseh has grown to 52,700, overtaking Ephraim's 32,500.  Territorially, Manasseh was also the larger of the two — the one tribe that received land on both sides of the Jordan (a large eastern portion in Gilead and Bashan, plus a western portion in the hill country of Canaan).  Ephraim's allotment was smaller and entirely west of the Jordan, though it sat in fertile, central, strategically important territory.\n\nBut the long-run prophecy is what plays out.  Ephraim becomes the dominant tribe of the northern kingdom — so dominant that \"Ephraim\" becomes prophetic shorthand for the entire northern kingdom of Israel (constantly in Hosea and Isaiah).  Joshua, who leads Israel into the land, is an Ephraimite.  Jeroboam, the first king of the breakaway northern kingdom, is an Ephraimite.\n\nSo: Manasseh was the bigger tribe by population (at the end) and by land, but Ephraim was the \"greater\" tribe in the sense Jacob intended — prominence, leadership, and lasting name."
+      },
+      {
+        kicker: "Naming as identity",
+        title: "What Joseph's choice of names tells us",
+        body: "Joseph names his firstborn Manasseh, which means \"making to forget\" — \"For God has made me forget all my hardship and all my father's house.\"  The second he names Ephraim, meaning \"fruitful\" — \"For God has made me fruitful in the land of my affliction.\"\n\nBoth names are tied to God's faithfulness to Joseph in a foreign land.  Even at the height of his Egyptian power, Joseph keeps his identity anchored in the God of his fathers rather than in Egypt.  The naming itself is a quiet act of covenant memory: every time Joseph spoke his sons' names, he was confessing that his real story was the one Yahweh was writing, not the one Pharaoh had elevated him into.\n\nChoosing covenant belonging over worldly position is a pattern that runs through the whole story — and it sets the stage for what Jacob accomplishes in this chapter, formally folding these Egyptian-born sons into the family of promise."
+      }
+    ]
+  }
+};
+
+function loadInsights(){
+  var bk=BOOKS[bi];
+  var tEl=document.getElementById('tab-insights-content');
+  if(!tEl) return;
+  var key=bk.n+'_'+ci;
+  var data=INSIGHTS_SAMPLE[key];
+  if(!data || !data.cards || data.cards.length===0){
+    var isKo=langOrder==='ko-en';
+    tEl.innerHTML='<div class="insights-empty">'
+      +(isKo?'이 장에 대한 통찰은 아직 준비 중입니다.':'Insights for this chapter are not available yet.')
+      +'<div style="margin-top:10px;font-size:12px">'+(isKo?'창세기 48장에서 샘플을 확인하세요.':'See the sample on Genesis 48.')+'</div>'
+      +'</div>';
+    return;
+  }
+  renderInsights(data, tEl);
+}
+
+function renderInsights(data, tEl){
+  var isKo=langOrder==='ko-en';
+  var html='<div class="insights-wrap">';
+  data.cards.forEach(function(card){
+    html+='<div class="insight-card">';
+    if(card.kicker) html+='<div class="insight-kicker">'+esc(card.kicker)+'</div>';
+    html+='<h3 class="insight-title">'+esc(card.title)+'</h3>';
+    html+='<div class="insight-body">';
+    (card.body||'').split(/\n\n+/).forEach(function(para){
+      html+='<p>'+esc(para)+'</p>';
+    });
+    html+='</div>';
+    html+='</div>';
+  });
+  html+='<div class="insights-attrib">'+(isKo?'AI 보조 통찰 · 검토 후 게시':'AI-assisted insights · reviewed')+'</div>';
+  html+='</div>';
+  tEl.innerHTML=html;
 }
 function toggleIntroDropdown(){
   var dd=document.getElementById('intro-dropdown');
