@@ -2,6 +2,20 @@
 
 Bilingual Korean/English Bible reader, single-page static site in `index.html`.  Backend is a Cloudflare Worker at `krengbible.pauljkim22.workers.dev`.
 
+## Worker source
+
+The Worker source lives at `worker/index.js` in this repo.  Cloudflare-dashboard-edited deploys are still the workflow — paste the file into the dashboard when changing.  See `worker/README.md` for routes, env vars (`COMMENTARY_KV`, `ESV_TOKEN`, `ANTHROPIC_KEY`, `ADMIN_SECRET`), and the search-index build runbook.
+
+### Korean search architecture
+
+Korean full-text search uses a **pre-built flat index** stored in KV at key `nkrv_search_index` — a JSON array of `[bookIdx, chapter, verse, cleanText]` tuples for all 31k verses (~2.2 MB).  The Worker loads it once per isolate into a module-level cache (`SEARCH_INDEX`), then every `/search/ko` query is in-memory `includes()` + `slice()`.  All pages return in ~200ms.
+
+**Do not** revert `/search/ko` to a per-chapter KV scan — that was the old (10s–50s) implementation.  If the index is missing, `/search/ko` returns HTTP 503 `{"error":"index_not_built"}` by design — fail loudly so the rebuild is visible.
+
+To rebuild after a KV wipe or text change: run `/admin/build-index` in 5 chunks of 250 chapters, then `/admin/merge-index`.  Full instructions in `worker/README.md`.
+
+English search delegates to ESV's own API — fast, no index needed.
+
 ## Prose conventions (user-strict)
 
 - **Two spaces between sentences**, always.  Strict preference.
