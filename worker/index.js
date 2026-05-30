@@ -1,0 +1,711 @@
+// krengbible Cloudflare Worker
+//
+// Routes:
+//   /esv/?q=...                           -> ESV API passage lookup (passthrough)
+//   /intro/{bookNum}                      -> AI-generated book intro (cached in COMMENTARY_KV)
+//   /commentary/{bookNum}/{chapter}       -> AI-generated chapter commentary (cached)
+//   /search/ko?q=...&offset=...           -> Korean full-text search (FAST: uses pre-built index)
+//   /search/en?q=...&page=...             -> English search via ESV
+//   /votd                                 -> Verse of the day + photo
+//   /nkrv/{book}/{chapter}                -> Korean Bible (NKRV), cached per chapter
+//   /admin/build-index?secret=...&from=N&size=M   -> (re)build the Korean search index.  Chunked.
+//   /admin/merge-index?secret=...                 -> Merge chunks into the final search index.
+//   /admin/index-status?secret=...                -> Returns how many chapters are cached, index size.
+//
+// Search index format (stored at KV key 'nkrv_search_index'):
+//   JSON array of [bookIdx, chapter, verse, text] tuples.
+//   bookIdx is 0-based, verse is the original label (string for "5-6" ranges, number otherwise).
+//   text has (KN:NN) footnote markers stripped.
+//
+// During build we write partial chunks to KV keys 'nkrv_search_chunk_{phase}', then /admin/merge-index
+// reads them all, concatenates, and writes the final 'nkrv_search_index'.
+
+const BOOK_NAMES_EN = [
+  'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
+  '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra','Nehemiah',
+  'Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon','Isaiah','Jeremiah',
+  'Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos','Obadiah','Jonah',
+  'Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah','Malachi',
+  'Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians','2 Corinthians',
+  'Galatians','Ephesians','Philippians','Colossians','1 Thessalonians','2 Thessalonians',
+  '1 Timothy','2 Timothy','Titus','Philemon','Hebrews','James',
+  '1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'
+];
+const BOOK_NAMES_KO = [
+  '창세기','출애굽기','레위기','민수기','신명기','여호수아','사사기','룻기',
+  '사무엘상','사무엘하','열왕기상','열왕기하','역대상','역대하','에스라','느헤미야',
+  '에스더','욥기','시편','잠언','전도서','아가','이사야','예레미야',
+  '예레미야애가','에스겔','다니엘','호세아','요엘','아모스','오바댜','요나',
+  '미가','나훔','하박국','스바냐','학개','스가랴','말라기',
+  '마태복음','마가복음','누가복음','요한복음','사도행전','로마서','고린도전서','고린도후서',
+  '갈라디아서','에베소서','빌립보서','골로새서','데살로니가전서','데살로니가후서',
+  '디모데전서','디모데후서','디도서','빌레몬서','히브리서','야고보서',
+  '베드로전서','베드로후서','요한일서','요한이서','요한삼서','유다서','요한계시록'
+];
+const BOOK_CHAPTERS = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22];
+const NKRV_CODES = [
+  "gen","exo","lev","num","deu","jos","jdg","rut",
+  "1sa","2sa","1ki","2ki","1ch","2ch","ezr","neh",
+  "est","job","psa","pro","ecc","sng","isa","jer",
+  "lam","ezk","dan","hos","jol","amo","oba","jnh",
+  "mic","nam","hab","zep","hag","zec","mal",
+  "mat","mrk","luk","jhn","act","rom","1co","2co",
+  "gal","eph","php","col","1th","2th","1ti","2ti",
+  "tit","phm","heb","jas","1pe","2pe","1jn","2jn",
+  "3jn","jud","rev"
+];
+
+// ---- Module-level search index cache (per isolate) ----
+// SEARCH_INDEX: the parsed array of [b, c, v, t] tuples once loaded.
+// SEARCH_INDEX_PROMISE: in-flight load promise so concurrent requests share one KV read.
+let SEARCH_INDEX = null;
+let SEARCH_INDEX_PROMISE = null;
+
+async function getSearchIndex(env) {
+  if (SEARCH_INDEX) return SEARCH_INDEX;
+  if (SEARCH_INDEX_PROMISE) return SEARCH_INDEX_PROMISE;
+  SEARCH_INDEX_PROMISE = (async () => {
+    const raw = await env.COMMENTARY_KV.get('nkrv_search_index');
+    if (!raw) {
+      SEARCH_INDEX_PROMISE = null;
+      return null;
+    }
+    try {
+      SEARCH_INDEX = JSON.parse(raw);
+    } catch (e) {
+      SEARCH_INDEX = null;
+    }
+    SEARCH_INDEX_PROMISE = null;
+    return SEARCH_INDEX;
+  })();
+  return SEARCH_INDEX_PROMISE;
+}
+
+// ---- HTML -> verses parser for bskorea.or.kr (extracted so /admin/build-index can reuse it) ----
+function parseNkrvHtml(html) {
+  const divTextMap = {};
+  const d2Re = /<div\b[^>]*\bid=['"]?(D_\d+_\d+)['"]?[^>]*>/gi;
+  let d2Match;
+  while ((d2Match = d2Re.exec(html)) !== null) {
+    const divId = d2Match[1];
+    const start = d2Re.lastIndex;
+    const end = html.indexOf('</div>', start);
+    if (end === -1) continue;
+    const body = html.slice(start, end);
+    const fnText = body
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .trim();
+    if (fnText) divTextMap[divId] = fnText;
+  }
+
+  const footnotes = {};
+  const popRe = /clickPopUp\('([^']+)'[^)]*\)[^<]*<font[^>]*>(\d+)\)<\/font>/gi;
+  let popMatch;
+  while ((popMatch = popRe.exec(html)) !== null) {
+    const divId = popMatch[1];
+    const fnNum = popMatch[2];
+    if (fnNum && divId && divTextMap[divId]) footnotes[fnNum] = divTextMap[divId];
+  }
+
+  const verses = [];
+  const parts = html.split('<span class="number">');
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    const numMatch = part.match(/^(\d+(?:-\d+)?)/);
+    if (!numMatch) continue;
+    const numStr = numMatch[1];
+    const num = parseInt(numStr);
+    const afterClose = part.replace(/^[\d-]+(?:&nbsp;)+<\/span>/, '');
+    const end = afterClose.indexOf('</span>');
+    const raw = end > -1 ? afterClose.substring(0, end) : afterClose;
+    let text = raw
+      .replace(/<font\b[^>]*class=["']smallTitle["'][^>]*>[\s\S]*?<\/font>/gi, '')
+      .replace(/<div[^>]*>[\s\S]*?<\/div>/gi, '')
+      .replace(/<a[^>]*>[\s\S]*?<\/a>/gi, '')
+      .replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '')
+      .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, '')
+      .replace(/<p\b[^>]*class=["'][^"']*title[^"']*["'][^>]*>[\s\S]*?<\/p>/gi, '')
+      .replace(/<div\b[^>]*class=["'][^"']*(title|head|heading)[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\(\s*\)/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
+    text = text.replace(/[ㄱ-ㅎ]\)\s*/g, '');
+    text = text.replace(/(\d+)\)\s*/g, '(KN:$1)');
+    const verseLabel = numStr.includes('-') ? numStr : num;
+    if (text.length > 1) verses.push({ verse: verseLabel, text });
+  }
+
+  return { verses, footnotes };
+}
+
+async function fetchChapterFromBskorea(bookNum, chapter) {
+  const book = NKRV_CODES[bookNum - 1];
+  const url = `https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE&book=${book}&chap=${chapter}`;
+  const resp = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+      "Accept-Language": "ko-KR,ko;q=0.9",
+      "Referer": "https://www.bskorea.or.kr/"
+    }
+  });
+  if (!resp.ok) throw new Error(`bskorea ${resp.status} for ${book} ${chapter}`);
+  const html = await resp.text();
+  return parseNkrvHtml(html);
+}
+
+// Strip (KN:NN) markers from a verse for clean search display.
+function cleanForSearch(text) {
+  return text.replace(/\(KN:\d+\)/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Convert a chapter's verse array to flat [b, c, v, text] tuples.
+function chapterToTuples(bookIdx, chapter, verses) {
+  const out = [];
+  for (const v of verses) {
+    out.push([bookIdx, chapter, v.verse, cleanForSearch(v.text)]);
+  }
+  return out;
+}
+
+// ---- /admin/build-index — builds one phase of the search index ----
+// Query params:
+//   secret:  must match env.ADMIN_SECRET
+//   from:    0-based "chapter ordinal" to start at (default 0)
+//   size:    how many chapters to process in this call (default 250)
+//   refetch: if "1", re-fetch chapters from bskorea even if KV-cached (slower)
+//
+// Flat chapter ordinal mapping:
+//   ordinal 0       = Genesis 1
+//   ordinal 1       = Genesis 2
+//   ordinal 50      = Exodus 1
+//   ...
+//   ordinal 1188    = Revelation 22 (last)  (total: 1189)
+//
+// Each call writes a chunk to KV key `nkrv_search_chunk_${from}` (so re-running with the same
+// `from` overwrites that chunk).  Once all chunks exist, call /admin/merge-index to concatenate.
+function ordinalToBookChapter(ordinal) {
+  let acc = 0;
+  for (let b = 0; b < BOOK_CHAPTERS.length; b++) {
+    if (ordinal < acc + BOOK_CHAPTERS[b]) return [b, ordinal - acc + 1];
+    acc += BOOK_CHAPTERS[b];
+  }
+  return null;
+}
+
+const TOTAL_CHAPTERS = BOOK_CHAPTERS.reduce((a,b)=>a+b, 0);
+
+async function handleBuildIndex(env, url, cors) {
+  const secret = url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  const from = Math.max(0, parseInt(url.searchParams.get('from') || '0'));
+  const size = Math.min(400, Math.max(1, parseInt(url.searchParams.get('size') || '250')));
+  const refetch = url.searchParams.get('refetch') === '1';
+  const concurrency = 12; // parallel fetches per batch
+
+  const tuples = [];
+  let fetched = 0, fromCache = 0, errored = 0;
+  const errors = [];
+
+  const ordinals = [];
+  for (let o = from; o < Math.min(from + size, TOTAL_CHAPTERS); o++) ordinals.push(o);
+
+  // Process in waves to limit concurrency.
+  for (let i = 0; i < ordinals.length; i += concurrency) {
+    const batch = ordinals.slice(i, i + concurrency);
+    const results = await Promise.all(batch.map(async (ord) => {
+      const [bookIdx, chapter] = ordinalToBookChapter(ord);
+      const key = `nkrv_${bookIdx + 1}_${chapter}`;
+      try {
+        let data = null;
+        if (!refetch && env.COMMENTARY_KV) {
+          const cached = await env.COMMENTARY_KV.get(key);
+          if (cached) {
+            data = JSON.parse(cached);
+            fromCache++;
+          }
+        }
+        if (!data) {
+          data = await fetchChapterFromBskorea(bookIdx + 1, chapter);
+          if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(key, JSON.stringify(data));
+          fetched++;
+        }
+        const verses = Array.isArray(data) ? data : (data.verses || []);
+        return chapterToTuples(bookIdx, chapter, verses);
+      } catch (e) {
+        errored++;
+        errors.push({ord, bookIdx, chapter, msg: String(e.message || e)});
+        return [];
+      }
+    }));
+    for (const r of results) for (const t of r) tuples.push(t);
+  }
+
+  // Write the chunk under a key that encodes the starting ordinal.  Pad so lex order matches numeric.
+  const chunkKey = `nkrv_search_chunk_${String(from).padStart(5, '0')}`;
+  if (env.COMMENTARY_KV) {
+    await env.COMMENTARY_KV.put(chunkKey, JSON.stringify(tuples));
+  }
+
+  const nextFrom = from + size;
+  const done = nextFrom >= TOTAL_CHAPTERS;
+  return new Response(JSON.stringify({
+    ok: true,
+    chunkKey,
+    processedOrdinals: ordinals.length,
+    verseCount: tuples.length,
+    fetchedFromBskorea: fetched,
+    fromKvCache: fromCache,
+    errored,
+    errors: errors.slice(0, 10),
+    nextFrom: done ? null : nextFrom,
+    nextUrl: done ? null : `/admin/build-index?secret=...&from=${nextFrom}&size=${size}`,
+    totalChapters: TOTAL_CHAPTERS,
+    done
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+async function handleMergeIndex(env, url, cors) {
+  const secret = url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  if (!env.COMMENTARY_KV) return new Response(JSON.stringify({error:'no_kv'}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
+
+  // List all chunk keys.
+  const chunks = [];
+  let cursor = undefined;
+  let safety = 0;
+  while (true) {
+    const list = await env.COMMENTARY_KV.list({ prefix: 'nkrv_search_chunk_', cursor, limit: 1000 });
+    for (const k of list.keys) chunks.push(k.name);
+    if (list.list_complete || !list.cursor) break;
+    cursor = list.cursor;
+    if (++safety > 50) break;
+  }
+  chunks.sort();
+
+  if (chunks.length === 0) {
+    return new Response(JSON.stringify({error:'no_chunks', hint:'run /admin/build-index first'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
+  }
+
+  const merged = [];
+  for (const key of chunks) {
+    const raw = await env.COMMENTARY_KV.get(key);
+    if (!raw) continue;
+    try {
+      const arr = JSON.parse(raw);
+      for (const t of arr) merged.push(t);
+    } catch (e) { /* skip */ }
+  }
+
+  const payload = JSON.stringify(merged);
+  await env.COMMENTARY_KV.put('nkrv_search_index', payload);
+
+  // Bust the per-isolate cache (this isolate at least).
+  SEARCH_INDEX = null;
+  SEARCH_INDEX_PROMISE = null;
+
+  return new Response(JSON.stringify({
+    ok: true,
+    chunksRead: chunks.length,
+    totalVerses: merged.length,
+    indexBytes: payload.length,
+    storedAt: 'nkrv_search_index'
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+async function handleIndexStatus(env, url, cors) {
+  const secret = url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  if (!env.COMMENTARY_KV) return new Response(JSON.stringify({error:'no_kv'}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
+
+  const idx = await env.COMMENTARY_KV.get('nkrv_search_index');
+  let indexInfo = null;
+  if (idx) {
+    try {
+      const arr = JSON.parse(idx);
+      indexInfo = { verses: arr.length, bytes: idx.length };
+    } catch (e) {
+      indexInfo = { verses: 0, bytes: idx.length, parseError: true };
+    }
+  }
+
+  // Count chunks.
+  let chunkCount = 0;
+  let cursor = undefined;
+  let safety = 0;
+  while (true) {
+    const list = await env.COMMENTARY_KV.list({ prefix: 'nkrv_search_chunk_', cursor, limit: 1000 });
+    chunkCount += list.keys.length;
+    if (list.list_complete || !list.cursor) break;
+    cursor = list.cursor;
+    if (++safety > 50) break;
+  }
+
+  return new Response(JSON.stringify({
+    index: indexInfo,
+    chunkCount,
+    totalChapters: TOTAL_CHAPTERS,
+    moduleCache: { loaded: !!SEARCH_INDEX, verses: SEARCH_INDEX ? SEARCH_INDEX.length : 0 }
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+// ---- /search/ko — fast in-memory search over the pre-built index ----
+async function handleKoreanSearch(env, url, cors) {
+  const q = url.searchParams.get('q');
+  const offset = parseInt(url.searchParams.get('offset') || '0');
+  const pageSize = 20;
+  if (!q || q.trim().length < 1) {
+    return new Response(JSON.stringify({results:[], hasMore:false}), {headers:{...cors,'Content-Type':'application/json'}});
+  }
+
+  const index = await getSearchIndex(env);
+  if (!index) {
+    // Fall back to a clear error rather than silently scanning KV.  This makes index-build status visible.
+    return new Response(JSON.stringify({
+      results: [],
+      hasMore: false,
+      error: 'index_not_built',
+      hint: 'Run /admin/build-index then /admin/merge-index'
+    }), {status:503, headers:{...cors,'Content-Type':'application/json'}});
+  }
+
+  const term = q.trim();
+  const matches = [];
+  // Linear filter.  ~31k verses, includes() is fast.
+  for (let i = 0; i < index.length; i++) {
+    const t = index[i][3];
+    if (t.indexOf(term) !== -1) matches.push(index[i]);
+  }
+
+  const slice = matches.slice(offset, offset + pageSize);
+  const results = slice.map(([b, c, v, text]) => ({
+    book: b,
+    chapter: c,
+    verse: v,
+    text,
+    ref: BOOK_NAMES_KO[b] + ' ' + c + ':' + v
+  }));
+  const hasMore = (offset + pageSize) < matches.length;
+  return new Response(JSON.stringify({
+    results,
+    hasMore,
+    nextOffset: hasMore ? (offset + pageSize) : -1,
+    total: matches.length
+  }), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+export default {
+  async fetch(request, env) {
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Cache-Control": "public, max-age=86400"
+    };
+    if (request.method === "OPTIONS") return new Response(null, { headers: cors });
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    // ---- ESV passthrough ----
+    if (path.startsWith('/esv/')) {
+      const q = url.searchParams.get('q');
+      if (!q) return new Response(JSON.stringify({error:'missing q'}), {status:400, headers:{...cors,"Content-Type":"application/json"}});
+      const esvUrl = 'https://api.esv.org/v3/passage/text/?q=' + encodeURIComponent(q)
+        + '&include-headings=false&include-footnotes=true&include-verse-numbers=true'
+        + '&include-short-copyright=false&include-passage-references=false'
+        + '&indent-paragraphs=0&indent-poetry=false&include-chapter-numbers=false'
+        + '&indent-psalm-doxology=false&line-length=0';
+      const esvResp = await fetch(esvUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
+      const data = await esvResp.json();
+      return new Response(JSON.stringify(data), { headers: { ...cors, "Content-Type": "application/json" } });
+    }
+
+    // ---- /intro/{bookNum} ----
+    if (path.startsWith('/intro/')) {
+      const parts = path.match(/\/intro\/(\d+)/);
+      if (!parts) return new Response(JSON.stringify({error:'bad path'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
+      const bookNum = +parts[1];
+      const cacheKey = `intro_${bookNum}`;
+
+      const cached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(cacheKey) : null;
+      if (cached) return new Response(cached, {headers:{...cors,'Content-Type':'application/json'}});
+
+      const bookName = BOOK_NAMES_EN[bookNum-1];
+      const bookNameKo = BOOK_NAMES_KO[bookNum-1];
+
+      const prompt = `You are a Bible scholar writing an accessible book introduction in the Reformed/evangelical tradition (Calvin, Sproul, Keller, Piper).
+
+Write a book introduction for ${bookName} with these sections:
+
+1. **Overview** (3-4 sentences): What this book is about, its central message, and why it matters.
+2. **Historical Background** (3-4 sentences): Author, date, audience, historical setting, and how it fits in the canon.
+3. **Key Themes** (provide exactly 4 themes, each with a title and 2-sentence explanation).
+4. **Geographic Context** (2-3 sentences): Key locations in the book and their significance. Then provide an array of up to 5 map locations relevant to this book with name, lat, lng, and a one-sentence description.
+
+Then provide Korean translations of all sections. Use 존댓말 (formal polite -습니다/-ㅂ니다 speech level) for all Korean text.
+
+Respond in this exact JSON format with no markdown, no preamble:
+{
+  "overview_en": "...",
+  "background_en": "...",
+  "themes_en": [{"title": "...", "desc": "..."}, {"title": "...", "desc": "..."}, {"title": "...", "desc": "..."}, {"title": "...", "desc": "..."}],
+  "geo_en": "...",
+  "map_locations": [{"name": "...", "name_ko": "...", "lat": 0.0, "lng": 0.0, "desc": "...", "desc_ko": "..."}],
+  "overview_ko": "...",
+  "background_ko": "...",
+  "themes_ko": [{"title": "...", "desc": "..."}, {"title": "...", "desc": "..."}, {"title": "...", "desc": "..."}, {"title": "...", "desc": "..."}],
+  "geo_ko": "..."
+}`;
+
+      const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': env.ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4000,
+          messages: [{role:'user', content: prompt}]
+        })
+      });
+
+      if (!aiResp.ok) {
+        const err = await aiResp.text();
+        return new Response(JSON.stringify({error:'ai_failed', detail: err}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
+      }
+
+      const aiData = await aiResp.json();
+      const text = aiData.content?.[0]?.text || '{}';
+      const cleanText = text.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+
+      let intro;
+      try { intro = JSON.parse(cleanText); }
+      catch(e) { return new Response(JSON.stringify({error:'parse_failed', raw: cleanText}), {status:500, headers:{...cors,'Content-Type':'application/json'}}); }
+
+      intro.book_en = bookName;
+      intro.book_ko = bookNameKo;
+
+      const result = JSON.stringify(intro);
+      if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(cacheKey, result);
+      return new Response(result, {headers:{...cors,'Content-Type':'application/json'}});
+    }
+
+    // ---- /commentary/{bookNum}/{chapter} ----
+    if (path.startsWith('/commentary/')) {
+      const parts = path.match(/\/commentary\/(\d+)\/(\d+)/);
+      if (!parts) return new Response(JSON.stringify({error:'bad path'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
+      const bookNum = +parts[1], chapter = +parts[2];
+      const cacheKey = `commentary_${bookNum}_${chapter}`;
+
+      const cached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(cacheKey) : null;
+      if (cached) return new Response(cached, {headers:{...cors,'Content-Type':'application/json'}});
+
+      const bookName = BOOK_NAMES_EN[bookNum-1];
+      const bookNameKo = BOOK_NAMES_KO[bookNum-1];
+
+      const prompt = `You are a Bible teacher writing accessible commentary in the tradition of Reformed/evangelical scholars like John Calvin, Matthew Henry, R.C. Sproul, Tim Keller, and John Piper. Your commentary emphasizes Scripture's authority, God's sovereignty, Christ-centered interpretation, and practical application.
+
+Write commentary for ${bookName} chapter ${chapter} with these two sections:
+
+1. **Summary** (2-3 sentences): What happens in this chapter in plain language anyone can understand.
+
+2. **Reflection** (3-4 sentences): Key theological themes and one practical takeaway for a modern reader. Keep it warm, pastoral, and grounded in the text.
+
+Then provide Korean translations of each section. Use 존댓말 (formal polite -습니다/-ㅂ니다 speech level) for all Korean text.
+
+Respond in this exact JSON format:
+{
+  "summary_en": "...",
+  "reflection_en": "...",
+  "summary_ko": "...",
+  "reflection_ko": "..."
+}
+
+Only output valid JSON, no markdown, no preamble.`;
+
+      const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': env.ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 2000,
+          messages: [{role:'user', content: prompt}]
+        })
+      });
+
+      if (!aiResp.ok) {
+        const err = await aiResp.text();
+        return new Response(JSON.stringify({error:'ai_failed', detail: err}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
+      }
+
+      const aiData = await aiResp.json();
+      const text = aiData.content?.[0]?.text || '{}';
+
+      let commentary;
+      const cleanText = text.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+      try { commentary = JSON.parse(cleanText); }
+      catch(e) { return new Response(JSON.stringify({error:'parse_failed', raw: text}), {status:500, headers:{...cors,'Content-Type':'application/json'}}); }
+
+      commentary.book_en = bookName;
+      commentary.book_ko = bookNameKo;
+      commentary.chapter = chapter;
+
+      const result = JSON.stringify(commentary);
+      if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(cacheKey, result);
+      return new Response(result, {headers:{...cors,'Content-Type':'application/json'}});
+    }
+
+    // ---- Admin endpoints (must precede /search) ----
+    if (path === '/admin/build-index') return handleBuildIndex(env, url, cors);
+    if (path === '/admin/merge-index') return handleMergeIndex(env, url, cors);
+    if (path === '/admin/index-status') return handleIndexStatus(env, url, cors);
+
+    // ---- /search/ko (fast) ----
+    if (path.startsWith('/search/ko')) return handleKoreanSearch(env, url, cors);
+
+    // ---- /search/en (ESV) ----
+    if (path.startsWith('/search/en')) {
+      const q = url.searchParams.get('q');
+      const page = parseInt(url.searchParams.get('page') || '1');
+      if (!q || q.trim().length < 2) return new Response(JSON.stringify({results:[],hasMore:false}), {headers:{...cors,'Content-Type':'application/json'}});
+
+      const esvSearchUrl = 'https://api.esv.org/v3/passage/search/?q=' + encodeURIComponent(q) + '&page-size=20&page=' + page;
+      const esvResp = await fetch(esvSearchUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
+      if (!esvResp.ok) return new Response(JSON.stringify({results:[],hasMore:false}), {headers:{...cors,'Content-Type':'application/json'}});
+
+      const esvData = await esvResp.json();
+      const results = [];
+      const totalResults = esvData.total_results || 0;
+
+      for (const hit of (esvData.results || [])) {
+        const ref = hit.reference || '';
+        const refMatch = ref.match(/^(.+?)\s+(\d+):(\d+)/);
+        if (!refMatch) continue;
+        const bookName = refMatch[1].trim();
+        const chapter = parseInt(refMatch[2]);
+        const verse = parseInt(refMatch[3]);
+        const bookIdx = BOOK_NAMES_EN.findIndex(b => b.toLowerCase() === bookName.toLowerCase());
+        if (bookIdx === -1) continue;
+        results.push({
+          book: bookIdx,
+          chapter,
+          verse,
+          text: hit.content ? hit.content.replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim() : '',
+          ref
+        });
+      }
+
+      const hasMore = (page * 20) < totalResults;
+      return new Response(JSON.stringify({results, hasMore, nextPage: page + 1}), {headers:{...cors,'Content-Type':'application/json'}});
+    }
+
+    // ---- /votd ----
+    if (path.startsWith('/votd')) {
+      const now = new Date();
+      const today = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      const votdKey = `votd2_${today}`;
+
+      const tomorrowDateET = new Date(now.getTime() + 86400000).toLocaleDateString('en-CA', {timeZone:'America/New_York'});
+      const midnightET = new Date(`${tomorrowDateET}T00:00:00`);
+      const nowET = new Date(now.toLocaleString('en-US', {timeZone:'America/New_York'}));
+      const offsetMs = now - nowET;
+      const midnightUTC = new Date(midnightET.getTime() + offsetMs);
+      const secondsUntilMidnight = Math.max(60, Math.floor((midnightUTC - now) / 1000));
+      const votdHeaders = { ...cors, "Content-Type": "application/json", "Cache-Control": `public, max-age=${secondsUntilMidnight}` };
+
+      if (env.COMMENTARY_KV) {
+        const cached = await env.COMMENTARY_KV.get(votdKey);
+        if (cached) return new Response(cached, { headers: votdHeaders });
+      }
+
+      const topics = [
+        'wheat field golden sunrise',
+        'shepherd hills landscape',
+        'olive trees ancient landscape',
+        'mountain valley mist sunrise',
+        'wildflower meadow pastoral',
+        'calm lake reflection mountains',
+        'rolling green hills countryside',
+        'lavender field provence landscape',
+        'vineyard hills golden hour',
+        'desert canyon landscape sunrise',
+        'forest light rays peaceful',
+        'coastal cliffs ocean horizon'
+      ];
+      const topic = topics[Math.floor(Math.random() * topics.length)];
+      const [votdResp, photoResp] = await Promise.allSettled([
+        fetch('https://labs.bible.org/api/?passage=votd&type=json', {
+          headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" }
+        }),
+        fetch(`https://api.unsplash.com/photos/random?query=${encodeURIComponent(topic)}&orientation=landscape&content_filter=high&client_id=jdBAQs04z5PyhHphjzUKIJCjl3SyMhQS2rSMfBLQOpk`)
+      ]);
+
+      const votdData = votdResp.status === 'fulfilled' ? await votdResp.value.json() : [];
+      let photo = null;
+      if (photoResp.status === 'fulfilled' && photoResp.value.ok) {
+        const pd = await photoResp.value.json();
+        photo = {
+          url: pd.urls?.regular || null,
+          color: pd.color || '#555555',
+          credit: pd.user?.name || null,
+          creditLink: pd.user?.links?.html || null
+        };
+      }
+
+      const result = JSON.stringify({ verses: votdData, photo });
+
+      if (env.COMMENTARY_KV) {
+        await env.COMMENTARY_KV.put(votdKey, result, { expirationTtl: secondsUntilMidnight });
+      }
+
+      return new Response(result, { headers: votdHeaders });
+    }
+
+    // ---- Korean Bible (nkrv) chapter fetch ----
+    let bookNum, chapter;
+    const m  = path.match(/\/nkrv\/(\d+)\/(\d+)/);
+    const m2 = path.match(/^\/(\d+)\/(\d+)/);
+    if (m)       { bookNum = +m[1];  chapter = +m[2]; }
+    else if (m2) { bookNum = +m2[1]; chapter = +m2[2]; }
+    else return new Response(JSON.stringify({error:"Use /nkrv/{book}/{chapter}"}), {status:400, headers:{...cors,"Content-Type":"application/json"}});
+
+    const verseKey = `nkrv_${bookNum}_${chapter}`;
+    if (env.COMMENTARY_KV) {
+      const cachedVerses = await env.COMMENTARY_KV.get(verseKey);
+      if (cachedVerses) {
+        return new Response(cachedVerses, {headers:{...cors,"Content-Type":"application/json","Cache-Control":"public, max-age=2592000, stale-while-revalidate=86400"}});
+      }
+    }
+
+    try {
+      const data = await fetchChapterFromBskorea(bookNum, chapter);
+      if (data.verses.length === 0) {
+        return new Response(JSON.stringify({error:"parse_failed"}), {headers:{...cors,"Content-Type":"application/json"}});
+      }
+      const result = JSON.stringify(data);
+      if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(verseKey, result);
+      return new Response(result, {headers:{...cors,"Content-Type":"application/json","Cache-Control":"public, max-age=2592000, stale-while-revalidate=86400"}});
+    } catch (e) {
+      return new Response(JSON.stringify({error: e.message}), {status:500, headers:{...cors,"Content-Type":"application/json"}});
+    }
+  }
+};
