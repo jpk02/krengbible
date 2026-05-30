@@ -216,6 +216,70 @@ Local working file (not committed to public site if you'd prefer — let me know
 - "You meant evil, but God meant it for good" — *concursus* anchored here
 - Joseph's bones await exodus
 
+### Leviticus
+
+**Lev 1-7 — Five sacrifices**
+- Burnt offering (*olah*) wholly consumed (Lev 1) — total dedication; Rom 12:1 living sacrifice
+- Hand-laying as substitution gesture (Lev 1:4) — Isa 53:6, 2 Cor 5:21
+- Grain offering (*minchah*) bloodless worship (Lev 2) — financial gift typology (Phil 4:18)
+- Peace offering (*shelamim*) shared meal (Lev 3) — fellowship table, Lord's Supper logic
+- Unintentional sin and objective deviation (Lev 4) — Ps 19:12; graduated severity by leadership (Jas 3:1)
+- Guilt offering with restitution plus a fifth (Lev 5-6) — horizontal reparation required (Matt 5:23-24)
+- Perpetual altar fire (Lev 6) — divine origin, priestly tending, Pentecost echo
+- Same-day thanksgiving (Lev 7) — gratitude as time-sensitive
+
+**Lev 8-10 — Priesthood inaugurated**
+- Blood on ear, thumb, toe (Lev 8) — consecration of all faculties; Heb 10:5-7, Rom 6:13
+- Fire from heaven (Lev 9) — divine acceptance pattern; Acts 2 Pentecost
+- Nadab and Abihu strange fire (Lev 10) — proximity raises stakes
+- Aaron commanded not to mourn (Lev 10:6) — representational ministry cost
+
+**Lev 11-15 — Clean and unclean**
+- Food laws as identity markers (Lev 11) — Mark 7:19 + Acts 10 abolition
+- "Be holy as I am holy" (Lev 11:44, 1 Pet 1:16) — indicative-imperative structure
+- Childbirth purification (Lev 12) — ritual vs moral, Mary's poor offering (Luke 2:24)
+- *Tsara'at* as parable of sin (Lev 13) — visible, spreading, isolating, requires priest
+- Two-bird cleansing (Lev 14) — death+resurrection; cedar/scarlet/hyssop; blood+water (John 19:34)
+- Bleeding woman of Mark 5 (Lev 15 logic) — reverse contagion of holiness
+
+**Lev 16 — Day of Atonement**
+- High priest once a year — Heb 9-10 torn-veil fulfillment
+- Two goats (slain + scapegoat) — propitiation + expiation
+- Priest atones for self first (Heb 7:26-28 contrast with Christ)
+
+**Lev 17 — Blood**
+- "The life of the flesh is in the blood" (17:11) — foundational atonement verse; Heb 9:22
+- Blood prohibition extends into Acts 15
+
+**Lev 18-20 — Sexual ethics and penalties**
+- Sexual ethics "not as the nations" (Lev 18) — creational, covenantal, mortal
+- "Love your neighbor as yourself" (Lev 19:18) — Jesus + Paul + James anchor verse
+- Holiness as comprehensive (Lev 19) — gleaning, weights, treatment of vulnerable
+- Capital severity (Lev 20) — theocratic penalties don't transfer but gravity remains
+
+**Lev 21-22 — Priestly purity and offering quality**
+- Stricter priest standard (Lev 21) — disabled priests retained portion; Christ as the perfect Priest (Heb 7:26)
+- Without-blemish offerings (Lev 22) — anticipating spotless Lamb (1 Pet 1:19)
+
+**Lev 23 — Calendar**
+- Seven feasts as redemptive calendar — spring (Passover, Unleavened Bread, Firstfruits, Pentecost) = Christ's first coming; autumn (Trumpets, Atonement, Tabernacles) = Christ's return
+- Holy convocations vs continuous productivity
+
+**Lev 24 — Sacred speech**
+- Blasphemer narrative — Name carries weight of Person; lex talionis as proportionality
+
+**Lev 25 — Land and Jubilee**
+- Sabbath year — land belongs to God, rest as trust, 2 Chron 36:21 exile fulfillment
+- Year of Jubilee — Luke 4:18-19 messianic anchor; gospel as deepest Jubilee
+
+**Lev 26 — Covenant outcomes**
+- Blessings and curses, asymmetric — historically fulfilled in exile; Gal 3:13 curse on Christ
+
+**Lev 27 — Vows**
+- Voluntary commitment as the response the book aims at; Matt 5:33-37 Christian word
+
+---
+
 ### Colossians
 
 **Col 1 — Christ hymn, reconciliation, indwelling**
