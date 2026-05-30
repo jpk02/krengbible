@@ -2077,8 +2077,9 @@ function hlCopy(){
   rows.forEach(function(row){
     var parts=[];
     row.querySelectorAll('.vt').forEach(function(vt){parts.push(vt.textContent.trim());});
-    texts.push(parts.join(' '));
-    verseNumStrs.push(row.id.replace('vr-',''));
+    var verseNum=row.id.replace('vr-','');
+    texts.push(verseNum+' '+parts.join(' '));
+    verseNumStrs.push(verseNum);
   });
   // Build verse range string (single verse, contiguous range like 1-3, or list like 1,3,5)
   var verseNums=verseNumStrs.map(function(s){return parseInt(String(s).split('-')[0]);});
@@ -2098,7 +2099,7 @@ function hlCopy(){
   var primaryBook=langOrder==='en-ko'?bk.en:bk.ko;
   var secondaryBook=langOrder==='en-ko'?bk.ko:bk.en;
   var refLine=primaryBook+' '+ci+':'+rangeStr+' / '+secondaryBook+' '+ci+':'+rangeStr;
-  var txt=texts.join('\n')+'\n\n— '+refLine;
+  var txt=texts.join('\n')+'\n\n'+refLine;
   navigator.clipboard.writeText(txt).then(function(){
     var btn=document.getElementById('hl-copy-btn');
     if(btn){var orig=btn.innerHTML;btn.innerHTML='<span style="font-size:16px;color:#2563eb">✓</span>';setTimeout(function(){btn.innerHTML=orig;},1200);}
