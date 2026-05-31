@@ -6052,7 +6052,8 @@ function openSearch(){
   overlay.classList.remove('hidden');
   var emptyMsg=langOrder==='ko-en'?'검색어를 입력하세요 / Enter a search term':'Enter a search term / 검색어를 입력하세요';
   document.getElementById('search-results').innerHTML='<div class="search-empty"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>'+emptyMsg+'</span></div>';
-  setTimeout(function(){inp.focus();},100);
+  // Focus synchronously inside the user-gesture event so iOS opens the keyboard.
+  inp.focus();
 }
 // Swipe right to close search with drag-follow animation
 (function(){
