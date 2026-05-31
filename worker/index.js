@@ -5,20 +5,22 @@
 //   /intro/{bookNum}                      -> AI-generated book intro (cached in COMMENTARY_KV)
 //   /commentary/{bookNum}/{chapter}       -> AI-generated chapter commentary (cached)
 //   /search/ko?q=...&offset=...           -> Korean full-text search (FAST: uses pre-built index)
-//   /search/en?q=...&page=...             -> English search via ESV
+//   /search/en?q=...&page=...             -> English full-text search (FAST: uses pre-built index)
 //   /votd                                 -> Verse of the day + photo
 //   /nkrv/{book}/{chapter}                -> Korean Bible (NKRV), cached per chapter
-//   /admin/build-index?secret=...&from=N&size=M   -> (re)build the Korean search index.  Chunked.
-//   /admin/merge-index?secret=...                 -> Merge chunks into the final search index.
-//   /admin/index-status?secret=...                -> Returns how many chapters are cached, index size.
+//   /admin/build-index?secret=...&from=N&size=M     -> (re)build the Korean search index.  Chunked.
+//   /admin/merge-index?secret=...                   -> Merge KO chunks -> nkrv_search_index.
+//   /admin/build-en-index?secret=...&from=N&size=M  -> (re)build the ESV English search index.  Chunked.
+//   /admin/merge-en-index?secret=...                -> Merge EN chunks -> esv_search_index.
+//   /admin/index-status?secret=...                  -> Status of both indexes.
 //
-// Search index format (stored at KV key 'nkrv_search_index'):
-//   JSON array of [bookIdx, chapter, verse, text] tuples.
-//   bookIdx is 0-based, verse is the original label (string for "5-6" ranges, number otherwise).
-//   text has (KN:NN) footnote markers stripped.
+// Search index formats:
+//   nkrv_search_index : JSON array of [bookIdx, chapter, verse, text] tuples for the Korean Bible.
+//   esv_search_index  : JSON array of [bookIdx, chapter, verse, text] tuples for the ESV Bible.
+//   bookIdx is 0-based, verse is the original label.
 //
-// During build we write partial chunks to KV keys 'nkrv_search_chunk_{phase}', then /admin/merge-index
-// reads them all, concatenates, and writes the final 'nkrv_search_index'.
+// During build we write partial chunks to KV keys (nkrv_search_chunk_N / esv_search_chunk_N), then
+// the matching /admin/merge-* endpoint reads them all and writes the final index blob.
 
 const BOOK_NAMES_EN = [
   'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
@@ -60,6 +62,8 @@ const NKRV_CODES = [
 // SEARCH_INDEX_PROMISE: in-flight load promise so concurrent requests share one KV read.
 let SEARCH_INDEX = null;
 let SEARCH_INDEX_PROMISE = null;
+let EN_SEARCH_INDEX = null;
+let EN_SEARCH_INDEX_PROMISE = null;
 
 async function getSearchIndex(env) {
   if (SEARCH_INDEX) return SEARCH_INDEX;
@@ -79,6 +83,26 @@ async function getSearchIndex(env) {
     return SEARCH_INDEX;
   })();
   return SEARCH_INDEX_PROMISE;
+}
+
+async function getEnSearchIndex(env) {
+  if (EN_SEARCH_INDEX) return EN_SEARCH_INDEX;
+  if (EN_SEARCH_INDEX_PROMISE) return EN_SEARCH_INDEX_PROMISE;
+  EN_SEARCH_INDEX_PROMISE = (async () => {
+    const raw = await env.COMMENTARY_KV.get('esv_search_index');
+    if (!raw) {
+      EN_SEARCH_INDEX_PROMISE = null;
+      return null;
+    }
+    try {
+      EN_SEARCH_INDEX = JSON.parse(raw);
+    } catch (e) {
+      EN_SEARCH_INDEX = null;
+    }
+    EN_SEARCH_INDEX_PROMISE = null;
+    return EN_SEARCH_INDEX;
+  })();
+  return EN_SEARCH_INDEX_PROMISE;
 }
 
 // ---- HTML -> verses parser for bskorea.or.kr (extracted so /admin/build-index can reuse it) ----
@@ -355,11 +379,257 @@ async function handleIndexStatus(env, url, cors) {
     if (++safety > 50) break;
   }
 
+  // EN index info.
+  const enIdx = await env.COMMENTARY_KV.get('esv_search_index');
+  let enIndexInfo = null;
+  if (enIdx) {
+    try {
+      const arr = JSON.parse(enIdx);
+      enIndexInfo = { verses: arr.length, bytes: enIdx.length };
+    } catch (e) {
+      enIndexInfo = { verses: 0, bytes: enIdx.length, parseError: true };
+    }
+  }
+  let enChunkCount = 0;
+  let cursor2 = undefined;
+  let safety2 = 0;
+  while (true) {
+    const list = await env.COMMENTARY_KV.list({ prefix: 'esv_search_chunk_', cursor: cursor2, limit: 1000 });
+    enChunkCount += list.keys.length;
+    if (list.list_complete || !list.cursor) break;
+    cursor2 = list.cursor;
+    if (++safety2 > 50) break;
+  }
+
   return new Response(JSON.stringify({
-    index: indexInfo,
-    chunkCount,
+    ko: {
+      index: indexInfo,
+      chunkCount,
+      moduleCache: { loaded: !!SEARCH_INDEX, verses: SEARCH_INDEX ? SEARCH_INDEX.length : 0 }
+    },
+    en: {
+      index: enIndexInfo,
+      chunkCount: enChunkCount,
+      moduleCache: { loaded: !!EN_SEARCH_INDEX, verses: EN_SEARCH_INDEX ? EN_SEARCH_INDEX.length : 0 }
+    },
+    totalChapters: TOTAL_CHAPTERS
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+// ---- /search/en — fast in-memory search over the pre-built ESV index ----
+async function handleEnglishSearch(env, url, cors) {
+  const q = url.searchParams.get('q');
+  // Pagination: ESV-style "page" param (1-based), 20 per page, for backward compat with the client.
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+  const pageSize = 20;
+  const offset = (page - 1) * pageSize;
+  if (!q || q.trim().length < 2) {
+    return new Response(JSON.stringify({results:[], hasMore:false}), {headers:{...cors,'Content-Type':'application/json'}});
+  }
+
+  const index = await getEnSearchIndex(env);
+  if (!index) {
+    return new Response(JSON.stringify({
+      results: [],
+      hasMore: false,
+      error: 'index_not_built',
+      hint: 'Run /admin/build-en-index then /admin/merge-en-index'
+    }), {status:503, headers:{...cors,'Content-Type':'application/json'}});
+  }
+
+  // Case-insensitive substring filter.
+  const term = q.trim().toLowerCase();
+  const matches = [];
+  for (let i = 0; i < index.length; i++) {
+    const t = index[i][3];
+    if (t.toLowerCase().indexOf(term) !== -1) matches.push(index[i]);
+  }
+
+  const slice = matches.slice(offset, offset + pageSize);
+  const results = slice.map(([b, c, v, text]) => ({
+    book: b,
+    chapter: c,
+    verse: v,
+    text,
+    ref: BOOK_NAMES_EN[b] + ' ' + c + ':' + v
+  }));
+  const hasMore = (offset + pageSize) < matches.length;
+  return new Response(JSON.stringify({
+    results,
+    hasMore,
+    nextPage: hasMore ? (page + 1) : -1,
+    total: matches.length
+  }), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+// ---- ESV chapter fetch + parse for the English index ----
+// Returns { verses: [{verse: N, text: '...'}], headings: {} }.
+function parseEsvPassageText(passage) {
+  if (!passage) return [];
+  const lines = passage.split('\n');
+  const passageLines = [];
+  let inFn = false;
+  for (const l of lines) {
+    if (!inFn && /^\s*Footnotes?\s*$/i.test(l)) { inFn = true; continue; }
+    if (!inFn) passageLines.push(l);
+  }
+  const joined = passageLines.join(' ');
+  const verses = [];
+  // Split on [N] verse markers.  First chunk before any [N] is heading/intro — discard.
+  const segments = joined.split(/(?=\[\d+\])/);
+  for (const seg of segments) {
+    const s = seg.trim();
+    if (!s) continue;
+    const m = s.match(/^\[(\d+)\]\s*([\s\S]*)/);
+    if (!m) continue;
+    const num = parseInt(m[1]);
+    let text = m[2]
+      .replace(/\s+/g, ' ')
+      .replace(/\s*Footnotes?\s*$/i, '')
+      .trim();
+    if (text.length > 1) verses.push({ verse: num, text });
+  }
+  return verses;
+}
+
+async function fetchChapterFromEsv(bookNum, chapter, env) {
+  const book = BOOK_NAMES_EN[bookNum - 1];
+  // Ask for the entire chapter; ESV understands "Genesis 1" form.
+  const q = book + ' ' + chapter;
+  const esvUrl = 'https://api.esv.org/v3/passage/text/?q=' + encodeURIComponent(q)
+    + '&include-headings=false&include-footnotes=false&include-verse-numbers=true'
+    + '&include-short-copyright=false&include-passage-references=false'
+    + '&indent-paragraphs=0&indent-poetry=false&include-chapter-numbers=false'
+    + '&indent-psalm-doxology=false&line-length=0';
+  const resp = await fetch(esvUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
+  if (!resp.ok) throw new Error(`ESV ${resp.status} for ${q}`);
+  const data = await resp.json();
+  if (!data.passages || !data.passages[0]) throw new Error(`No passage for ${q}`);
+  return parseEsvPassageText(data.passages[0]);
+}
+
+function enChapterToTuples(bookIdx, chapter, verses) {
+  const out = [];
+  for (const v of verses) {
+    out.push([bookIdx, chapter, v.verse, v.text]);
+  }
+  return out;
+}
+
+async function handleBuildEnIndex(env, url, cors) {
+  const secret = url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  const from = Math.max(0, parseInt(url.searchParams.get('from') || '0'));
+  const size = Math.min(400, Math.max(1, parseInt(url.searchParams.get('size') || '250')));
+  const refetch = url.searchParams.get('refetch') === '1';
+  const concurrency = 8; // be polite to ESV API
+
+  const tuples = [];
+  let fetched = 0, fromCache = 0, errored = 0;
+  const errors = [];
+
+  const ordinals = [];
+  for (let o = from; o < Math.min(from + size, TOTAL_CHAPTERS); o++) ordinals.push(o);
+
+  for (let i = 0; i < ordinals.length; i += concurrency) {
+    const batch = ordinals.slice(i, i + concurrency);
+    const results = await Promise.all(batch.map(async (ord) => {
+      const [bookIdx, chapter] = ordinalToBookChapter(ord);
+      const key = `esv_${bookIdx + 1}_${chapter}`;
+      try {
+        let verses = null;
+        if (!refetch && env.COMMENTARY_KV) {
+          const cached = await env.COMMENTARY_KV.get(key);
+          if (cached) {
+            verses = JSON.parse(cached);
+            fromCache++;
+          }
+        }
+        if (!verses) {
+          verses = await fetchChapterFromEsv(bookIdx + 1, chapter, env);
+          if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(key, JSON.stringify(verses));
+          fetched++;
+        }
+        return enChapterToTuples(bookIdx, chapter, verses);
+      } catch (e) {
+        errored++;
+        errors.push({ord, bookIdx, chapter, msg: String(e.message || e)});
+        return [];
+      }
+    }));
+    for (const r of results) for (const t of r) tuples.push(t);
+  }
+
+  const chunkKey = `esv_search_chunk_${String(from).padStart(5, '0')}`;
+  if (env.COMMENTARY_KV) {
+    await env.COMMENTARY_KV.put(chunkKey, JSON.stringify(tuples));
+  }
+
+  const nextFrom = from + size;
+  const done = nextFrom >= TOTAL_CHAPTERS;
+  return new Response(JSON.stringify({
+    ok: true,
+    chunkKey,
+    processedOrdinals: ordinals.length,
+    verseCount: tuples.length,
+    fetchedFromEsv: fetched,
+    fromKvCache: fromCache,
+    errored,
+    errors: errors.slice(0, 10),
+    nextFrom: done ? null : nextFrom,
+    nextUrl: done ? null : `/admin/build-en-index?secret=...&from=${nextFrom}&size=${size}`,
     totalChapters: TOTAL_CHAPTERS,
-    moduleCache: { loaded: !!SEARCH_INDEX, verses: SEARCH_INDEX ? SEARCH_INDEX.length : 0 }
+    done
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+async function handleMergeEnIndex(env, url, cors) {
+  const secret = url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  if (!env.COMMENTARY_KV) return new Response(JSON.stringify({error:'no_kv'}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
+
+  const chunks = [];
+  let cursor = undefined;
+  let safety = 0;
+  while (true) {
+    const list = await env.COMMENTARY_KV.list({ prefix: 'esv_search_chunk_', cursor, limit: 1000 });
+    for (const k of list.keys) chunks.push(k.name);
+    if (list.list_complete || !list.cursor) break;
+    cursor = list.cursor;
+    if (++safety > 50) break;
+  }
+  chunks.sort();
+
+  if (chunks.length === 0) {
+    return new Response(JSON.stringify({error:'no_chunks', hint:'run /admin/build-en-index first'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
+  }
+
+  const merged = [];
+  for (const key of chunks) {
+    const raw = await env.COMMENTARY_KV.get(key);
+    if (!raw) continue;
+    try {
+      const arr = JSON.parse(raw);
+      for (const t of arr) merged.push(t);
+    } catch (e) { /* skip */ }
+  }
+
+  const payload = JSON.stringify(merged);
+  await env.COMMENTARY_KV.put('esv_search_index', payload);
+
+  EN_SEARCH_INDEX = null;
+  EN_SEARCH_INDEX_PROMISE = null;
+
+  return new Response(JSON.stringify({
+    ok: true,
+    chunksRead: chunks.length,
+    totalVerses: merged.length,
+    indexBytes: payload.length,
+    storedAt: 'esv_search_index'
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
@@ -577,46 +847,15 @@ Only output valid JSON, no markdown, no preamble.`;
     // ---- Admin endpoints (must precede /search) ----
     if (path === '/admin/build-index') return handleBuildIndex(env, url, cors);
     if (path === '/admin/merge-index') return handleMergeIndex(env, url, cors);
+    if (path === '/admin/build-en-index') return handleBuildEnIndex(env, url, cors);
+    if (path === '/admin/merge-en-index') return handleMergeEnIndex(env, url, cors);
     if (path === '/admin/index-status') return handleIndexStatus(env, url, cors);
 
     // ---- /search/ko (fast) ----
     if (path.startsWith('/search/ko')) return handleKoreanSearch(env, url, cors);
 
-    // ---- /search/en (ESV) ----
-    if (path.startsWith('/search/en')) {
-      const q = url.searchParams.get('q');
-      const page = parseInt(url.searchParams.get('page') || '1');
-      if (!q || q.trim().length < 2) return new Response(JSON.stringify({results:[],hasMore:false}), {headers:{...cors,'Content-Type':'application/json'}});
-
-      const esvSearchUrl = 'https://api.esv.org/v3/passage/search/?q=' + encodeURIComponent(q) + '&page-size=20&page=' + page;
-      const esvResp = await fetch(esvSearchUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
-      if (!esvResp.ok) return new Response(JSON.stringify({results:[],hasMore:false}), {headers:{...cors,'Content-Type':'application/json'}});
-
-      const esvData = await esvResp.json();
-      const results = [];
-      const totalResults = esvData.total_results || 0;
-
-      for (const hit of (esvData.results || [])) {
-        const ref = hit.reference || '';
-        const refMatch = ref.match(/^(.+?)\s+(\d+):(\d+)/);
-        if (!refMatch) continue;
-        const bookName = refMatch[1].trim();
-        const chapter = parseInt(refMatch[2]);
-        const verse = parseInt(refMatch[3]);
-        const bookIdx = BOOK_NAMES_EN.findIndex(b => b.toLowerCase() === bookName.toLowerCase());
-        if (bookIdx === -1) continue;
-        results.push({
-          book: bookIdx,
-          chapter,
-          verse,
-          text: hit.content ? hit.content.replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim() : '',
-          ref
-        });
-      }
-
-      const hasMore = (page * 20) < totalResults;
-      return new Response(JSON.stringify({results, hasMore, nextPage: page + 1}), {headers:{...cors,'Content-Type':'application/json'}});
-    }
+    // ---- /search/en (fast in-memory index) ----
+    if (path.startsWith('/search/en')) return handleEnglishSearch(env, url, cors);
 
     // ---- /votd ----
     if (path.startsWith('/votd')) {

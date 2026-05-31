@@ -29,7 +29,31 @@ Already present in this Worker:
 3. Confirm `COMMENTARY_KV`, `ESV_TOKEN`, `ANTHROPIC_KEY`, `ADMIN_SECRET` are all bound under Settings.
 4. Deploy.
 
-## Building the search index (first time, or after a wipe)
+## Building the English (ESV) search index
+
+The English search now uses the same flat-index architecture as Korean, replacing the ESV `passage/search` API (which was a relevance-ranked black box that dropped obvious matches like Psalm 119:105 for "lamp").
+
+Chunk size 250 chapters at a time, same as Korean.  Each chunk fetches the chapters from the ESV API (concurrency 8 to be polite).  After all chunks land, merge.
+
+```bash
+# Chunk 1: chapters 0-249
+curl.exe "https://krengbible.pauljkim22.workers.dev/admin/build-en-index?secret=YOUR_SECRET&from=0&size=250"
+
+# Chunks 2-5
+curl.exe "https://krengbible.pauljkim22.workers.dev/admin/build-en-index?secret=YOUR_SECRET&from=250&size=250"
+curl.exe "https://krengbible.pauljkim22.workers.dev/admin/build-en-index?secret=YOUR_SECRET&from=500&size=250"
+curl.exe "https://krengbible.pauljkim22.workers.dev/admin/build-en-index?secret=YOUR_SECRET&from=750&size=250"
+curl.exe "https://krengbible.pauljkim22.workers.dev/admin/build-en-index?secret=YOUR_SECRET&from=1000&size=250"
+
+# Merge once all chunks are done
+curl.exe "https://krengbible.pauljkim22.workers.dev/admin/merge-en-index?secret=YOUR_SECRET"
+```
+
+Each chunk takes 60–120s the first time (it's calling ESV ~250 times in parallel batches).  Subsequent chunks reuse the per-chapter cache (`esv_{book}_{chapter}` keys) unless you pass `&refetch=1`.
+
+After merge, `/search/en` returns sub-second substring matches across the whole Bible — Psalm 119:105 will now show up for "lamp", and any other previously-missing matches.
+
+## Building the Korean search index (first time, or after a wipe)
 
 The Bible has 1189 chapters.  Building the index means walking each one, ensuring it's cached in KV, and writing flat verse tuples into chunk keys.  We do it in chunks so a single request stays well under the Worker CPU limit.
 
