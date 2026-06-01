@@ -2020,7 +2020,10 @@ function savedRender(){
   if(noteLab)noteLab.textContent=isKo?'노트':'Notes';
   var schEl=document.getElementById('saved-search');
   if(schEl)schEl.placeholder=isKo?'저장된 항목 검색 / Search saved':'Search saved / 저장된 항목 검색';
-  // Sort toggle labels follow langOrder.
+  // Sort toggle labels follow langOrder.  Only shown on the Notes tab —
+  // highlights are always rendered in canonical book order.
+  var sortRow=document.querySelector('.saved-sort');
+  if(sortRow)sortRow.style.display=(savedTab==='notes')?'':'none';
   var sortLab=document.getElementById('saved-sort-label');
   var sortBookBtn=document.getElementById('saved-sort-book');
   var sortDateBtn=document.getElementById('saved-sort-date');
@@ -2146,7 +2149,10 @@ function savedRender(){
 
   var html='<div style="padding:4px 16px 60px;display:flex;flex-direction:column;gap:12px">';
 
-  if(savedSort==='date'){
+  // Highlights are always rendered in canonical book order regardless of the
+  // sort toggle — the toggle exists only for notes.
+  var effectiveSort=(savedTab==='hl')?'book':savedSort;
+  if(effectiveSort==='date'){
     // Flat list, newest first.  Items lacking a timestamp sink to the bottom.
     items.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
     items.forEach(function(it){
