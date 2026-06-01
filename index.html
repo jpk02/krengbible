@@ -423,6 +423,24 @@ body.dark .search-result-ref{color:#8899bb}
 .search-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:8px;color:#bbb;font-size:14px}
 .search-summary{padding:10px 18px;font-size:12px;color:#9a9488;letter-spacing:.01em;border-bottom:.5px solid #f0ede8;background:#faf8f4}
 body.dark .search-summary{color:#9a9488;border-bottom-color:#2a2a2a;background:#1a1a1a}
+.saved-controls{flex-shrink:0;padding:0 12px 12px;display:flex;flex-direction:column;gap:10px}
+.saved-tabs{display:flex;background:#efecea;border-radius:24px;padding:4px;gap:2px}
+body.dark .saved-tabs{background:#2a2a2a}
+.saved-tab{flex:1;background:none;border:none;cursor:pointer;color:#7a7468;font:600 13px inherit;padding:8px 12px;border-radius:22px;letter-spacing:.01em;transition:background .15s,color .15s;-webkit-appearance:none}
+body.dark .saved-tab{color:#9a9488}
+.saved-tab.active{background:#fff;color:#1c1c1c;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+body.dark .saved-tab.active{background:#1c1c1c;color:#e8e5e0}
+.saved-tab-count{font-weight:500;opacity:.65;margin-left:4px;font-size:12px}
+.saved-search-wrap{display:flex;align-items:center;gap:8px;background:#efecea;border-radius:22px;padding:9px 14px}
+body.dark .saved-search-wrap{background:#2a2a2a}
+.saved-search-wrap svg{color:#9a9488;flex-shrink:0}
+#saved-search{flex:1;border:none;background:transparent;outline:none;font:400 14px inherit;color:#1c1c1c;min-width:0}
+body.dark #saved-search{color:#e8e5e0}
+#saved-search::placeholder{color:#bdb6a8}
+body.dark #saved-search::placeholder{color:#6a6357}
+.saved-search-clear{background:none;border:none;cursor:pointer;color:#bdb6a8;padding:0;line-height:0;display:none}
+.saved-search-clear svg{width:16px;height:16px}
+.saved-search-clear.visible{display:block}
 header{display:none!important}
 .desk-only{display:none!important}
 .mob-nav{display:flex!important;align-items:center;justify-content:space-between;width:100%}
@@ -850,9 +868,13 @@ function toggleLangOrder(btn){
   var darkLabel=document.getElementById('menu-dark-label');
   var progLabel=document.getElementById('menu-prog-label');
   var savedLabel=document.getElementById('menu-saved-label');
+  var acctLabel=document.getElementById('menu-account-label');
   if(darkLabel)darkLabel.textContent=isEn?'Dark Mode / 다크 모드':'다크 모드 / Dark Mode';
   if(progLabel)progLabel.textContent=isEn?'Progress / 읽기 진도':'읽기 진도 / Progress';
   if(savedLabel)savedLabel.textContent=isEn?'Saved / 저장됨':'저장됨 / Saved';
+  if(acctLabel)acctLabel.textContent=isEn?'Account / 계정':'계정 / Account';
+  var authTitle=document.getElementById('auth-title');
+  if(authTitle)authTitle.textContent=isEn?'Account / 계정':'계정 / Account';
   var copyLabel=document.getElementById('hl-copy-label'); if(copyLabel)copyLabel.textContent=isEn?'Copy':'복사';
   var notesLabel=document.getElementById('hl-notes-label'); if(notesLabel)notesLabel.textContent=isEn?'Notes':'노트';
   var notesPane=document.getElementById('notes-modal');
@@ -1411,7 +1433,9 @@ function notesTsLoad(){try{return JSON.parse(localStorage.getItem(NOTES_TS_KEY)|
 function notesTsSave(d){try{localStorage.setItem(NOTES_TS_KEY,JSON.stringify(d));}catch(e){}}
 function stampNote(id){var t=notesTsLoad();t[id]=Date.now();notesTsSave(t);return t[id];}
 function notesNewId(){return 'n_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);}
-// Relative timestamp like "2h ago" / "Yesterday" / "Dec 5".  Bilingual.
+// Timestamp: relative ("Xm ago" / "Xh ago") only for <24h, otherwise show
+// the actual date.  Bilingual.  Includes year when the date is in a prior
+// calendar year so old notes aren't ambiguous.
 function notesRelTime(ts, isKo){
   if(!ts) return '';
   var now=Date.now(), diff=Math.max(0, now-ts);
@@ -1421,12 +1445,14 @@ function notesRelTime(ts, isKo){
   if(min < 60) return isKo?(min+'분 전'):(min+'m ago');
   var hr=Math.floor(min/60);
   if(hr < 24) return isKo?(hr+'시간 전'):(hr+'h ago');
-  var day=Math.floor(hr/24);
-  if(day===1) return isKo?'어제':'yesterday';
-  if(day < 7) return isKo?(day+'일 전'):(day+'d ago');
+  // ≥24h → actual date.  Include year only if it differs from the current year.
   var d=new Date(ts);
-  if(isKo) return (d.getMonth()+1)+'월 '+d.getDate()+'일';
-  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+  var sameYear=d.getFullYear()===new Date().getFullYear();
+  if(isKo){
+    var y=sameYear?'':(d.getFullYear()+'년 ');
+    return y+(d.getMonth()+1)+'월 '+d.getDate()+'일';
+  }
+  return d.toLocaleDateString('en-US', sameYear?{month:'short',day:'numeric'}:{year:'numeric',month:'short',day:'numeric'});
 }
 
 // Compute verse range from current highlight selection.
@@ -1610,6 +1636,7 @@ function notesAutoSave(el, entry){
       startVerse:notesPendingNew.startVerse,
       endVerse:notesPendingNew.endVerse,
       text:text,
+      _createdAt:Date.now(),
       _updatedAt:Date.now()
     };
     notesSave(data);
@@ -1916,43 +1943,126 @@ function notesJumpTo(bIdx,ch,id){
   });
 }
 
-function hlOpenSaved(){
+// Saved-sheet view state.  savedTab: 'hl' or 'notes'.  savedQuery: filter text.
+var savedTab='hl', savedQuery='';
+
+// Absolute date for saved-sheet note cards: always show the actual date
+// (not relative), with year included if the note is from a previous calendar year.
+function savedAbsDate(ts, isKo){
+  if(!ts) return '';
+  var d=new Date(ts);
+  var sameYear=d.getFullYear()===new Date().getFullYear();
+  if(isKo){
+    var y=sameYear?'':(d.getFullYear()+'년 ');
+    return y+(d.getMonth()+1)+'월 '+d.getDate()+'일';
+  }
+  return d.toLocaleDateString('en-US', sameYear?{month:'short',day:'numeric'}:{year:'numeric',month:'short',day:'numeric'});
+}
+
+function savedSetTab(tab){
+  savedTab=tab;
+  savedRender();
+}
+function savedSearchClear(){
+  savedQuery='';
+  var inp=document.getElementById('saved-search');
+  if(inp){inp.value='';}
+  var clr=document.getElementById('saved-search-clear');
+  if(clr)clr.classList.remove('visible');
+  savedRender();
+}
+
+// Builds both highlights and notes item lists (filtered by savedQuery) and
+// renders the currently active tab.  Keeps tab counts in sync.
+function savedRender(){
   var hlData=hlLoad();
   var notesData=notesLoad();
+  var notesTs=notesTsLoad();
+  var vtData=vtLoad();
   var isKo=langOrder==='ko-en';
-  var title=isKo?'저장됨 / Saved':'Saved / 저장됨';
-  var titleEl=document.getElementById('saved-title');
-  if(titleEl){titleEl.textContent=title;titleEl.style.color=darkMode?'#e8e5e0':'#1c1c1c';}
-  var list=document.getElementById('saved-list');
+  var q=(savedQuery||'').toLowerCase().trim();
 
-  // Build a unified list of items: highlights + notes.
-  var items=[];
+  // Tab labels follow langOrder.
+  var hlLab=document.getElementById('saved-tab-hl-label');
+  var noteLab=document.getElementById('saved-tab-notes-label');
+  if(hlLab)hlLab.textContent=isKo?'하이라이트':'Highlights';
+  if(noteLab)noteLab.textContent=isKo?'노트':'Notes';
+  var schEl=document.getElementById('saved-search');
+  if(schEl)schEl.placeholder=isKo?'저장된 항목 검색 / Search saved':'Search saved / 저장된 항목 검색';
+
+  // Build highlight items.
+  var hlItems=[];
   Object.keys(hlData).forEach(function(k){
     var parts=k.split('_');
     var bI=parseInt(parts[0]),ch=parseInt(parts[1]),v=parseInt(parts[2]);
     if(isNaN(bI)||isNaN(ch)||isNaN(v)) return;
-    items.push({kind:'hl',bIdx:bI,ch:ch,startV:v,endV:v,key:k});
+    var bk=BOOKS[bI]; if(!bk) return;
+    var vt=vtData[k]||null;
+    var verseText=vt?((isKo?vt.ko:vt.en)||(vt.ko||vt.en||'')):'';
+    var ref=(isKo?bk.ko:bk.en)+' '+ch+':'+v;
+    var refAlt=(isKo?bk.en:bk.ko)+' '+ch+':'+v;
+    hlItems.push({kind:'hl',bIdx:bI,ch:ch,startV:v,endV:v,key:k,ref:ref,_searchBlob:(ref+' '+refAlt+' '+verseText+' '+(vt?(vt.ko||'')+' '+(vt.en||''):'')).toLowerCase()});
   });
+
+  // Build note items.
+  var noteItems=[];
   Object.keys(notesData).forEach(function(id){
     var n=notesData[id];
     if(!n||n.deleted) return;
     if(typeof n.bookIdx!=='number'||typeof n.chapter!=='number') return;
-    items.push({kind:'note',bIdx:n.bookIdx,ch:n.chapter,startV:n.startVerse,endV:n.endVerse,id:id,text:n.text||''});
+    var bk=BOOKS[n.bookIdx]; if(!bk) return;
+    var rngStr=n.startVerse===n.endVerse?String(n.startVerse):(n.startVerse+'-'+n.endVerse);
+    var ref=(isKo?bk.ko:bk.en)+' '+n.chapter+':'+rngStr;
+    var refAlt=(isKo?bk.en:bk.ko)+' '+n.chapter+':'+rngStr;
+    // Prefer explicit _createdAt; fall back to notesTs (last-modified) or _updatedAt for legacy notes.
+    var ts=n._createdAt||notesTs[id]||n._updatedAt||0;
+    noteItems.push({
+      kind:'note',bIdx:n.bookIdx,ch:n.chapter,startV:n.startVerse,endV:n.endVerse,
+      id:id,text:n.text||'',ref:ref,ts:ts,
+      _searchBlob:((n.text||'')+' '+ref+' '+refAlt).toLowerCase()
+    });
   });
 
+  // Apply search filter (does substring match across both langs of ref + verse + note text).
+  if(q){
+    hlItems=hlItems.filter(function(it){return it._searchBlob.indexOf(q)!==-1;});
+    noteItems=noteItems.filter(function(it){return it._searchBlob.indexOf(q)!==-1;});
+  }
+
+  // Tab counts.
+  var hlCount=document.getElementById('saved-tab-hl-count');
+  var noteCount=document.getElementById('saved-tab-notes-count');
+  if(hlCount)hlCount.textContent=' ('+hlItems.length+')';
+  if(noteCount)noteCount.textContent=' ('+noteItems.length+')';
+
+  // Active-tab class.
+  var hlTab=document.getElementById('saved-tab-hl');
+  var nTab=document.getElementById('saved-tab-notes');
+  if(hlTab)hlTab.classList.toggle('active',savedTab==='hl');
+  if(nTab)nTab.classList.toggle('active',savedTab==='notes');
+
+  var items=(savedTab==='hl')?hlItems:noteItems;
+  var list=document.getElementById('saved-list');
+
   if(items.length===0){
+    var emptyMsg;
+    if(q){
+      emptyMsg=isKo?'일치하는 항목이 없습니다':'No matches';
+    } else if(savedTab==='hl'){
+      emptyMsg=isKo?'저장된 하이라이트가 없습니다':'No highlights yet';
+    } else {
+      emptyMsg=isKo?'저장된 노트가 없습니다':'No notes yet';
+    }
     list.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:12px">'
       +'<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><path d="M19 21l-7-4-7 4V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>'
-      +'<span style="font-size:14px;color:#bbb">'+(isKo?'저장된 항목이 없습니다':'Nothing saved yet')+'</span>'
+      +'<span style="font-size:14px;color:#bbb">'+emptyMsg+'</span>'
       +'</div>';
-    var overlay=document.getElementById('saved-modal');
-    overlay.style.transform='';overlay.style.transition='';
-    overlay.classList.remove('hidden');
     return;
   }
 
   var colorMap={y:'#fde047',g:'#86efac',b:'#93c5fd',p:'#d8b4fe',r:'#fca5a5'};
-  // Group by book, sort each group by (chapter, startVerse, endVerse).
+
+  // Group by book, sort each group canonically.  Notes sort by creation date desc inside a book.
   var byBook={};
   items.forEach(function(it){
     if(!byBook[it.bIdx]) byBook[it.bIdx]=[];
@@ -1969,12 +2079,9 @@ function hlOpenSaved(){
     var bk=BOOKS[parseInt(bIdx)];if(!bk)return;
     html+='<div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:'+(darkMode?'#8899bb':'#1b2a4a')+';padding:8px 4px 0">'+(isKo?bk.ko+' / '+bk.en:bk.en+' / '+bk.ko)+'</div>';
     byBook[bIdx].forEach(function(it){
-      var bk2=BOOKS[it.bIdx];if(!bk2)return;
-      var rngStr=it.startV===it.endV?String(it.startV):(it.startV+'-'+it.endV);
-      var ref=(isKo?bk2.ko:bk2.en)+' '+it.ch+':'+rngStr;
       if(it.kind==='hl'){
         var color=hlData[it.key];
-        var vt=vtLoad()[it.key]||null;
+        var vt=vtData[it.key]||null;
         var verseText=vt?(isKo?vt.ko:vt.en):'';
         var accentColor=color?colorMap[color]:'#e0ddd8';
         html+='<div onclick="hlJumpTo('+it.bIdx+','+it.ch+','+it.startV+')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
@@ -1984,21 +2091,21 @@ function hlOpenSaved(){
         if(verseText){
           html+='<div style="font-size:15px;line-height:1.8;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';'+(isKo?'font-family:\'Noto Sans KR\',sans-serif;word-break:keep-all;':'')+' margin-bottom:8px">'+esc(verseText)+'</div>';
         }
-        html+='<div style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(ref)+'</div>';
+        html+='<div style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(it.ref)+'</div>';
         html+='</div></div>';
         html+='</div>';
       } else {
-        // Note card.
+        // Note card — no "Note" label, but date at the bottom row alongside ref.
+        var dateStr=savedAbsDate(it.ts,isKo);
         html+='<div onclick="notesJumpTo('+it.bIdx+','+it.ch+',\''+it.id+'\')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
         html+='<div style="display:flex">';
         html+='<div style="width:5px;min-width:5px;background:'+(darkMode?'#3a4d75':'#1b2a4a')+'"></div>';
         html+='<div style="padding:14px 16px;flex:1;min-width:0">';
-        html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">';
-        html+='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:'+(darkMode?'#8899bb':'#1b2a4a')+';flex-shrink:0"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>';
-        html+='<span style="font-size:10px;font-weight:700;letter-spacing:.06em;color:'+(darkMode?'#8899bb':'#1b2a4a')+';text-transform:uppercase">'+(isKo?'노트':'Note')+'</span>';
-        html+='</div>';
         html+='<div style="font-size:14px;line-height:1.6;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';white-space:pre-wrap;word-break:break-word;margin-bottom:8px">'+esc(it.text)+'</div>';
-        html+='<div style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(ref)+'</div>';
+        html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">';
+        html+='<span style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(it.ref)+'</span>';
+        if(dateStr) html+='<span style="font-size:11px;color:'+(darkMode?'#7a7468':'#9a9488')+';font-weight:500">'+esc(dateStr)+'</span>';
+        html+='</div>';
         html+='</div></div>';
         html+='</div>';
       }
@@ -2006,6 +2113,31 @@ function hlOpenSaved(){
   });
   html+='</div>';
   list.innerHTML=html;
+}
+
+function hlOpenSaved(){
+  var isKo=langOrder==='ko-en';
+  var title=isKo?'저장됨 / Saved':'Saved / 저장됨';
+  var titleEl=document.getElementById('saved-title');
+  if(titleEl){titleEl.textContent=title;titleEl.style.color=darkMode?'#e8e5e0':'#1c1c1c';}
+
+  // Wire up the search input on first open.
+  var schEl=document.getElementById('saved-search');
+  if(schEl && !schEl._wired){
+    schEl._wired=true;
+    schEl.addEventListener('input',function(){
+      savedQuery=this.value;
+      var clr=document.getElementById('saved-search-clear');
+      if(clr)clr.classList.toggle('visible',!!savedQuery);
+      savedRender();
+    });
+  }
+  // Sync visible input + clear-button state with current savedQuery.
+  if(schEl)schEl.value=savedQuery||'';
+  var clrBtn=document.getElementById('saved-search-clear');
+  if(clrBtn)clrBtn.classList.toggle('visible',!!savedQuery);
+
+  savedRender();
   var overlay=document.getElementById('saved-modal');
   overlay.style.transform='';overlay.style.transition='';
   overlay.classList.remove('hidden');
@@ -6428,10 +6560,10 @@ async function loadMoreResults(){
       var bk=data.bookCount||0;
       var summary;
       if(langOrder==='ko-en'){
-        summary='검색 결과 '+data.total+'건 ('+bk+'개 책) — 스크롤하여 더 보기 / '
-              +data.total+' results across '+bk+' books — scroll for more';
+        summary='검색 결과 '+data.total+'건 ('+bk+'개 책) / '
+              +data.total+' results across '+bk+' books';
       } else {
-        summary=data.total+' results across '+bk+' books — scroll for more / '
+        summary=data.total+' results across '+bk+' books / '
               +'검색 결과 '+data.total+'건 ('+bk+'개 책)';
       }
       var hdr=document.createElement('div');
@@ -7123,6 +7255,19 @@ window.authDoDelete=authDoDelete;
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
     </button>
     <span style="font-size:15px;font-weight:600;color:#1c1c1c;flex:1" id="saved-title">저장됨 / Saved</span>
+  </div>
+  <div class="saved-controls">
+    <div class="saved-tabs">
+      <button id="saved-tab-hl" class="saved-tab active" onclick="savedSetTab('hl')"><span id="saved-tab-hl-label">하이라이트</span><span id="saved-tab-hl-count" class="saved-tab-count"></span></button>
+      <button id="saved-tab-notes" class="saved-tab" onclick="savedSetTab('notes')"><span id="saved-tab-notes-label">노트</span><span id="saved-tab-notes-count" class="saved-tab-count"></span></button>
+    </div>
+    <div class="saved-search-wrap">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input id="saved-search" type="text" autocomplete="off" spellcheck="false" placeholder="저장된 항목 검색 / Search saved">
+      <button id="saved-search-clear" class="saved-search-clear" onclick="savedSearchClear()" aria-label="Clear">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>
+      </button>
+    </div>
   </div>
   <div id="saved-list" style="flex:1;overflow-y:auto;overscroll-behavior:contain"></div>
 </div>
