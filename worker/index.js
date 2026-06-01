@@ -716,11 +716,20 @@ export default {
       const q = url.searchParams.get('q');
       if (!q) return new Response(JSON.stringify({error:'missing q'}), {status:400, headers:{...cors,"Content-Type":"application/json"}});
 
+      // Headers used on every /esv/ response.  no-store keeps browsers (and
+      // Cloudflare edge) from caching, because our KV layer is the canonical
+      // cache and any previously-cached error responses must NOT linger.
+      const respHeaders = {
+        ...cors,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, must-revalidate"
+      };
+
       // Cache forever per query — ESV text is static.  Key is the raw q string.
       const cacheKey = 'esv_raw_' + q;
       if (env.COMMENTARY_KV) {
         const cached = await env.COMMENTARY_KV.get(cacheKey);
-        if (cached) return new Response(cached, { headers: { ...cors, "Content-Type": "application/json" } });
+        if (cached) return new Response(cached, { headers: respHeaders });
       }
 
       const esvUrl = 'https://api.esv.org/v3/passage/text/?q=' + encodeURIComponent(q)
@@ -729,13 +738,24 @@ export default {
         + '&indent-paragraphs=0&indent-poetry=false&include-chapter-numbers=false'
         + '&indent-psalm-doxology=false&line-length=0';
 
-      // Retry on 429 with exponential backoff.
+      // Retry on 429 with exponential backoff.  ESV sometimes returns 200 OK
+      // with a {"detail":"Request was throttled..."} body — treat that as a
+      // throttle too and retry, so a soft-throttle doesn't leak to the client.
       let data = null, lastStatus = 0;
       for (let attempt = 0; attempt < 5; attempt++) {
         const esvResp = await fetch(esvUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
         lastStatus = esvResp.status;
         if (esvResp.ok) {
-          data = await esvResp.json();
+          const parsed = await esvResp.json();
+          // Soft-throttle detection: 200 OK but no passages, has detail/error.
+          if (!parsed.passages || !parsed.passages[0]) {
+            if (parsed.detail || parsed.error || parsed.message) {
+              const wait = 500 * Math.pow(2, attempt);
+              await new Promise(r => setTimeout(r, wait));
+              continue;
+            }
+          }
+          data = parsed;
           break;
         }
         if (esvResp.status === 429) {
@@ -746,21 +766,21 @@ export default {
         // Non-429 error — surface it.
         const body = await esvResp.text();
         return new Response(JSON.stringify({error: 'esv_status_' + esvResp.status, body}), {
-          status: 502, headers: { ...cors, "Content-Type": "application/json" }
+          status: 502, headers: respHeaders
         });
       }
-      if (!data) {
-        return new Response(JSON.stringify({error: 'esv_throttled', lastStatus}), {
-          status: 503, headers: { ...cors, "Content-Type": "application/json" }
+      if (!data || !data.passages || !data.passages[0]) {
+        return new Response(JSON.stringify({error: 'esv_throttled', lastStatus, q}), {
+          status: 503, headers: respHeaders
         });
       }
 
       // Only cache real passage data (not error responses leaking through).
       const body = JSON.stringify(data);
-      if (env.COMMENTARY_KV && data.passages && data.passages[0]) {
+      if (env.COMMENTARY_KV) {
         await env.COMMENTARY_KV.put(cacheKey, body);
       }
-      return new Response(body, { headers: { ...cors, "Content-Type": "application/json" } });
+      return new Response(body, { headers: respHeaders });
     }
 
     // ---- /intro/{bookNum} ----
