@@ -6045,6 +6045,8 @@ var searchTimer=null;
 var searchState={q:'',isKo:false,loading:false,hasMore:false,nextOffset:0,nextPage:1};
 
 function openSearch(){
+  // Dismiss any open highlight bar so it doesn't flash through when search closes.
+  if(typeof hlHideToolbar==='function') hlHideToolbar();
   var inp=document.getElementById('search-input');
   inp.placeholder=langOrder==='ko-en'?'검색 / Search':'Search / 검색';
   var overlay=document.getElementById('search-overlay');
