@@ -454,11 +454,17 @@ async function handleEnglishSearch(env, url, cors) {
     ref: BOOK_NAMES_EN[b] + ' ' + c + ':' + v
   }));
   const hasMore = (offset + pageSize) < matches.length;
+
+  // Count unique books across all matches (for a results-overview header on the client).
+  const bookSet = new Set();
+  for (const m of matches) bookSet.add(m[0]);
+
   return new Response(JSON.stringify({
     results,
     hasMore,
     nextPage: hasMore ? (page + 1) : -1,
-    total: matches.length
+    total: matches.length,
+    bookCount: bookSet.size
   }), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
@@ -683,11 +689,14 @@ async function handleKoreanSearch(env, url, cors) {
     ref: BOOK_NAMES_KO[b] + ' ' + c + ':' + v
   }));
   const hasMore = (offset + pageSize) < matches.length;
+  const bookSet = new Set();
+  for (const m of matches) bookSet.add(m[0]);
   return new Response(JSON.stringify({
     results,
     hasMore,
     nextOffset: hasMore ? (offset + pageSize) : -1,
-    total: matches.length
+    total: matches.length,
+    bookCount: bookSet.size
   }), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
@@ -706,14 +715,52 @@ export default {
     if (path.startsWith('/esv/')) {
       const q = url.searchParams.get('q');
       if (!q) return new Response(JSON.stringify({error:'missing q'}), {status:400, headers:{...cors,"Content-Type":"application/json"}});
+
+      // Cache forever per query — ESV text is static.  Key is the raw q string.
+      const cacheKey = 'esv_raw_' + q;
+      if (env.COMMENTARY_KV) {
+        const cached = await env.COMMENTARY_KV.get(cacheKey);
+        if (cached) return new Response(cached, { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+
       const esvUrl = 'https://api.esv.org/v3/passage/text/?q=' + encodeURIComponent(q)
         + '&include-headings=false&include-footnotes=true&include-verse-numbers=true'
         + '&include-short-copyright=false&include-passage-references=false'
         + '&indent-paragraphs=0&indent-poetry=false&include-chapter-numbers=false'
         + '&indent-psalm-doxology=false&line-length=0';
-      const esvResp = await fetch(esvUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
-      const data = await esvResp.json();
-      return new Response(JSON.stringify(data), { headers: { ...cors, "Content-Type": "application/json" } });
+
+      // Retry on 429 with exponential backoff.
+      let data = null, lastStatus = 0;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const esvResp = await fetch(esvUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
+        lastStatus = esvResp.status;
+        if (esvResp.ok) {
+          data = await esvResp.json();
+          break;
+        }
+        if (esvResp.status === 429) {
+          const wait = 500 * Math.pow(2, attempt); // 500ms, 1s, 2s, 4s, 8s
+          await new Promise(r => setTimeout(r, wait));
+          continue;
+        }
+        // Non-429 error — surface it.
+        const body = await esvResp.text();
+        return new Response(JSON.stringify({error: 'esv_status_' + esvResp.status, body}), {
+          status: 502, headers: { ...cors, "Content-Type": "application/json" }
+        });
+      }
+      if (!data) {
+        return new Response(JSON.stringify({error: 'esv_throttled', lastStatus}), {
+          status: 503, headers: { ...cors, "Content-Type": "application/json" }
+        });
+      }
+
+      // Only cache real passage data (not error responses leaking through).
+      const body = JSON.stringify(data);
+      if (env.COMMENTARY_KV && data.passages && data.passages[0]) {
+        await env.COMMENTARY_KV.put(cacheKey, body);
+      }
+      return new Response(body, { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
     // ---- /intro/{bookNum} ----

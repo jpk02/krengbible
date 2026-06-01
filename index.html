@@ -421,6 +421,8 @@ body.dark .search-result-text{color:#e8e5e0}
 .search-result-ref{font-size:12px;font-weight:700;color:#1b2a4a}
 body.dark .search-result-ref{color:#8899bb}
 .search-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:8px;color:#bbb;font-size:14px}
+.search-summary{padding:10px 18px;font-size:12px;color:#9a9488;letter-spacing:.01em;border-bottom:.5px solid #f0ede8;background:#faf8f4}
+body.dark .search-summary{color:#9a9488;border-bottom-color:#2a2a2a;background:#1a1a1a}
 header{display:none!important}
 .desk-only{display:none!important}
 .mob-nav{display:flex!important;align-items:center;justify-content:space-between;width:100%}
@@ -6266,6 +6268,25 @@ async function loadMoreResults(){
       searchState.hasMore=false;
       searchState.loading=false;
       return;
+    }
+
+    // On the first page, render a summary banner so the user knows the
+    // full breadth of results before scrolling.
+    var isFirstPage=results.children.length===0&&typeof data.total==='number';
+    if(isFirstPage){
+      var bk=data.bookCount||0;
+      var summary;
+      if(langOrder==='ko-en'){
+        summary='검색 결과 '+data.total+'건 ('+bk+'개 책) — 스크롤하여 더 보기 / '
+              +data.total+' results across '+bk+' books — scroll for more';
+      } else {
+        summary=data.total+' results across '+bk+' books — scroll for more / '
+              +'검색 결과 '+data.total+'건 ('+bk+'개 책)';
+      }
+      var hdr=document.createElement('div');
+      hdr.className='search-summary';
+      hdr.textContent=summary;
+      results.appendChild(hdr);
     }
 
     data.results.forEach(function(item){
