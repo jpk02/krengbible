@@ -441,6 +441,14 @@ body.dark #saved-search::placeholder{color:#6a6357}
 .saved-search-clear{background:none;border:none;cursor:pointer;color:#bdb6a8;padding:0;line-height:0;display:none}
 .saved-search-clear svg{width:16px;height:16px}
 .saved-search-clear.visible{display:block}
+.saved-sort{display:flex;align-items:center;gap:8px;font-size:12px;color:#9a9488}
+body.dark .saved-sort{color:#7a7468}
+.saved-sort-label{font-weight:600;letter-spacing:.02em}
+.saved-sort-btns{display:flex;gap:4px}
+.saved-sort-btn{background:none;border:.5px solid transparent;cursor:pointer;color:#9a9488;font:500 12px inherit;padding:4px 10px;border-radius:14px;letter-spacing:.01em;-webkit-appearance:none;transition:background .15s,color .15s,border-color .15s}
+body.dark .saved-sort-btn{color:#7a7468}
+.saved-sort-btn.active{color:#1c1c1c;background:#efecea;border-color:#e0ddd8}
+body.dark .saved-sort-btn.active{color:#e8e5e0;background:#2a2a2a;border-color:#3a3a3a}
 header{display:none!important}
 .desk-only{display:none!important}
 .mob-nav{display:flex!important;align-items:center;justify-content:space-between;width:100%}
@@ -1957,7 +1965,10 @@ function notesJumpTo(bIdx,ch,id){
 }
 
 // Saved-sheet view state.  savedTab: 'hl' or 'notes'.  savedQuery: filter text.
-var savedTab='hl', savedQuery='';
+// savedSort: 'book' (canonical order, grouped by book) or 'date' (flat, newest first).
+var savedTab='hl', savedQuery='', savedSort='book';
+var SAVED_SORT_KEY='krengbible_saved_sort';
+try{var _s=localStorage.getItem(SAVED_SORT_KEY); if(_s==='book'||_s==='date') savedSort=_s;}catch(e){}
 
 // Absolute date for saved-sheet note cards: always show the actual date
 // (not relative), with year included if the note is from a previous calendar year.
@@ -1976,6 +1987,12 @@ function savedSetTab(tab){
   savedTab=tab;
   savedRender();
 }
+function savedSetSort(sort){
+  if(sort!=='book'&&sort!=='date') return;
+  savedSort=sort;
+  try{localStorage.setItem(SAVED_SORT_KEY,sort);}catch(e){}
+  savedRender();
+}
 function savedSearchClear(){
   savedQuery='';
   var inp=document.getElementById('saved-search');
@@ -1991,6 +2008,7 @@ function savedRender(){
   var hlData=hlLoad();
   var notesData=notesLoad();
   var notesTs=notesTsLoad();
+  var hlTs=(typeof hlTsLoad==='function')?hlTsLoad():{};
   var vtData=vtLoad();
   var isKo=langOrder==='ko-en';
   var q=(savedQuery||'').toLowerCase().trim();
@@ -2002,8 +2020,17 @@ function savedRender(){
   if(noteLab)noteLab.textContent=isKo?'노트':'Notes';
   var schEl=document.getElementById('saved-search');
   if(schEl)schEl.placeholder=isKo?'저장된 항목 검색 / Search saved':'Search saved / 저장된 항목 검색';
+  // Sort toggle labels follow langOrder.
+  var sortLab=document.getElementById('saved-sort-label');
+  var sortBookBtn=document.getElementById('saved-sort-book');
+  var sortDateBtn=document.getElementById('saved-sort-date');
+  if(sortLab)sortLab.textContent=isKo?'정렬':'Sort';
+  if(sortBookBtn)sortBookBtn.textContent=isKo?'책 순서':'Book';
+  if(sortDateBtn)sortDateBtn.textContent=isKo?'날짜 순':'Date';
+  if(sortBookBtn)sortBookBtn.classList.toggle('active',savedSort==='book');
+  if(sortDateBtn)sortDateBtn.classList.toggle('active',savedSort==='date');
 
-  // Build highlight items.
+  // Build highlight items (with timestamps for date sort).
   var hlItems=[];
   Object.keys(hlData).forEach(function(k){
     var parts=k.split('_');
@@ -2014,7 +2041,11 @@ function savedRender(){
     var verseText=vt?((isKo?vt.ko:vt.en)||(vt.ko||vt.en||'')):'';
     var ref=(isKo?bk.ko:bk.en)+' '+ch+':'+v;
     var refAlt=(isKo?bk.en:bk.ko)+' '+ch+':'+v;
-    hlItems.push({kind:'hl',bIdx:bI,ch:ch,startV:v,endV:v,key:k,ref:ref,_searchBlob:(ref+' '+refAlt+' '+verseText+' '+(vt?(vt.ko||'')+' '+(vt.en||''):'')).toLowerCase()});
+    hlItems.push({
+      kind:'hl',bIdx:bI,ch:ch,startV:v,endV:v,key:k,ref:ref,
+      ts:hlTs[k]||0,
+      _searchBlob:(ref+' '+refAlt+' '+verseText+' '+(vt?(vt.ko||'')+' '+(vt.en||''):'')).toLowerCase()
+    });
   });
 
   // Build note items.
@@ -2075,55 +2106,73 @@ function savedRender(){
 
   var colorMap={y:'#fde047',g:'#86efac',b:'#93c5fd',p:'#d8b4fe',r:'#fca5a5'};
 
-  // Group by book, sort each group canonically.  Notes sort by creation date desc inside a book.
-  var byBook={};
-  items.forEach(function(it){
-    if(!byBook[it.bIdx]) byBook[it.bIdx]=[];
-    byBook[it.bIdx].push(it);
-  });
-  Object.keys(byBook).forEach(function(bIdx){
-    byBook[bIdx].sort(function(a,b){
-      return (a.ch-b.ch)||(a.startV-b.startV)||(a.endV-b.endV);
-    });
-  });
+  // Card-rendering helpers — used by both sort modes.  Date label is included on hl cards
+  // only when sorting by date (otherwise the book grouping makes the date redundant noise).
+  function renderHl(it,showDate){
+    var color=hlData[it.key];
+    var vt=vtData[it.key]||null;
+    var verseText=vt?(isKo?vt.ko:vt.en):'';
+    var accentColor=color?colorMap[color]:'#e0ddd8';
+    var dateStr=showDate?savedAbsDate(it.ts,isKo):'';
+    var s='<div onclick="hlJumpTo('+it.bIdx+','+it.ch+','+it.startV+')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
+    s+='<div style="display:flex">';
+    s+='<div style="width:5px;min-width:5px;background:'+accentColor+'"></div>';
+    s+='<div style="padding:14px 16px;flex:1;min-width:0">';
+    if(verseText){
+      s+='<div style="font-size:15px;line-height:1.8;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';'+(isKo?'font-family:\'Noto Sans KR\',sans-serif;word-break:keep-all;':'')+' margin-bottom:8px">'+esc(verseText)+'</div>';
+    }
+    s+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">';
+    s+='<span style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(it.ref)+'</span>';
+    if(dateStr) s+='<span style="font-size:11px;color:'+(darkMode?'#7a7468':'#9a9488')+';font-weight:500">'+esc(dateStr)+'</span>';
+    s+='</div>';
+    s+='</div></div></div>';
+    return s;
+  }
+  function renderNote(it){
+    // Notes always show their date (regardless of sort mode).
+    var dateStr=savedAbsDate(it.ts,isKo);
+    var s='<div onclick="notesJumpTo('+it.bIdx+','+it.ch+',\''+it.id+'\')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
+    s+='<div style="display:flex">';
+    s+='<div style="width:5px;min-width:5px;background:'+(darkMode?'#3a4d75':'#1b2a4a')+'"></div>';
+    s+='<div style="padding:14px 16px;flex:1;min-width:0">';
+    s+='<div style="font-size:14px;line-height:1.6;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';white-space:pre-wrap;word-break:break-word;margin-bottom:8px">'+esc(it.text)+'</div>';
+    s+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">';
+    s+='<span style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(it.ref)+'</span>';
+    if(dateStr) s+='<span style="font-size:11px;color:'+(darkMode?'#7a7468':'#9a9488')+';font-weight:500">'+esc(dateStr)+'</span>';
+    s+='</div>';
+    s+='</div></div></div>';
+    return s;
+  }
 
   var html='<div style="padding:4px 16px 60px;display:flex;flex-direction:column;gap:12px">';
-  Object.keys(byBook).sort(function(a,b){return a-b;}).forEach(function(bIdx){
-    var bk=BOOKS[parseInt(bIdx)];if(!bk)return;
-    html+='<div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:'+(darkMode?'#8899bb':'#1b2a4a')+';padding:8px 4px 0">'+(isKo?bk.ko+' / '+bk.en:bk.en+' / '+bk.ko)+'</div>';
-    byBook[bIdx].forEach(function(it){
-      if(it.kind==='hl'){
-        var color=hlData[it.key];
-        var vt=vtData[it.key]||null;
-        var verseText=vt?(isKo?vt.ko:vt.en):'';
-        var accentColor=color?colorMap[color]:'#e0ddd8';
-        html+='<div onclick="hlJumpTo('+it.bIdx+','+it.ch+','+it.startV+')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
-        html+='<div style="display:flex">';
-        html+='<div style="width:5px;min-width:5px;background:'+accentColor+'"></div>';
-        html+='<div style="padding:14px 16px;flex:1;min-width:0">';
-        if(verseText){
-          html+='<div style="font-size:15px;line-height:1.8;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';'+(isKo?'font-family:\'Noto Sans KR\',sans-serif;word-break:keep-all;':'')+' margin-bottom:8px">'+esc(verseText)+'</div>';
-        }
-        html+='<div style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(it.ref)+'</div>';
-        html+='</div></div>';
-        html+='</div>';
-      } else {
-        // Note card — no "Note" label, but date at the bottom row alongside ref.
-        var dateStr=savedAbsDate(it.ts,isKo);
-        html+='<div onclick="notesJumpTo('+it.bIdx+','+it.ch+',\''+it.id+'\')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
-        html+='<div style="display:flex">';
-        html+='<div style="width:5px;min-width:5px;background:'+(darkMode?'#3a4d75':'#1b2a4a')+'"></div>';
-        html+='<div style="padding:14px 16px;flex:1;min-width:0">';
-        html+='<div style="font-size:14px;line-height:1.6;color:'+(darkMode?'#d8d5d0':'#1c1c1c')+';white-space:pre-wrap;word-break:break-word;margin-bottom:8px">'+esc(it.text)+'</div>';
-        html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">';
-        html+='<span style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(it.ref)+'</span>';
-        if(dateStr) html+='<span style="font-size:11px;color:'+(darkMode?'#7a7468':'#9a9488')+';font-weight:500">'+esc(dateStr)+'</span>';
-        html+='</div>';
-        html+='</div></div>';
-        html+='</div>';
-      }
+
+  if(savedSort==='date'){
+    // Flat list, newest first.  Items lacking a timestamp sink to the bottom.
+    items.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
+    items.forEach(function(it){
+      html+=(it.kind==='hl')?renderHl(it,true):renderNote(it);
     });
-  });
+  } else {
+    // Book order: group by book, sort canonically inside each group.
+    var byBook={};
+    items.forEach(function(it){
+      if(!byBook[it.bIdx]) byBook[it.bIdx]=[];
+      byBook[it.bIdx].push(it);
+    });
+    Object.keys(byBook).forEach(function(bIdx){
+      byBook[bIdx].sort(function(a,b){
+        return (a.ch-b.ch)||(a.startV-b.startV)||(a.endV-b.endV);
+      });
+    });
+    Object.keys(byBook).sort(function(a,b){return a-b;}).forEach(function(bIdx){
+      var bk=BOOKS[parseInt(bIdx)];if(!bk)return;
+      html+='<div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:'+(darkMode?'#8899bb':'#1b2a4a')+';padding:8px 4px 0">'+(isKo?bk.ko+' / '+bk.en:bk.en+' / '+bk.ko)+'</div>';
+      byBook[bIdx].forEach(function(it){
+        html+=(it.kind==='hl')?renderHl(it,false):renderNote(it);
+      });
+    });
+  }
+
   html+='</div>';
   list.innerHTML=html;
 }
@@ -7365,6 +7414,13 @@ window.authDoDelete=authDoDelete;
       <button id="saved-search-clear" class="saved-search-clear" onclick="savedSearchClear()" aria-label="Clear">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>
       </button>
+    </div>
+    <div class="saved-sort">
+      <span id="saved-sort-label" class="saved-sort-label">정렬</span>
+      <div class="saved-sort-btns">
+        <button id="saved-sort-book" class="saved-sort-btn active" onclick="savedSetSort('book')">책 순서</button>
+        <button id="saved-sort-date" class="saved-sort-btn" onclick="savedSetSort('date')">날짜 순</button>
+      </div>
     </div>
   </div>
   <div id="saved-list" style="flex:1;overflow-y:auto;overscroll-behavior:contain"></div>
