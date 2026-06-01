@@ -6334,10 +6334,15 @@ if(window.visualViewport){
     // Add extra buffer for iOS autocomplete bar + pill (approx 50px)
     searchResults.style.paddingBottom=keyboardHeight>50?(keyboardHeight+50)+'px':'8px';
   });
-  // Keep hl-bar above Safari URL bar
+  // Keep hl-bar above Safari URL bar.  Only adjust when actually visible —
+  // otherwise the inline bottom value combined with translateY(100%) (which
+  // moves the element only by its own height) leaves the bar visible inside
+  // the viewport while the keyboard is up, and flashes through during
+  // keyboard dismissal.
   function positionHlBar(){
     var bar=document.getElementById('hl-bar');
     if(!bar)return;
+    if(!bar.classList.contains('visible')){ bar.style.bottom=''; return; }
     var vv=window.visualViewport;
     var bottomOffset=window.innerHeight-(vv.offsetTop+vv.height);
     bar.style.bottom=Math.max(0,bottomOffset)+'px';
