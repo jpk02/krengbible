@@ -364,6 +364,18 @@ body.dark .verse-row.hl-p .vt{background:#6b21a8}
 body.dark .verse-row.hl-r .vt{background:#991b1b}
 .confirm-modal{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,.42);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:1;transition:opacity .18s}
 .confirm-modal.hidden{display:none}
+.tx-row{display:flex;align-items:center;gap:10px;padding:12px 22px;cursor:pointer;border:none;background:none;width:100%;text-align:left;font:inherit;color:#1c1c1c;border-bottom:.5px solid #f5f3ef}
+.tx-row:last-child{border-bottom:none}
+.tx-row:active{background:#f7f5f2}
+body.dark .tx-row{color:#e8e5e0;border-bottom-color:#2a2a2a}
+body.dark .tx-row:active{background:#2a2a2a}
+.tx-row-abbr{flex:0 0 56px;font-size:13px;font-weight:800;letter-spacing:.06em;color:#1b2a4a}
+body.dark .tx-row-abbr{color:#8899bb}
+.tx-row-name{flex:1;font-size:13px;color:#1c1c1c;line-height:1.4}
+body.dark .tx-row-name{color:#d8d5d0}
+.tx-row-check{width:18px;height:18px;flex-shrink:0;color:#1b2a4a;display:none}
+.tx-row.active .tx-row-check{display:block}
+body.dark .tx-row-check{color:#8899bb}
 .confirm-box{background:#fbfaf7;border-radius:18px;padding:28px 26px 20px;max-width:340px;width:90%;box-shadow:0 24px 64px rgba(20,16,12,.18),0 2px 8px rgba(20,16,12,.06);border:1px solid rgba(0,0,0,.04)}
 body.dark .confirm-box{background:#1f1d1a;border-color:rgba(255,255,255,.05);box-shadow:0 24px 64px rgba(0,0,0,.5)}
 .confirm-title{font:600 16px/1.3 'DM Sans','Noto Sans KR',-apple-system,sans-serif;color:#1a1a1a;margin:0 0 8px;letter-spacing:-.005em}
@@ -712,6 +724,10 @@ onAuthStateChanged(fbAuth, (user) => {
             <span id="menu-dark-label">다크 모드 / Dark Mode</span>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
           </button>
+          <button class="more-menu-item" onclick="openTranslationPicker();toggleMoreMenu()">
+            <span id="menu-translation-label">번역본 / Translation</span>
+            <span id="menu-translation-current" style="font-size:12px;font-weight:600;color:#1b2a4a;letter-spacing:.04em;margin-left:8px">ESV</span>
+          </button>
           <button class="more-menu-item" onclick="sheetOpen('progress');toggleMoreMenu()">
             <span id="menu-prog-label">읽기 진도 / Progress</span>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
@@ -762,6 +778,18 @@ onAuthStateChanged(fbAuth, (user) => {
     <div class="confirm-btns">
       <button class="confirm-btn cancel" id="confirm-cancel-btn" onclick="confirmCancel()">취소</button>
       <button class="confirm-btn ok" id="confirm-ok-btn" onclick="confirmOk()">초기화</button>
+    </div>
+  </div>
+</div>
+<div id="tx-picker" class="confirm-modal hidden" onclick="if(event.target===this)closeTranslationPicker()">
+  <div class="confirm-box" style="max-width:340px;padding:18px 0 12px">
+    <div class="confirm-title" style="display:block;padding:0 22px 6px;font-size:13px;font-weight:700;letter-spacing:.04em;color:#9a9488" id="tx-picker-title">번역본 / Translation</div>
+    <div id="tx-picker-list" style="display:flex;flex-direction:column;padding:0 0 6px"></div>
+    <div style="padding:8px 22px 0;font-size:11px;color:#9a9488;line-height:1.5;border-top:.5px solid #f0ede8">
+      <span id="tx-picker-note-text">NLT, NIV, MSG provided by <a href="https://api.bible" target="_blank" rel="noopener" style="color:#1b2a4a">api.bible</a>.  Cached locally, refreshed monthly.</span>
+    </div>
+    <div style="text-align:right;padding:10px 22px 0">
+      <button onclick="closeTranslationPicker()" style="background:none;border:none;font:600 13px inherit;color:#1b2a4a;cursor:pointer;padding:6px 4px" id="tx-picker-close-btn">닫기 / Close</button>
     </div>
   </div>
 </div>
@@ -881,6 +909,8 @@ function toggleLangOrder(btn){
   if(progLabel)progLabel.textContent=isEn?'Progress / 읽기 진도':'읽기 진도 / Progress';
   if(savedLabel)savedLabel.textContent=isEn?'Saved / 저장됨':'저장됨 / Saved';
   if(acctLabel)acctLabel.textContent=isEn?'Account / 계정':'계정 / Account';
+  var txLabel=document.getElementById('menu-translation-label');
+  if(txLabel)txLabel.textContent=isEn?'Translation / 번역본':'번역본 / Translation';
   var authTitle=document.getElementById('auth-title');
   if(authTitle)authTitle.textContent=isEn?'Account / 계정':'계정 / Account';
   // Refresh every other piece of text inside the Account modal.
@@ -1298,9 +1328,12 @@ async function load(){
   var ebp=document.getElementById('edge-bp');if(ebp)ebp.disabled=(bi===0&&ci===1);
   var ebn=document.getElementById('edge-bn');if(ebn)ebn.disabled=(bi===BOOKS.length-1&&ci===bk.ch);
   document.getElementById('content').innerHTML='<div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div>';
-  const [kr,er]=await Promise.allSettled([fetchKo(bk,ci),fetchEsv(bk,ci)]);
+  const [kr,er]=await Promise.allSettled([fetchKo(bk,ci),fetchTranslation(bk,ci)]);
   if(kr.status==='rejected'){document.getElementById('content').innerHTML='<div class="errbox"><b>Error:</b> '+esc(kr.reason?.message||'실패')+'</div>';return;}
-  if(er.status==='rejected'){document.getElementById('content').innerHTML='<div class="errbox"><b>ESV Error:</b> '+esc(er.reason?.message||'Failed')+'</div>';return;}
+  if(er.status==='rejected'){
+    var t=translationMeta(currentTranslation);
+    document.getElementById('content').innerHTML='<div class="errbox"><b>'+esc(t.abbr)+' Error:</b> '+esc(er.reason?.message||'Failed')+'</div>';return;
+  }
   render(kr.value,er.value,bk,ci);
   loaded=true;document.getElementById('main').scrollTop=0;updateLabel();
   if(typeof fbPushPosition==='function') fbPushPosition();
@@ -1308,9 +1341,20 @@ async function load(){
   var mainEl=document.getElementById('main');
   if(mainEl)mainEl.style.overflowY='';
   var inp=document.getElementById('passage-input');if(inp)inp.value=BOOKS[bi].en+' '+ci;
-  // Reset footer — remove photo credit when reading chapters
+  // Footer attribution: always Korean (개역개정), then the active English translation.
+  // Use the api.bible-supplied copyright when available; fall back to ESV default.
   var footer=document.getElementById('main-footer');
-  if(footer)footer.innerHTML='개역개정판 &copy; 대한성서공회 &nbsp;&middot;&nbsp; ESV&reg; &copy; 2001 Crossway &middot; <a href="https://www.esv.org" target="_blank" style="color:#bbb">esv.org</a> &middot; Used by permission';
+  if(footer){
+    var attribKo='개역개정판 &copy; 대한성서공회';
+    var attribEn;
+    if(er.value.copyright){
+      // api.bible returns the legally-required attribution string verbatim.
+      attribEn=esc(er.value.copyright);
+    } else {
+      attribEn='ESV&reg; &copy; 2001 Crossway &middot; <a href="https://www.esv.org" target="_blank" style="color:#bbb">esv.org</a> &middot; Used by permission';
+    }
+    footer.innerHTML=attribKo+' &nbsp;&middot;&nbsp; '+attribEn;
+  }
 }
 function reorderKoFn(v){
   if(!v||typeof v.text!=='string')return v;
@@ -1326,6 +1370,117 @@ async function fetchKo(bk,ch){
   if(!d.verses||d.verses.length===0)throw new Error('No verses');
   return{verses:d.verses.map(reorderKoFn),footnotes:d.footnotes||{}};
 }
+// ============================================================
+// English translation routing (ESV + api.bible NLT/NIV/MSG)
+// ============================================================
+// API_BIBLE_IDS must match the whitelist in worker/index.js exactly.
+var API_BIBLE_IDS={
+  'NLT':'d6e14a625393b4da-01',
+  'NIV':'78a9f6124f344018-01',
+  'MSG':'6f11a7de016f942e-01'
+};
+// Order matters: render order in the picker.  ESV first as the default.
+var TRANSLATIONS=[
+  {abbr:'ESV', name:'English Standard Version',     source:'esv'},
+  {abbr:'NLT', name:'New Living Translation',       source:'apibible'},
+  {abbr:'NIV', name:'New International Version',    source:'apibible'},
+  {abbr:'MSG', name:'The Message',                  source:'apibible'}
+];
+// Persisted in localStorage; synced via Firebase settings.
+var currentTranslation='ESV';
+try{var _ct=localStorage.getItem('krengbible_translation'); if(_ct && API_BIBLE_IDS[_ct] || _ct==='ESV') currentTranslation=_ct;}catch(e){}
+function translationMeta(abbr){ for(var i=0;i<TRANSLATIONS.length;i++) if(TRANSLATIONS[i].abbr===abbr) return TRANSLATIONS[i]; return TRANSLATIONS[0]; }
+function setTranslation(abbr){
+  if(abbr!=='ESV' && !API_BIBLE_IDS[abbr]) return;
+  currentTranslation=abbr;
+  try{localStorage.setItem('krengbible_translation', abbr);}catch(e){}
+  if(typeof settingsTsSave==='function') settingsTsSave(Date.now());
+  if(typeof fbPushSettings==='function') fbPushSettings();
+  if(loaded) load();
+}
+
+// ============================================================
+// FUMS (Fair Use Management System) — required by api.bible
+// ============================================================
+// Fires an anonymous tracking ping per Scripture read so api.bible can
+// report usage back to copyright holders (Tyndale, Biblica, NavPress).
+// Per the spec: device ID is per-browser-stable, session ID is per-load.
+// User ID is optional and would need to be SHA-256 hashed; we don't send
+// one — Firebase user IDs are PII and the spec mandates hashing if used.
+function fumsDeviceId(){
+  try{
+    var k='krengbible_fums_dev';
+    var v=localStorage.getItem(k);
+    if(v) return v;
+    v=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36));
+    localStorage.setItem(k,v);
+    return v;
+  }catch(e){ return 'anon'; }
+}
+var FUMS_SESSION_ID=(function(){
+  try{ return crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36); }
+  catch(e){ return 'sess'; }
+})();
+// Fire-and-forget GET to the FUMS endpoint.  We use an Image() beacon so it
+// works regardless of CORS and doesn't block rendering.  Token is omitted on
+// cache hits (cached reads still report engagement but don't carry a fresh
+// per-request token).
+function fumsReport(fumsToken, bibleId, chapterId){
+  try{
+    var p=new URLSearchParams({
+      dId: fumsDeviceId(),
+      sId: FUMS_SESSION_ID
+    });
+    if(fumsToken) p.set('t', fumsToken);
+    if(bibleId)   p.set('bibleId', bibleId);
+    if(chapterId) p.set('chapterId', chapterId);
+    var img=new Image();
+    img.src='https://fums.api.bible/f3?'+p.toString();
+  }catch(e){ /* never break rendering for analytics */ }
+}
+
+// ============================================================
+// Routed chapter fetcher — picks ESV or api.bible based on
+// currentTranslation, and fires FUMS for api.bible reads.
+// Returns the same shape as fetchEsv: {verses, headings, footnotes, copyright?}
+// ============================================================
+async function fetchTranslation(bk, ch){
+  var t=translationMeta(currentTranslation);
+  if(t.source==='esv') return fetchEsv(bk, ch);
+  // api.bible path
+  var bibleId=API_BIBLE_IDS[t.abbr];
+  if(!bibleId) return fetchEsv(bk, ch);
+  var r=await fetch(WORKER+'/apibible/'+bibleId+'/'+bk.n+'/'+ch, {cache:'no-store'});
+  if(!r.ok){
+    var errBody=await r.text().catch(function(){return '';});
+    throw new Error(t.abbr+' fetch error '+r.status+(errBody?(': '+errBody.slice(0,200)):''));
+  }
+  var d=await r.json();
+  if(!d.data || !d.data.content) throw new Error('No '+t.abbr+' data');
+  // FUMS ping — token only present on fresh fetches, by design.
+  fumsReport(d.fumsToken, bibleId, d.data.id);
+  // Parse api.bible's content (similar [N] markers to ESV, may also include [N-M] ranges).
+  var content=d.data.content;
+  var verses={};
+  var segments=content.split(/(?=\[\d+(?:-\d+)?\])/);
+  for(var i=0;i<segments.length;i++){
+    var seg=segments[i].trim();
+    if(!seg) continue;
+    var m=seg.match(/^\[(\d+)(?:-\d+)?\]\s*([\s\S]*)/);
+    if(!m) continue;
+    var verseNum=+m[1];
+    var text=m[2].replace(/\s+/g,' ').trim();
+    verses[verseNum]=text;
+  }
+  return {
+    verses: verses,
+    headings: {},
+    footnotes: {},
+    copyright: d.data.copyright || null,
+    translationAbbr: t.abbr
+  };
+}
+
 async function fetchEsv(bk,ch){
   var esvQ=bk.en+' '+ch;if(bk.ch===1)esvQ=bk.en+' 1:1-999';
   // {cache:'no-store'} bypasses any stale browser cache from earlier deploys
@@ -7657,12 +7812,60 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function toggleMoreMenu(){
   var m=document.getElementById('more-menu');
   m.classList.toggle('hidden');
+  // Refresh the translation indicator on the menu item every time the menu opens.
+  if(!m.classList.contains('hidden')){
+    var ind=document.getElementById('menu-translation-current');
+    if(ind) ind.textContent=currentTranslation;
+  }
 }
 document.addEventListener('click',function(e){
   var m=document.getElementById('more-menu');
   var btn=document.getElementById('mob-more-btn');
   if(m&&!m.classList.contains('hidden')&&!m.contains(e.target)&&e.target!==btn&&!btn.contains(e.target))m.classList.add('hidden');
 });
+
+// ============================================================
+// Translation picker
+// ============================================================
+function openTranslationPicker(){
+  var isKo=langOrder==='ko-en';
+  var title=document.getElementById('tx-picker-title');
+  if(title)title.textContent=isKo?'번역본 / Translation':'Translation / 번역본';
+  var closeBtn=document.getElementById('tx-picker-close-btn');
+  if(closeBtn)closeBtn.textContent=isKo?'닫기 / Close':'Close / 닫기';
+  var noteEl=document.getElementById('tx-picker-note-text');
+  if(noteEl){
+    noteEl.innerHTML=isKo
+      ? 'NLT, NIV, MSG는 <a href="https://api.bible" target="_blank" rel="noopener" style="color:#1b2a4a">api.bible</a>에서 제공.  로컬에 저장되며 매월 갱신됩니다.'
+      : 'NLT, NIV, MSG provided by <a href="https://api.bible" target="_blank" rel="noopener" style="color:#1b2a4a">api.bible</a>.  Cached locally, refreshed monthly.';
+  }
+  var list=document.getElementById('tx-picker-list');
+  if(list){
+    var html='';
+    for(var i=0;i<TRANSLATIONS.length;i++){
+      var t=TRANSLATIONS[i];
+      var active=(t.abbr===currentTranslation);
+      html+='<button class="tx-row'+(active?' active':'')+'" onclick="pickTranslation(\''+t.abbr+'\')">'
+        +'<span class="tx-row-abbr">'+esc(t.abbr)+'</span>'
+        +'<span class="tx-row-name">'+esc(t.name)+'</span>'
+        +'<svg class="tx-row-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+        +'</button>';
+    }
+    list.innerHTML=html;
+  }
+  document.getElementById('tx-picker').classList.remove('hidden');
+}
+function closeTranslationPicker(){
+  document.getElementById('tx-picker').classList.add('hidden');
+}
+function pickTranslation(abbr){
+  if(abbr===currentTranslation){ closeTranslationPicker(); return; }
+  setTranslation(abbr);
+  // Update the indicator on the menu chip and close the picker.
+  var ind=document.getElementById('menu-translation-current');
+  if(ind) ind.textContent=currentTranslation;
+  closeTranslationPicker();
+}
 
 // Search
 var searchTimer=null;
@@ -8183,6 +8386,16 @@ function fbApplyRemoteSettings(data){
     var mobLangText=document.getElementById('mob-lang-text');
     if(mobLangText) mobLangText.textContent=langOrder==='ko-en'?'한':'Eng';
   }
+  // Translation: only apply if it's a recognized value (ESV or one of the api.bible IDs we whitelisted).
+  if(data.translation && data.translation!==currentTranslation){
+    if(data.translation==='ESV' || API_BIBLE_IDS[data.translation]){
+      currentTranslation=data.translation;
+      try{localStorage.setItem('krengbible_translation', currentTranslation);}catch(e){}
+      var ind=document.getElementById('menu-translation-current');
+      if(ind) ind.textContent=currentTranslation;
+      if(loaded) load();
+    }
+  }
 }
 
 function fbListenHighlights(uid){
@@ -8409,7 +8622,7 @@ function fbPushSettings(){
   _fbSettingsTimer=setTimeout(function(){
     var t=stampSettings();
     window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'meta','settings'), {
-      theme: darkMode?'dark':'light', fontSize: fs, langOrder: langOrder, _updatedAt: t
+      theme: darkMode?'dark':'light', fontSize: fs, langOrder: langOrder, translation: currentTranslation, _updatedAt: t
     }).catch(function(){});
   }, 500);
 }
