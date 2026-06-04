@@ -17,6 +17,9 @@
 //                                                   -> Delete cached api.bible chapters (compliance/reset).
 //   /apibible/{translationId}/{bookNum}/{chapter}   -> api.bible chapter fetch (NLT/NIV/MSG).
 //                                                      30-day KV TTL.  FUMS token returned for client to ping.
+//   /search/apibible/{translationId}?q=...&page=...
+//                                                   -> Live per-translation search via api.bible.  Not cached.
+//                                                      Returns common search-result shape + FUMS token.
 //
 // Search index formats:
 //   nkrv_search_index : JSON array of [bookIdx, chapter, verse, text] tuples for the Korean Bible.
@@ -670,6 +673,93 @@ async function handleApiBibleChapter(env, url, cors, translationId, bookNum, cha
   }), { headers: respHeaders });
 }
 
+// ---- /search/apibible/{translationId}?q=...&page=... ----
+// Per-translation full-text search using api.bible's own search endpoint.
+// Live API call (no pre-built index), since the AUP discourages bulk pre-fetch.
+// Results are transformed into the same shape as /search/en so the client
+// can render them with the existing search-results UI.
+async function handleApiBibleSearch(env, url, cors, translationId) {
+  const translation = API_BIBLE_TRANSLATIONS[translationId];
+  if (!translation) {
+    return new Response(JSON.stringify({error: 'translation_not_authorized'}), {
+      status: 403, headers: {...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store'}
+    });
+  }
+  const q = url.searchParams.get('q');
+  if (!q || q.trim().length < 2) {
+    return new Response(JSON.stringify({results: [], hasMore: false}), {
+      headers: {...cors, 'Content-Type': 'application/json'}
+    });
+  }
+  if (!env.API_BIBLE_KEY) {
+    return new Response(JSON.stringify({error: 'api_bible_key_unset'}), {
+      status: 503, headers: {...cors, 'Content-Type': 'application/json'}
+    });
+  }
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+  const limit = 20;
+  const offset = (page - 1) * limit;
+
+  const params = new URLSearchParams({
+    query: q.trim(),
+    limit: String(limit),
+    offset: String(offset)
+  });
+  const apiUrl = `https://rest.api.bible/v1/bibles/${translationId}/search?${params}`;
+
+  const respHeaders = {
+    ...cors,
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, must-revalidate'
+  };
+
+  const resp = await fetch(apiUrl, { headers: { 'api-key': env.API_BIBLE_KEY } });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    return new Response(JSON.stringify({error: 'apibible_search_status_' + resp.status, body: body.slice(0, 300)}), {
+      status: 502, headers: respHeaders
+    });
+  }
+  const data = await resp.json();
+  const apiVerses = data?.data?.verses || [];
+
+  // Transform api.bible verse hits into our common search-result shape:
+  //   { book: 0-based index, chapter, verse, text, ref: localized reference }
+  const results = [];
+  const bookSet = new Set();
+  for (const v of apiVerses) {
+    const bookIdx = USFM_CODES.indexOf(v.bookId);
+    if (bookIdx < 0) continue;
+    // verseId looks like 'GEN.1.1' or sometimes 'GEN.1.1-GEN.1.3' for ranges
+    const m = String(v.id).match(/^[A-Z0-9]+\.(\d+)\.(\d+)/);
+    if (!m) continue;
+    const chapter = parseInt(m[1]);
+    const verse = parseInt(m[2]);
+    results.push({
+      book: bookIdx,
+      chapter,
+      verse,
+      text: v.text,
+      ref: v.reference || `${BOOK_NAMES_EN[bookIdx]} ${chapter}:${verse}`
+    });
+    bookSet.add(bookIdx);
+  }
+
+  const total = data?.data?.total || results.length;
+  const hasMore = (offset + limit) < total;
+  const fumsToken = data?.meta?.fums || data?.meta?.fumsId || null;
+
+  return new Response(JSON.stringify({
+    results,
+    hasMore,
+    nextPage: hasMore ? (page + 1) : -1,
+    total,
+    bookCount: bookSet.size,
+    fumsToken,
+    translation: translation.abbreviation
+  }), { headers: respHeaders });
+}
+
 // ---- ESV chapter fetch + parse for the English index ----
 // Returns { verses: [{verse: N, text: '...'}], headings: {} }.
 function parseEsvPassageText(passage) {
@@ -1142,6 +1232,13 @@ Only output valid JSON, no markdown, no preamble.`;
       const bookNum = parseInt(apb[2]);
       const chapter = parseInt(apb[3]);
       return handleApiBibleChapter(env, url, cors, translationId, bookNum, chapter);
+    }
+
+    // ---- api.bible per-translation search ----
+    //   /search/apibible/{translationId}?q=...&page=...
+    const apbs = path.match(/^\/search\/apibible\/([^/]+)\/?$/);
+    if (apbs) {
+      return handleApiBibleSearch(env, url, cors, apbs[1]);
     }
 
     // ---- /search/ko (fast) ----

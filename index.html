@@ -376,6 +376,8 @@ body.dark .tx-row-name{color:#d8d5d0}
 .tx-row-check{width:18px;height:18px;flex-shrink:0;color:#1b2a4a;display:none}
 .tx-row.active .tx-row-check{display:block}
 body.dark .tx-row-check{color:#8899bb}
+.verse-continued{color:#aaa;font-style:italic;font-size:.78em;letter-spacing:.02em}
+body.dark .verse-continued{color:#7a7468}
 .confirm-box{background:#fbfaf7;border-radius:18px;padding:28px 26px 20px;max-width:340px;width:90%;box-shadow:0 24px 64px rgba(20,16,12,.18),0 2px 8px rgba(20,16,12,.06);border:1px solid rgba(0,0,0,.04)}
 body.dark .confirm-box{background:#1f1d1a;border-color:rgba(255,255,255,.05);box-shadow:0 24px 64px rgba(0,0,0,.5)}
 .confirm-title{font:600 16px/1.3 'DM Sans','Noto Sans KR',-apple-system,sans-serif;color:#1a1a1a;margin:0 0 8px;letter-spacing:-.005em}
@@ -782,15 +784,9 @@ onAuthStateChanged(fbAuth, (user) => {
   </div>
 </div>
 <div id="tx-picker" class="confirm-modal hidden" onclick="if(event.target===this)closeTranslationPicker()">
-  <div class="confirm-box" style="max-width:340px;padding:18px 0 12px">
+  <div class="confirm-box" style="max-width:340px;padding:18px 0 10px">
     <div class="confirm-title" style="display:block;padding:0 22px 6px;font-size:13px;font-weight:700;letter-spacing:.04em;color:#9a9488" id="tx-picker-title">번역본 / Translation</div>
-    <div id="tx-picker-list" style="display:flex;flex-direction:column;padding:0 0 6px"></div>
-    <div style="padding:8px 22px 0;font-size:11px;color:#9a9488;line-height:1.5;border-top:.5px solid #f0ede8">
-      <span id="tx-picker-note-text">NLT, NIV, MSG provided by <a href="https://api.bible" target="_blank" rel="noopener" style="color:#1b2a4a">api.bible</a>.  Cached locally, refreshed monthly.</span>
-    </div>
-    <div style="text-align:right;padding:10px 22px 0">
-      <button onclick="closeTranslationPicker()" style="background:none;border:none;font:600 13px inherit;color:#1b2a4a;cursor:pointer;padding:6px 4px" id="tx-picker-close-btn">닫기 / Close</button>
-    </div>
+    <div id="tx-picker-list" style="display:flex;flex-direction:column"></div>
   </div>
 </div>
 <div id="hl-bar" class="hl-bar">
@@ -1460,20 +1456,29 @@ async function fetchTranslation(bk, ch){
   // FUMS ping — token only present on fresh fetches, by design.
   fumsReport(d.fumsToken, bibleId, d.data.id);
   // Parse api.bible's content (similar [N] markers to ESV, may also include [N-M] ranges).
+  // The Message groups verses often, e.g. "[1-3] In the beginning..." — we store the text
+  // under the FIRST verse number, and record every covered verse in `ranges` so the renderer
+  // can show "↑ continued above" on the empty rows below it.
   var content=d.data.content;
   var verses={};
+  var ranges={}; // verse N -> first verse of the range it belongs to (when N > start)
   var segments=content.split(/(?=\[\d+(?:-\d+)?\])/);
   for(var i=0;i<segments.length;i++){
     var seg=segments[i].trim();
     if(!seg) continue;
-    var m=seg.match(/^\[(\d+)(?:-\d+)?\]\s*([\s\S]*)/);
+    var m=seg.match(/^\[(\d+)(?:-(\d+))?\]\s*([\s\S]*)/);
     if(!m) continue;
-    var verseNum=+m[1];
-    var text=m[2].replace(/\s+/g,' ').trim();
-    verses[verseNum]=text;
+    var verseStart=+m[1];
+    var verseEnd=m[2]?+m[2]:verseStart;
+    var text=m[3].replace(/\s+/g,' ').trim();
+    verses[verseStart]=text;
+    for(var v=verseStart+1; v<=verseEnd; v++){
+      ranges[v]=verseStart;
+    }
   }
   return {
     verses: verses,
+    ranges: ranges,
     headings: {},
     footnotes: {},
     copyright: d.data.copyright || null,
@@ -1497,6 +1502,9 @@ async function fetchEsv(bk,ch){
 function render(koData,esvData,bk,ch){
   var kv=koData.verses,kf=koData.footnotes||{};
   var en=esvData.verses,headings=esvData.headings,footnotes=esvData.footnotes;
+  // Verse-range map: present for api.bible translations that group verses (esp. MSG).
+  // Empty for ESV.  Used below to show "↑ continued above" instead of a blank cell.
+  var enRanges=esvData.ranges||{};
   var h='<div class="col-headers"></div>';
   var tl1=langOrder==='ko-en'?'본문':'Passage', tl2=langOrder==='ko-en'?'해설':'Commentary', tlInsights=langOrder==='ko-en'?'통찰':'Insights', tl3=langOrder==='ko-en'?'책 소개':'Book Intro';
   h+='<div class="ch-tabs"><button class="ch-tab active" id="tab-text" onclick="switchTab(\'text\')">'+tl1+'</button><button class="ch-tab" id="tab-comm" onclick="switchTab(\'comm\')">'+tl2+'</button><button class="ch-tab" id="tab-insights" onclick="switchTab(\'insights\')">'+tlInsights+'</button><button class="ch-tab" id="tab-intro" onclick="switchTab(\'intro\')">'+tl3+'</button></div>';
@@ -1521,6 +1529,11 @@ function render(koData,esvData,bk,ch){
     } else {
       var firstN=+n;
       er=en[firstN]||en[n]||'';
+      // If empty and this verse is part of a grouped range (api.bible — esp. MSG),
+      // show a subtle "continued above" hint so the column doesn't look broken.
+      if(!er && enRanges[firstN]){
+        er='<span class="verse-continued">↑ continued above</span>';
+      }
     }
     if(headings[n])h+='<div class="shead-row"><div class="ko-side"></div><div class="en-side"><div class="shead">'+esc(headings[n])+'</div></div></div>';
     var eh=er.replace(/\((\d+)\)/g,function(_,x){return '<sup class="fn-ref" onclick="showFnByRef(\'fn-'+x+'\',event)">'+x+'</sup>';});
@@ -7831,14 +7844,6 @@ function openTranslationPicker(){
   var isKo=langOrder==='ko-en';
   var title=document.getElementById('tx-picker-title');
   if(title)title.textContent=isKo?'번역본 / Translation':'Translation / 번역본';
-  var closeBtn=document.getElementById('tx-picker-close-btn');
-  if(closeBtn)closeBtn.textContent=isKo?'닫기 / Close':'Close / 닫기';
-  var noteEl=document.getElementById('tx-picker-note-text');
-  if(noteEl){
-    noteEl.innerHTML=isKo
-      ? 'NLT, NIV, MSG는 <a href="https://api.bible" target="_blank" rel="noopener" style="color:#1b2a4a">api.bible</a>에서 제공.  로컬에 저장되며 매월 갱신됩니다.'
-      : 'NLT, NIV, MSG provided by <a href="https://api.bible" target="_blank" rel="noopener" style="color:#1b2a4a">api.bible</a>.  Cached locally, refreshed monthly.';
-  }
   var list=document.getElementById('tx-picker-list');
   if(list){
     var html='';
@@ -8074,8 +8079,20 @@ async function loadMoreResults(){
       url=WORKER+'/search/ko?q='+encodeURIComponent(searchState.q)+'&offset='+searchState.nextOffset;
       var r=await fetch(url,{cache:'no-store'});data=await r.json();
     } else {
-      url=WORKER+'/search/en?q='+encodeURIComponent(searchState.q)+'&page='+searchState.nextPage;
+      // English search — route by current translation.
+      // ESV uses the pre-built flat index (/search/en).
+      // NLT / NIV / MSG use api.bible's per-translation live search.
+      if(currentTranslation==='ESV' || !API_BIBLE_IDS[currentTranslation]){
+        url=WORKER+'/search/en?q='+encodeURIComponent(searchState.q)+'&page='+searchState.nextPage;
+      } else {
+        var tId=API_BIBLE_IDS[currentTranslation];
+        url=WORKER+'/search/apibible/'+tId+'?q='+encodeURIComponent(searchState.q)+'&page='+searchState.nextPage;
+      }
       var r=await fetch(url,{cache:'no-store'});data=await r.json();
+      // Fire FUMS for api.bible searches that returned a token.
+      if(data && data.fumsToken){
+        fumsReport(data.fumsToken, API_BIBLE_IDS[currentTranslation], null);
+      }
     }
 
     // Remove loading spinner
