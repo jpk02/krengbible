@@ -12,7 +12,11 @@
 //   /admin/merge-index?secret=...                   -> Merge KO chunks -> nkrv_search_index.
 //   /admin/build-en-index?secret=...&from=N&size=M  -> (re)build the ESV English search index.  Chunked.
 //   /admin/merge-en-index?secret=...                -> Merge EN chunks -> esv_search_index.
-//   /admin/index-status?secret=...                  -> Status of both indexes.
+//   /admin/index-status?secret=...                  -> Status of both indexes + api.bible cache counts.
+//   /admin/wipe-apibible-cache?secret=...[&translationId=...]
+//                                                   -> Delete cached api.bible chapters (compliance/reset).
+//   /apibible/{translationId}/{bookNum}/{chapter}   -> api.bible chapter fetch (NLT/NIV/MSG).
+//                                                      30-day KV TTL.  FUMS token returned for client to ping.
 //
 // Search index formats:
 //   nkrv_search_index : JSON array of [bookIdx, chapter, verse, text] tuples for the Korean Bible.
@@ -56,6 +60,32 @@ const NKRV_CODES = [
   "tit","phm","heb","jas","1pe","2pe","1jn","2jn",
   "3jn","jud","rev"
 ];
+
+// USFM book codes (uppercase) — what api.bible expects in chapter IDs like "GEN.1".
+// Differs from NKRV_CODES only by case and JON vs JNH (Jonah).
+const USFM_CODES = [
+  "GEN","EXO","LEV","NUM","DEU","JOS","JDG","RUT",
+  "1SA","2SA","1KI","2KI","1CH","2CH","EZR","NEH",
+  "EST","JOB","PSA","PRO","ECC","SNG","ISA","JER",
+  "LAM","EZK","DAN","HOS","JOL","AMO","OBA","JON",
+  "MIC","NAM","HAB","ZEP","HAG","ZEC","MAL",
+  "MAT","MRK","LUK","JHN","ACT","ROM","1CO","2CO",
+  "GAL","EPH","PHP","COL","1TH","2TH","1TI","2TI",
+  "TIT","PHM","HEB","JAS","1PE","2PE","1JN","2JN",
+  "3JN","JUD","REV"
+];
+
+// Whitelist of api.bible translation IDs the app is authorized to fetch.
+// Keep this list explicit: any ID not in here returns 403 even with a valid key.
+// abbreviation/name are used for the in-response identification and downstream attribution.
+const API_BIBLE_TRANSLATIONS = {
+  'd6e14a625393b4da-01': { abbreviation: 'NLT', name: 'New Living Translation' },
+  '78a9f6124f344018-01': { abbreviation: 'NIV', name: 'New International Version' },
+  '6f11a7de016f942e-01': { abbreviation: 'MSG', name: 'The Message' }
+};
+
+// 30 days, in seconds — matches api.bible's required cache-refresh cadence.
+const API_BIBLE_CACHE_TTL = 30 * 24 * 60 * 60;
 
 // ---- Module-level search index cache (per isolate) ----
 // SEARCH_INDEX: the parsed array of [b, c, v, t] tuples once loaded.
@@ -349,6 +379,43 @@ async function handleMergeIndex(env, url, cors) {
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
+// Wipe every cached api.bible chapter in KV.  Exists for compliance with
+// api.bible's 72-hour deletion rule on termination, and as a manual reset
+// if a translation is removed or replaced.  Protected by ADMIN_SECRET.
+async function handleWipeApiBibleCache(env, url, cors) {
+  const secret = url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  if (!env.COMMENTARY_KV) return new Response(JSON.stringify({error:'no_kv'}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
+
+  const optionalTranslationId = url.searchParams.get('translationId') || null;
+  const prefix = optionalTranslationId
+    ? `apibible_raw_${optionalTranslationId}_`
+    : 'apibible_raw_';
+
+  let cursor = undefined;
+  let deleted = 0;
+  let safety = 0;
+  while (true) {
+    const list = await env.COMMENTARY_KV.list({ prefix, cursor, limit: 1000 });
+    for (const k of list.keys) {
+      await env.COMMENTARY_KV.delete(k.name);
+      deleted++;
+    }
+    if (list.list_complete || !list.cursor) break;
+    cursor = list.cursor;
+    if (++safety > 100) break;
+  }
+
+  return new Response(JSON.stringify({
+    ok: true,
+    deleted,
+    prefix,
+    scope: optionalTranslationId ? `translation=${optionalTranslationId}` : 'all api.bible cache'
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
 async function handleIndexStatus(env, url, cors) {
   const secret = url.searchParams.get('secret');
   if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
@@ -401,6 +468,21 @@ async function handleIndexStatus(env, url, cors) {
     if (++safety2 > 50) break;
   }
 
+  // api.bible cache counts (per translation + total).
+  const apiBibleCounts = { _total: 0 };
+  for (const tid of Object.keys(API_BIBLE_TRANSLATIONS)) {
+    let count = 0, cursor3 = undefined, safety3 = 0;
+    while (true) {
+      const list = await env.COMMENTARY_KV.list({ prefix: `apibible_raw_${tid}_`, cursor: cursor3, limit: 1000 });
+      count += list.keys.length;
+      if (list.list_complete || !list.cursor) break;
+      cursor3 = list.cursor;
+      if (++safety3 > 10) break;
+    }
+    apiBibleCounts[API_BIBLE_TRANSLATIONS[tid].abbreviation] = count;
+    apiBibleCounts._total += count;
+  }
+
   return new Response(JSON.stringify({
     ko: {
       index: indexInfo,
@@ -411,6 +493,13 @@ async function handleIndexStatus(env, url, cors) {
       index: enIndexInfo,
       chunkCount: enChunkCount,
       moduleCache: { loaded: !!EN_SEARCH_INDEX, verses: EN_SEARCH_INDEX ? EN_SEARCH_INDEX.length : 0 }
+    },
+    apibible: {
+      cachedChapters: apiBibleCounts,
+      ttlSeconds: API_BIBLE_CACHE_TTL,
+      translations: Object.fromEntries(
+        Object.entries(API_BIBLE_TRANSLATIONS).map(([id, t]) => [t.abbreviation, id])
+      )
     },
     totalChapters: TOTAL_CHAPTERS
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
@@ -466,6 +555,119 @@ async function handleEnglishSearch(env, url, cors) {
     total: matches.length,
     bookCount: bookSet.size
   }), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+// ---- api.bible chapter handler ----
+// Route: GET /apibible/{translationId}/{bookNum}/{chapter}
+//   - translationId must be in API_BIBLE_TRANSLATIONS whitelist
+//   - bookNum is 1-66 (matches BOOKS array indexing)
+//   - chapter is the integer chapter number
+// Returns: { data: {...api.bible chapter data}, meta: {...api.bible meta},
+//   fumsToken: string|null, cached: bool, translation: {abbreviation, name} }
+//
+// Cache strategy:
+//   - 30-day TTL per the api.bible policy (cached content must be refreshed every 30 days)
+//   - Key: apibible_raw_{translationId}_{usfmCode}.{chapter}
+//   - Cached entries omit the FUMS token (each fresh API call gets its own token; cached reads
+//     fire FUMS without a token, per the FUMS spec for previously-fetched content).
+async function handleApiBibleChapter(env, url, cors, translationId, bookNum, chapter) {
+  // Validate authorization
+  const translation = API_BIBLE_TRANSLATIONS[translationId];
+  if (!translation) {
+    return new Response(JSON.stringify({error: 'translation_not_authorized', translationId}), {
+      status: 403, headers: {...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store'}
+    });
+  }
+  // Validate book/chapter
+  const bookIdx = bookNum - 1;
+  if (bookIdx < 0 || bookIdx >= USFM_CODES.length) {
+    return new Response(JSON.stringify({error: 'bad_book', bookNum}), {
+      status: 400, headers: {...cors, 'Content-Type': 'application/json'}
+    });
+  }
+  if (chapter < 1 || chapter > BOOK_CHAPTERS[bookIdx]) {
+    return new Response(JSON.stringify({error: 'bad_chapter', book: USFM_CODES[bookIdx], chapter, max: BOOK_CHAPTERS[bookIdx]}), {
+      status: 400, headers: {...cors, 'Content-Type': 'application/json'}
+    });
+  }
+  if (!env.API_BIBLE_KEY) {
+    return new Response(JSON.stringify({error: 'api_bible_key_unset'}), {
+      status: 503, headers: {...cors, 'Content-Type': 'application/json'}
+    });
+  }
+
+  const usfmCode = USFM_CODES[bookIdx];
+  const chapterId = `${usfmCode}.${chapter}`;
+  const cacheKey = `apibible_raw_${translationId}_${chapterId}`;
+
+  // no-store on the response so browsers and edge don't keep their own copies.
+  // Our KV is the canonical cache, and a stale entry in the browser would prevent
+  // us from honoring api.bible's 30-day refresh + 24-hour update-on-request rules.
+  const respHeaders = {
+    ...cors,
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, must-revalidate'
+  };
+
+  // Try KV cache first
+  if (env.COMMENTARY_KV) {
+    const cached = await env.COMMENTARY_KV.get(cacheKey, 'json');
+    if (cached) {
+      return new Response(JSON.stringify({
+        data: cached.data,
+        meta: cached.meta || {},
+        fumsToken: null, // never reuse a stored FUMS token; cached reads fire FUMS without one
+        cached: true,
+        translation
+      }), { headers: respHeaders });
+    }
+  }
+
+  // Fetch fresh from api.bible
+  // Query params per api.bible /v1/bibles/{id}/chapters/{chapterId} spec.
+  // NOTE: do NOT include `use-org-id` here — that param belongs to the verses
+  // endpoint and api.bible 400s on it for chapters.
+  const params = new URLSearchParams({
+    'content-type': 'text',
+    'include-notes': 'false',
+    'include-titles': 'false',
+    'include-chapter-numbers': 'false',
+    'include-verse-numbers': 'true',
+    'include-verse-spans': 'false'
+  });
+  const apiUrl = `https://rest.api.bible/v1/bibles/${translationId}/chapters/${chapterId}?${params}`;
+
+  const resp = await fetch(apiUrl, { headers: { 'api-key': env.API_BIBLE_KEY } });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    return new Response(JSON.stringify({error: 'apibible_status_' + resp.status, body: body.slice(0, 500)}), {
+      status: 502, headers: respHeaders
+    });
+  }
+  const apiData = await resp.json();
+  if (!apiData?.data?.content) {
+    return new Response(JSON.stringify({error: 'apibible_empty_response', apiData}), {
+      status: 502, headers: respHeaders
+    });
+  }
+
+  // Persist to KV with 30-day TTL.  We store only data + meta — NOT the FUMS token,
+  // since FUMS tokens are per-request and shouldn't be replayed from cache.
+  if (env.COMMENTARY_KV) {
+    const toStore = JSON.stringify({ data: apiData.data, meta: apiData.meta || {} });
+    await env.COMMENTARY_KV.put(cacheKey, toStore, { expirationTtl: API_BIBLE_CACHE_TTL });
+  }
+
+  // FUMS token from api.bible's response — front-end will ping fums.api.bible/f3 with it
+  const fumsToken = apiData.meta?.fums || apiData.meta?.fumsId || null;
+
+  return new Response(JSON.stringify({
+    data: apiData.data,
+    meta: apiData.meta || {},
+    fumsToken,
+    cached: false,
+    translation
+  }), { headers: respHeaders });
 }
 
 // ---- ESV chapter fetch + parse for the English index ----
@@ -930,6 +1132,17 @@ Only output valid JSON, no markdown, no preamble.`;
     if (path === '/admin/build-en-index') return handleBuildEnIndex(env, url, cors);
     if (path === '/admin/merge-en-index') return handleMergeEnIndex(env, url, cors);
     if (path === '/admin/index-status') return handleIndexStatus(env, url, cors);
+    if (path === '/admin/wipe-apibible-cache') return handleWipeApiBibleCache(env, url, cors);
+
+    // ---- api.bible chapter fetch (NLT / NIV / MSG) ----
+    //   /apibible/{translationId}/{bookNum}/{chapter}
+    const apb = path.match(/^\/apibible\/([^/]+)\/(\d+)\/(\d+)\/?$/);
+    if (apb) {
+      const translationId = apb[1];
+      const bookNum = parseInt(apb[2]);
+      const chapter = parseInt(apb[3]);
+      return handleApiBibleChapter(env, url, cors, translationId, bookNum, chapter);
+    }
 
     // ---- /search/ko (fast) ----
     if (path.startsWith('/search/ko')) return handleKoreanSearch(env, url, cors);
