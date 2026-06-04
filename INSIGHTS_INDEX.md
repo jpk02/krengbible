@@ -445,7 +445,185 @@ Local working file (not committed to public site if you'd prefer — let me know
 
 ---
 
+### Psalms (all 150 chapters anchored)
+
+Organized by the five Books of the Psalter.  Each entry lists the kicker-labels that mark anchored concepts in that chapter — useful for grep when drafting a later book that quotes or echoes the Psalms.
+
+#### Book I (Pss 1-41)
+
+**Ps 1** — Two trees (Jer 17 echo, blessed-man framing)
+**Ps 2** — Why do the nations rage (Acts 4 prayer) | Kiss the Son
+**Ps 3** — Morning of trouble
+**Ps 4** — Sleep in peace
+**Ps 5** — Morning prayer
+**Ps 6** — Broken bones (first penitential psalm)
+**Ps 7** — False accusation
+**Ps 8** — What is man (Heb 2 echo) | Out of the mouth of babes
+**Ps 9** — I will remember
+**Ps 10** — Why standest thou afar
+**Ps 11** — If the foundations be destroyed
+**Ps 12** — Pure words (refined seven times)
+**Ps 13** — How long (the fourfold cry)
+**Ps 14** — The fool says (Rom 3:10-12 quote)
+**Ps 15** — Who shall abide (ten qualifications)
+**Ps 16** — You will not abandon (Acts 2:25-28 Peter on incorruption)
+**Ps 17** — Apple of the eye
+**Ps 18** — He bowed the heavens (theophany)
+**Ps 19** — Two books (general + special revelation) | Secret faults
+**Ps 20** — Some trust in chariots
+**Ps 21** — The king rejoices
+**Ps 22** — My God, my God (Christ on the cross) | All my bones (pierced hands and feet)
+**Ps 23** — The LORD is my shepherd | Through the valley
+**Ps 24** — King of glory
+**Ps 25** — Teach me thy paths (acrostic)
+**Ps 26** — Examine me
+**Ps 27** — One thing have I desired
+**Ps 28** — Be not silent
+**Ps 29** — Voice of the LORD (seven-fold)
+**Ps 30** — Weeping endures (joy comes in morning)
+**Ps 31** — Into thy hand (Christ's last words, Luke 23:46)
+**Ps 32** — Blessed is the forgiven (Rom 4:7-8) | Selah and silence
+**Ps 33** — By the word of the LORD (creation)
+**Ps 34** — Taste and see (1 Pet 2:3)
+**Ps 35** — Contend with those
+**Ps 36** — Fountain of life
+**Ps 37** — Fret not (acrostic on the wicked's prosperity)
+**Ps 38** — No soundness (penitential)
+**Ps 39** — Handbreadth of days
+**Ps 40** — Sacrifice you did not desire (Heb 10:5-7 Christ's incarnation)
+**Ps 41** — Mine own familiar friend (John 13:18 Judas)
+
+#### Book II (Pss 42-72)
+
+**Ps 42** — As the deer pants (deep calls to deep)
+**Ps 43** — Send out thy light
+**Ps 44** — Sheep for the slaughter (Rom 8:36 quote)
+**Ps 45** — Thy throne, O God (Heb 1:8-9 Son-deity proof)
+**Ps 46** — Be still and know
+**Ps 47** — God reigns over all
+**Ps 48** — Mount Zion
+**Ps 49** — None can redeem his brother
+**Ps 50** — Sacrifice of thanksgiving
+**Ps 51** — Create in me a clean heart (David's penitence) | Broken and contrite
+**Ps 52** — Boasting tongue
+**Ps 53** — The fool again (paired with Ps 14)
+**Ps 54** — Save me by thy name
+**Ps 55** — Cast your burden (1 Pet 5:7 echo)
+**Ps 56** — Tears in your bottle
+**Ps 57** — My heart is fixed
+**Ps 58** — Unjust judges
+**Ps 59** — My defense
+**Ps 60** — Wine of staggering
+**Ps 61** — The rock higher than I
+**Ps 62** — Truly my soul waits
+**Ps 63** — My soul thirsteth
+**Ps 64** — Tongues like swords
+**Ps 65** — Praise waits
+**Ps 66** — Come and see
+**Ps 67** — Among all nations (missions)
+**Ps 68** — Ascended on high (Eph 4:8 quote)
+**Ps 69** — Zeal has consumed me (John 2:17; gall and vinegar Matt 27:34)
+**Ps 70** — Repeated prayer (Ps 40:13-17 repeat; *azkarah* memorial) | Hasten
+**Ps 71** — Old age (Isa 46:4 echo) | Generations (Titus 2 elders teaching)
+**Ps 72** — Solomon or Messiah? (royal psalm typology) | Justice for the poor (Jer 22:16, Matt 25) | **End of Book II** — 'prayers of David are ended' v.20
+
+#### Book III (Pss 73-89)
+
+**Ps 73** — Envy of the wicked | **Until I entered the sanctuary** (Heb 9:24, 10:19-22) | Whom have I in heaven (high-water mark of OT covenant longing)
+**Ps 74** — Temple in ruins (community lament) | Remember Zion (*zakar* as covenant action — see Ex 2 anchor)
+**Ps 75** — Appointed time (*moed*) | **Cup of wrath** imagery feeding Gethsemane (Matt 26:39) — anchored here
+**Ps 76** — God in Salem (Heb 7 Melchizedek echo, incarnational logic in seed form) | Fear of God
+**Ps 77** — When the question itself feels like sin | Remembering as discipline (three-verb cluster) | Hidden footprints in the sea
+**Ps 78** — Why a 72-verse history lesson (catechesis) | **Forgetfulness as basic sin** (Lord's Supper anti-amnesia) | Zion chosen, David called
+**Ps 79** — Imprecation in lament (Rom 12:19 model) | 'For your name's sake' (Ezek 36, Rom 3:25-26)
+**Ps 80** — Shepherd of Israel (John 10) | Vine of Israel (Isa 5, John 15, Rom 11) | Three-times *shuv* refrain
+**Ps 81** — Open wide your mouth (grace-before-command) | If only you would listen (Matt 23:37)
+**Ps 82** — Who are the 'gods'? (three readings) | Jesus quotes this (John 10:34 *a fortiori*)
+**Ps 83** — Coalition of enemies | Imprecation toward conversion (judgment-as-revelation)
+**Ps 84** — How lovely is your dwelling (Heb 12:22 trajectory) | Valley of Baca (theology of suffering) | One day in your courts (proximity-over-comfort)
+**Ps 85** — **Steadfast love and faithfulness meet** (Rom 3:26 — the OT poem that describes the cross before it happened) | Restore us again
+**Ps 86** — Unite my heart (Jas 1:8 *dipsychos*) | David psalm at center of Book III crisis
+**Ps 87** — Born in Zion (Gentile inclusion — Eph 2:11-13, 19) | All my springs are in you (John 7:37-38)
+**Ps 88** — **The only psalm with no resolution** (Holy Saturday reading) | Darkness is my closest friend
+**Ps 89** — Two halves (covenant celebration vs crisis) | Where is your steadfast love? | **Closing Book III** in unresolved tension (sets up Bk IV's 'the LORD reigns')
+
+#### Book IV (Pss 90-106)
+
+**Ps 90** — Why a Moses psalm here (editorial answer to Bk III) | From everlasting to everlasting | Teach us to number our days
+**Ps 91** — Promises of protection (Acts 12 vs Heb 11 honesty) | **Satan quotes this** (Matt 4 wilderness — Christ refuses for us)
+**Ps 92** — Only Sabbath-designated psalm (Heb 4 echo) | Righteous flourish like palm/cedar (long-arc evaluation)
+**Ps 93** — **'The LORD reigns'** — structural answer to Ps 89's crisis
+**Ps 94** — How long, O LORD (within the reigning confession) | *Musar* discipline (Heb 12:6 sonship)
+**Ps 95** — **'Today, if you hear his voice'** (Heb 3-4 anchor text)
+**Ps 96** — Sing a new song (global mission; Rev 5:9)
+**Ps 97** — The LORD reigns, let the earth rejoice (righteousness as throne foundation)
+**Ps 98** — His right hand has worked salvation (Watts's 'Joy to the World')
+**Ps 99** — Holy is he (three-times holy — Isa 6:3, Rev 4:8)
+**Ps 100** — Only *mizmor le-todah* (thank-offering psalm) | Sheep of his pasture (John 10:27-28)
+**Ps 101** — David's resolution as king's job description
+**Ps 102** — Afflicted's prayer | **Of old you laid the foundation** — Heb 1:10-12 applies to Christ
+**Ps 103** — **'Bless the LORD, O my soul'** (Lloyd-Jones preach-to-yourself) | As far as east from west | *Rachamim* father-compassion
+**Ps 104** — Creation tour (contrast with *Enuma Elish*) | Spirit-sustained providence (vv.27-30)
+**Ps 105** — Faithfulness-only recital (paired with Ps 106 failure-recital)
+**Ps 106** — Failure-side of the same history (Rom 3:3-4) | **Closing Book IV** — 'gather us from among the nations' opens onto Bk V's redemption-gathering
+
+#### Book V (Pss 107-150)
+
+**Ps 107** — Let the redeemed say so (Bk V opens with answer) | Cry-rescue-thanks pattern (Lord's Supper logic)
+**Ps 108** — Composite psalm (Pss 57+60 reused)
+**Ps 109** — Strongest imprecation | **Acts 1:20 applies v.8 to Judas** | Gal 3:13 curse falls on Christ
+**Ps 110** — **'The LORD said to my Lord'** (most quoted OT in NT, Matt 22 Pharisee test) | Melchizedek priest forever (Heb 5-7 — indestructible life)
+**Ps 111** — Alphabet acrostic of God's works (ACTS-prayer training)
+**Ps 112** — Twin acrostic — godly man mirrors God's character (2 Cor 3:18)
+**Ps 113** — High God who stoops (Mary's Magnificat as expanded Ps 113)
+**Ps 114** — Personified creation responding to LORD (baptism as waters parted, Rom 6:3-4)
+**Ps 115** — Not to us, O LORD | Worshipers become like what they worship (Rom 1:21-23)
+**Ps 116** — I love the LORD | **Cup of salvation Jesus sang at the Last Supper**
+**Ps 117** — Shortest psalm | Rom 15:11 Gentile-inclusion proof
+**Ps 118** — **'The stone the builders rejected'** (most quoted psalm verse in NT — Matt 21, Acts 4, 1 Pet 2, Eph 2) | This is the day (Easter) | The psalm Jesus sang going to the cross
+**Ps 119** — 176-verse acrostic on God's word | Eight Hebrew synonyms (*torah*/*edut*/*piqqudim*/*choq*/*mitzvah*/*mishpat*/*dabar*/*imrah*) | A lamp to my feet (clay-lamp-not-satellite-map; Heb 11:8) | The afflicted's psalm (*aniyti*, Heb 12:6) | Love not legalism
+
+**Ps 120-134 — Songs of Ascents** (pilgrim psalms walking up to Jerusalem)
+- **Ps 120** — Meshech and Kedar (Heb 11:13 sojourner-exile structure)
+- **Ps 121** — Hills as threat-and-shrine, not source-of-help | God's un-sleeping keeping (1 Kgs 18:27 Baal contrast)
+- **Ps 122** — Gladness at the invitation (Heb 12:22)
+- **Ps 123** — Eyes of a servant (Stephen's gaze, Acts 7)
+- **Ps 124** — Counterfactual thanksgiving ('if not')
+- **Ps 125** — Mountains around Jerusalem (1 Cor 10:13 bounded temptation)
+- **Ps 126** — Sowing in tears / reaping in joy (Heb 12:2)
+- **Ps 127** — Solomon psalm — vain labor without LORD (Matt 11:28) | Children as heritage and arrows
+- **Ps 128** — Ordinary blessings (multi-generational horizon)
+- **Ps 129** — Afflicted-but-not-prevailed (Matt 16:18 gates-of-hell pattern)
+- **Ps 130** — ***De profundis*** — depths from which prayer rises | Forgiveness that produces fear (Rom 3:25-26) | Watchmen for the morning
+- **Ps 131** — Weaned-child contentment (Phil 4:11; Jas 1:8 anti-doublemindedness)
+- **Ps 132** — David's vow + LORD's Davidic covenant (Christ as horn/lamp/dwelling)
+- **Ps 133** — Anointing oil + Hermon-dew-on-Zion | John 17 high-priestly prayer for unity
+- **Ps 134** — Final night benediction (Heb 13:20-21 echo)
+
+**Ps 135** — Praise + idol-polemic | Worshipers become like what they worship
+**Ps 136** — **Great Hallel** — *ki l'olam chasdo* x 26 (antiphonal catechesis)
+**Ps 137** — By the rivers of Babylon | **Imprecation against Babylonian children** handled (Rev 18:6 cites it, Rom 12:19 model)
+**Ps 138** — God's word exalted with his name (John 1 *Logos* trajectory)
+**Ps 139** — Searched and known (omniscience as security) | Fearfully and wonderfully made (Eph 2:10 *poiema*) | Search me, O God (sanctification model)
+**Ps 140** — Handing-over of named human enemies
+**Ps 141** — Prayer-as-incense (Rev 5:8) | Guarded mouth (Jas 3)
+**Ps 142** — When my spirit faints (David in the cave — believing isolation)
+**Ps 143** — Seventh penitential psalm | **Rom 3:20 quotes v.2** ('no one living is righteous before you')
+**Ps 144** — Warrior-king's prayer ending in peaceful agricultural vision
+**Ps 145** — Final David psalm; only psalm titled *tehillah* (praise) | Alphabet acrostic | **Ex 34:6 self-revelation** quoted in v.8 (central OT confession of God's character)
+
+**Ps 146-150 — Final Hallel doxology** (each begins and ends with *Hallelujah*)
+- **Ps 146** — Do not trust in princes | Luke 4:18-19 echo
+- **Ps 147** — God who counts stars and binds up wounds in same hand
+- **Ps 148** — Universal call across every category of creation (Rev 5:13)
+- **Ps 149** — High praises + two-edged sword (Eph 6:17 sword-of-the-Spirit transposition; 1 Cor 6:2 / Rev 20:4 eschatological)
+- **Ps 150** — **'Let everything that has breath praise the LORD'** | Five praise-him-for/with pairs | The ten Hallelujahs of Pss 146-150 echoed in the four Hallelujahs of Rev 19 (only NT occurrences)
+
+---
+
 ## Cross-References Heavily Used (use sparingly going forward)
+
+### Exodus / Pentateuch anchors
 
 - Gen 3:15 (protoevangelium) — Ex 1
 - Gen 8:1 (God remembered Noah) — Ex 2
@@ -458,21 +636,95 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Acts 5:29 (obey God) — Ex 1
 - Acts 7:25 (Stephen on Moses) — Ex 2
 - 1 Cor 10:1-2 (baptized into Moses) — Ex 2 (chapter-specific angle reserved for Ex 14)
-- Heb 3:7-8 (don't harden) — Ex 4
+- Heb 3:7-8 (don't harden) — Ex 4 (NB: deeper anchor at Ps 95)
 - 1 Pet 3:20-21 (Noah and baptism) — Ex 2
 - Rev 12 (dragon and seed) — Ex 1
 - 2 Tim 3:8 (Jannes and Jambres) — Ex 7
 - Luke 11:20 (finger of God) — Ex 8
 - Eph 1 / Col 1 (redemption structure) — Ex 6
 
+### Psalms anchors (NT echoes leaned on heavily)
+
+- **Heb 1:8-9** (Son's throne, Father's anointing) — Ps 45
+- **Heb 1:10-12** (deity of Christ as creator) — Ps 102
+- **Heb 2:6-8** (what is man) — Ps 8
+- **Heb 3-4** (Today + Sabbath rest) — Ps 95
+- **Heb 5-7** (Melchizedek priesthood) — Ps 110
+- **Heb 9:24, 10:19-22** (into the sanctuary) — Ps 73
+- **Heb 11:8** (Abraham next-step faith) — Ps 119 (lamp imagery)
+- **Heb 12:2** (joy set before him) — Ps 126
+- **Heb 12:6** (whom the Lord loves he disciplines) — Ps 94, Ps 119
+- **Heb 12:22** (Mount Zion, heavenly Jerusalem) — Ps 84, 122
+- **Heb 13:8** (same yesterday, today, forever) — Ps 90
+- **Heb 13:20-21** (great-shepherd benediction) — Ps 134
+- **Rom 3:3-4** (faithlessness doesn't nullify God's faithfulness) — Ps 106
+- **Rom 3:10-12** (none righteous) — Ps 14, 53
+- **Rom 3:20** (no flesh justified) — Ps 143
+- **Rom 3:25-26** (just and justifier) — Ps 85, 130
+- **Rom 4:7-8** (blessed is the forgiven) — Ps 32
+- **Rom 8:36** (sheep for the slaughter) — Ps 44
+- **Rom 8:38-39** (nothing separates) — Ps 121, 139
+- **Rom 12:19** (vengeance is mine) — Ps 109, 137, 140 (imprecation framework)
+- **John 1:1** (Word/Logos) — Ps 138
+- **John 2:17** (zeal for your house) — Ps 69
+- **John 7:37-38** (rivers of living water) — Ps 87
+- **John 10:11, 27-28** (good shepherd, no one snatches) — Ps 23, 80, 100, 121
+- **John 13:18** (Judas eating bread with me) — Ps 41
+- **John 15** (true vine) — Ps 80
+- **John 17** (high-priestly prayer for unity) — Ps 133
+- **Acts 1:20** (Judas, let another take his office) — Ps 109
+- **Acts 2:25-28, 34-36** (Peter on resurrection + ascension) — Ps 16, 110
+- **Acts 4:11** (the stone rejected) — Ps 118
+- **Acts 4:24-26** (apostolic prayer quoting Ps 2) — Ps 2
+- **Matt 21:42** / **Mark 12:10** / **Luke 20:17** (rejected stone) — Ps 118
+- **Matt 22:41-46** (Jesus's Pharisee test) — Ps 110
+- **Matt 26:30** (Hallel sung before Gethsemane) — Ps 113-118, esp. Ps 118
+- **Matt 27:34, 46** (gall + vinegar; My God my God) — Ps 22, 69
+- **Luke 4:18-19** (Spirit upon me) — Ps 146
+- **Luke 23:46** (into your hand I commit my spirit) — Ps 31
+- **Eph 2:10** (*poiema*, workmanship) — Ps 139
+- **Eph 2:11-13, 19** (Gentiles brought near, fellow citizens) — Ps 87
+- **Eph 4:8** (ascended on high, led captives) — Ps 68
+- **Eph 6:17** (sword of the Spirit) — Ps 149
+- **1 Pet 2:3** (taste that the Lord is gracious) — Ps 34
+- **1 Pet 2:7** (precious stone) — Ps 118
+- **1 Pet 5:7** (cast all your care) — Ps 55
+- **Phil 4:11** (contentment learned) — Ps 131
+- **Jas 1:8** (*dipsychos*, double-minded) — Ps 86, 131
+- **Jas 3** (taming the tongue) — Ps 141
+- **Col 2:9** (fullness of deity bodily) — Ps 76, 132
+- **Col 3:3** (life hidden with Christ in God) — Ps 90
+- **Rev 5:8** (golden bowls of incense = saints' prayers) — Ps 141
+- **Rev 5:9, 13** (new song from every tribe) — Ps 96, 145, 148
+- **Rev 18:6** (pay her back as she paid) — Ps 137
+- **Rev 19:1-6** (the four NT Hallelujahs) — Ps 146-150
+- **Ex 34:6** (LORD merciful and gracious) — Ps 86, 103, 145 (paradigmatic OT self-revelation)
+
 ---
 
 ## Recurring Concepts Spanning Multiple Chapters
 
+### Exodus
 - **Pharaoh's heart hardening** — *conceptual question anchored at Ex 4; pattern question deserved at Ex 9 or 10*
 - **Nile / water judgment** — *theological anchor at Ex 1; first-plague angle at Ex 7; Red Sea angle at Ex 14*
 - **God's name and self-disclosure** — *I AM at Ex 3; new disclosure framing at Ex 6*
 - **Election and distinguishing grace** — *introduced at Ex 8 (Goshen sparing); developed at Ex 9, 12*
+
+### Psalms (and cross-canon)
+- **'God remembered' / *zakar*** — Ex 2 anchor; reused at Ps 74 (corporate lament); future canonical chapters can build but not re-anchor
+- **'How long?' / cry from depths** — Ps 13 anchor; recurs at Ps 74, 79, 94, 130 — each gets a *chapter-specific* angle (Bk III crisis, post-exile silence, within-the-reign confession, *de profundis* layer)
+- **Cup of wrath** — *anchored at Ps 75*; Christ drinks it at Gethsemane (Matt 26:39)
+- **'The LORD reigns'** — Ps 93 anchor opening the YHWH-malak collection (96, 97, 99 reinforce)
+- **'Steadfast love endures forever' refrain** — Ps 136 anchor; do not anchor the same in 107, 118
+- **Shepherd of Israel** — Ps 23 anchor (psychology) + Ps 80 anchor (national); John 10 fulfillment threaded through both
+- **Vine imagery** — Ps 80 anchor (Israel as vine); Isa 5, John 15, Rom 11 trajectory traced there
+- **Imprecation framework** — anchored at Ps 109 (handing-over to God); reused with chapter-specific angles at Ps 137 (Babylon), Ps 140 (named enemies), Ps 83 (judgment-toward-conversion)
+- **Universal worship / 'every breath'** — Ps 150 anchor (Rev 5:13 fulfillment) — do not duplicate in 96, 117, 148 (each gets a distinct partial angle)
+- **Penitential psalms** (Pss 6, 32, 38, 51, 102, 130, 143) — each gets a different angle: Ps 6 broken-bones / Ps 32 covered-and-counted (Rom 4) / Ps 38 no-soundness / Ps 51 create-clean-heart / Ps 102 mortal-affliction + Heb 1 / Ps 130 *de profundis* / Ps 143 'no one righteous' (Rom 3:20)
+- **Alphabet acrostics** (Pss 9-10, 25, 34, 37, 111, 112, 119, 145) — form-as-theology angle anchored at Ps 111; Ps 112 covers mirroring; Ps 119 covers length; Ps 145 covers tehillah-as-the-book's-title
+- **Ex 34:6 self-revelation** — quoted at Ps 86, 103, 145; full anchor at Ps 145:8 (central OT confession of God's character)
+- **Davidic covenant tension** — celebrated at Ps 132; crisis at Ps 89; resolution begins at Ps 90 (Moses, behind David) and continues via Ps 110 (LORD said to my Lord)
+- **Sanctuary / 'house of the LORD'** — Ps 23 (dwelling forever) | Ps 73 (vision-clarifying) | Ps 84 (longed-for) | Ps 122 (arrived at) | Ps 134 (night vigil) — different facets at each
 
 ---
 
