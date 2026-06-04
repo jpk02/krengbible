@@ -938,7 +938,10 @@ function toggleLangOrder(btn){
   var tIntroEl=document.getElementById('tab-intro-content');
   var tComm=document.getElementById('tab-comm-content');
   var tInsightsEl=document.getElementById('tab-insights-content');
-  if(tInsightsEl && tInsightsEl.style.display!=='none' && !tInsightsEl.querySelector('.ldg')){
+  if(tInsightsEl && !tInsightsEl.querySelector('.ldg')){
+    // Re-render whether visible or hidden — Insights is synchronous (in-memory data),
+    // so updating the hidden tab is free and prevents stale-language content the next
+    // time the user switches to it.
     loadInsights();
   }
   // Re-render whichever tab is visible, invalidate the hidden one so it re-renders on next click
