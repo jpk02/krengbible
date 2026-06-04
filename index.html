@@ -1132,6 +1132,20 @@ async function loadVotd(){
       .replace(/(["""'\u201c\u2018])\s+/g,'$1')              // no space after opening quote
       .replace(/\s+([.!?,;])/g,'$1')                         // no space before punctuation
       .replace(/\s+/g,' ').trim();
+    // Balance unbalanced parens \u2014 NET Bible (labs.bible.org) sometimes
+    // returns verses with orphan opening "(" (e.g. 1 John 3:1) or closing
+    // ")" when the matching paren falls in an adjacent verse.  Strip
+    // whichever side is unmatched so the displayed verse reads cleanly.
+    var opens=(v.text.match(/\(/g)||[]).length;
+    var closes=(v.text.match(/\)/g)||[]).length;
+    while(opens > closes && v.text.startsWith('(')){
+      v.text=v.text.slice(1).replace(/^\s+/,'');
+      opens--;
+    }
+    while(closes > opens && v.text.endsWith(')')){
+      v.text=v.text.slice(0,-1).replace(/\s+$/,'');
+      closes--;
+    }
     // Add closing quote before final punctuation if unmatched opening quote
     var openStraight=(v.text.match(/"/g)||[]).length;
     var openCurly=(v.text.match(/\u201c/g)||[]).length,closeCurly=(v.text.match(/\u201d/g)||[]).length;
