@@ -14,12 +14,18 @@
 //   /admin/merge-en-index?secret=...                -> Merge EN chunks -> esv_search_index.
 //   /admin/index-status?secret=...                  -> Status of both indexes + api.bible cache counts.
 //   /admin/wipe-apibible-cache?secret=...[&translationId=...]
-//                                                   -> Delete cached api.bible chapters (compliance/reset).
+//                                                   -> Delete cached api.bible chapters + chunks + index.
+//   /admin/build-apibible-index?secret=...&translationId=...&from=N&size=M
+//                                                   -> (re)build the api.bible search index for one translation.
+//                                                      Chunked.  Side effect: warms per-chapter KV cache.
+//   /admin/merge-apibible-index?secret=...&translationId=...
+//                                                   -> Merge per-translation chunks -> apibible_search_index_{id}.
 //   /apibible/{translationId}/{bookNum}/{chapter}   -> api.bible chapter fetch (NLT/NIV/MSG).
 //                                                      30-day KV TTL.  FUMS token returned for client to ping.
 //   /search/apibible/{translationId}?q=...&page=...
-//                                                   -> Live per-translation search via api.bible.  Not cached.
-//                                                      Returns common search-result shape + FUMS token.
+//                                                   -> Per-translation search.  Uses pre-built index when
+//                                                      available (instant); falls back to live api.bible search
+//                                                      when not built.
 //
 // Search index formats:
 //   nkrv_search_index : JSON array of [bookIdx, chapter, verse, text] tuples for the Korean Bible.
@@ -97,6 +103,10 @@ let SEARCH_INDEX = null;
 let SEARCH_INDEX_PROMISE = null;
 let EN_SEARCH_INDEX = null;
 let EN_SEARCH_INDEX_PROMISE = null;
+// Per-translation api.bible index cache: { [translationId]: tuples[] }.
+// Same shape as EN_SEARCH_INDEX; loaded lazily, retained for the isolate's lifetime.
+const APIBIBLE_INDEXES = Object.create(null);
+const APIBIBLE_INDEX_PROMISES = Object.create(null);
 
 async function getSearchIndex(env) {
   if (SEARCH_INDEX) return SEARCH_INDEX;
@@ -382,9 +392,9 @@ async function handleMergeIndex(env, url, cors) {
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
-// Wipe every cached api.bible chapter in KV.  Exists for compliance with
-// api.bible's 72-hour deletion rule on termination, and as a manual reset
-// if a translation is removed or replaced.  Protected by ADMIN_SECRET.
+// Wipe every cached api.bible chapter in KV, plus the related index chunks and
+// flat index for the scope.  Exists for compliance with api.bible's 72-hour
+// deletion rule on termination and as a manual reset.  Protected by ADMIN_SECRET.
 async function handleWipeApiBibleCache(env, url, cors) {
   const secret = url.searchParams.get('secret');
   if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
@@ -392,30 +402,49 @@ async function handleWipeApiBibleCache(env, url, cors) {
   }
   if (!env.COMMENTARY_KV) return new Response(JSON.stringify({error:'no_kv'}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
 
-  const optionalTranslationId = url.searchParams.get('translationId') || null;
-  const prefix = optionalTranslationId
-    ? `apibible_raw_${optionalTranslationId}_`
-    : 'apibible_raw_';
+  const tId = url.searchParams.get('translationId') || null;
+  const prefixes = [];
+  if (tId) {
+    prefixes.push(`apibible_raw_${tId}_`);
+    prefixes.push(`apibible_search_chunk_${tId}_`);
+  } else {
+    prefixes.push('apibible_raw_');
+    prefixes.push('apibible_search_chunk_');
+  }
 
-  let cursor = undefined;
   let deleted = 0;
-  let safety = 0;
-  while (true) {
-    const list = await env.COMMENTARY_KV.list({ prefix, cursor, limit: 1000 });
-    for (const k of list.keys) {
-      await env.COMMENTARY_KV.delete(k.name);
-      deleted++;
+  for (const prefix of prefixes) {
+    let cursor = undefined, safety = 0;
+    while (true) {
+      const list = await env.COMMENTARY_KV.list({ prefix, cursor, limit: 1000 });
+      for (const k of list.keys) {
+        await env.COMMENTARY_KV.delete(k.name);
+        deleted++;
+      }
+      if (list.list_complete || !list.cursor) break;
+      cursor = list.cursor;
+      if (++safety > 100) break;
     }
-    if (list.list_complete || !list.cursor) break;
-    cursor = list.cursor;
-    if (++safety > 100) break;
+  }
+
+  // Also delete the merged flat index(es).
+  if (tId) {
+    await env.COMMENTARY_KV.delete(`apibible_search_index_${tId}`);
+    APIBIBLE_INDEXES[tId] = null;
+    APIBIBLE_INDEX_PROMISES[tId] = null;
+  } else {
+    for (const id of Object.keys(API_BIBLE_TRANSLATIONS)) {
+      await env.COMMENTARY_KV.delete(`apibible_search_index_${id}`);
+      APIBIBLE_INDEXES[id] = null;
+      APIBIBLE_INDEX_PROMISES[id] = null;
+    }
   }
 
   return new Response(JSON.stringify({
     ok: true,
     deleted,
-    prefix,
-    scope: optionalTranslationId ? `translation=${optionalTranslationId}` : 'all api.bible cache'
+    prefixes,
+    scope: tId ? `translation=${tId}` : 'all api.bible cache + indexes'
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
@@ -471,19 +500,51 @@ async function handleIndexStatus(env, url, cors) {
     if (++safety2 > 50) break;
   }
 
-  // api.bible cache counts (per translation + total).
-  const apiBibleCounts = { _total: 0 };
+  // api.bible state — per translation: cached chapter count + chunk count + index status.
+  const apiBibleDetail = {};
   for (const tid of Object.keys(API_BIBLE_TRANSLATIONS)) {
-    let count = 0, cursor3 = undefined, safety3 = 0;
+    const abbr = API_BIBLE_TRANSLATIONS[tid].abbreviation;
+    // Count cached raw chapters.
+    let rawCount = 0, cursor3 = undefined, safety3 = 0;
     while (true) {
       const list = await env.COMMENTARY_KV.list({ prefix: `apibible_raw_${tid}_`, cursor: cursor3, limit: 1000 });
-      count += list.keys.length;
+      rawCount += list.keys.length;
       if (list.list_complete || !list.cursor) break;
       cursor3 = list.cursor;
       if (++safety3 > 10) break;
     }
-    apiBibleCounts[API_BIBLE_TRANSLATIONS[tid].abbreviation] = count;
-    apiBibleCounts._total += count;
+    // Count search chunks.
+    let chunkCt = 0, cursor4 = undefined, safety4 = 0;
+    while (true) {
+      const list = await env.COMMENTARY_KV.list({ prefix: `apibible_search_chunk_${tid}_`, cursor: cursor4, limit: 1000 });
+      chunkCt += list.keys.length;
+      if (list.list_complete || !list.cursor) break;
+      cursor4 = list.cursor;
+      if (++safety4 > 10) break;
+    }
+    // Check merged index.
+    const idx = await env.COMMENTARY_KV.get(`apibible_search_index_${tid}`);
+    let indexInfo = null;
+    if (idx) {
+      try {
+        const arr = JSON.parse(idx);
+        indexInfo = { verses: arr.length, bytes: idx.length };
+      } catch (e) {
+        indexInfo = { verses: 0, bytes: idx.length, parseError: true };
+      }
+    }
+    apiBibleDetail[abbr] = {
+      translationId: tid,
+      cachedChapters: rawCount,
+      searchChunks: chunkCt,
+      index: indexInfo,
+      moduleCache: { loaded: !!APIBIBLE_INDEXES[tid], verses: APIBIBLE_INDEXES[tid] ? APIBIBLE_INDEXES[tid].length : 0 }
+    };
+  }
+  const apiBibleCounts = { _total: 0 };
+  for (const abbr of Object.keys(apiBibleDetail)) {
+    apiBibleCounts[abbr] = apiBibleDetail[abbr].cachedChapters;
+    apiBibleCounts._total += apiBibleDetail[abbr].cachedChapters;
   }
 
   return new Response(JSON.stringify({
@@ -500,6 +561,7 @@ async function handleIndexStatus(env, url, cors) {
     apibible: {
       cachedChapters: apiBibleCounts,
       ttlSeconds: API_BIBLE_CACHE_TTL,
+      perTranslation: apiBibleDetail,
       translations: Object.fromEntries(
         Object.entries(API_BIBLE_TRANSLATIONS).map(([id, t]) => [t.abbreviation, id])
       )
@@ -674,10 +736,10 @@ async function handleApiBibleChapter(env, url, cors, translationId, bookNum, cha
 }
 
 // ---- /search/apibible/{translationId}?q=...&page=... ----
-// Per-translation full-text search using api.bible's own search endpoint.
-// Live API call (no pre-built index), since the AUP discourages bulk pre-fetch.
-// Results are transformed into the same shape as /search/en so the client
-// can render them with the existing search-results UI.
+// Per-translation full-text search.  Prefers the pre-built flat index in KV
+// (instant) and falls back to api.bible's live search endpoint when the index
+// isn't built yet.  Once the index is built, this path makes ZERO api.bible
+// calls per query — same property as /search/en for ESV.
 async function handleApiBibleSearch(env, url, cors, translationId) {
   const translation = API_BIBLE_TRANSLATIONS[translationId];
   if (!translation) {
@@ -691,28 +753,59 @@ async function handleApiBibleSearch(env, url, cors, translationId) {
       headers: {...cors, 'Content-Type': 'application/json'}
     });
   }
-  if (!env.API_BIBLE_KEY) {
-    return new Response(JSON.stringify({error: 'api_bible_key_unset'}), {
-      status: 503, headers: {...cors, 'Content-Type': 'application/json'}
-    });
-  }
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
-  const limit = 20;
-  const offset = (page - 1) * limit;
-
-  const params = new URLSearchParams({
-    query: q.trim(),
-    limit: String(limit),
-    offset: String(offset)
-  });
-  const apiUrl = `https://rest.api.bible/v1/bibles/${translationId}/search?${params}`;
-
+  const pageSize = 20;
+  const offset = (page - 1) * pageSize;
   const respHeaders = {
     ...cors,
     'Content-Type': 'application/json',
     'Cache-Control': 'no-store, must-revalidate'
   };
 
+  // -- Fast path: pre-built flat index --
+  const index = await getApiBibleSearchIndex(env, translationId);
+  if (index) {
+    const term = q.trim().toLowerCase();
+    const matches = [];
+    for (let i = 0; i < index.length; i++) {
+      const t = index[i][3];
+      if (t.toLowerCase().indexOf(term) !== -1) matches.push(index[i]);
+    }
+    const slice = matches.slice(offset, offset + pageSize);
+    const results = slice.map(([b, c, v, text]) => ({
+      book: b,
+      chapter: c,
+      verse: v,
+      text,
+      ref: `${BOOK_NAMES_EN[b]} ${c}:${v}`
+    }));
+    const hasMore = (offset + pageSize) < matches.length;
+    const bookSet = new Set();
+    for (const m of matches) bookSet.add(m[0]);
+    return new Response(JSON.stringify({
+      results,
+      hasMore,
+      nextPage: hasMore ? (page + 1) : -1,
+      total: matches.length,
+      bookCount: bookSet.size,
+      fumsToken: null, // indexed reads don't consume new FUMS tokens
+      translation: translation.abbreviation,
+      source: 'index'
+    }), { headers: respHeaders });
+  }
+
+  // -- Fallback: live api.bible search (used until the index is built) --
+  if (!env.API_BIBLE_KEY) {
+    return new Response(JSON.stringify({error: 'api_bible_key_unset'}), {
+      status: 503, headers: respHeaders
+    });
+  }
+  const params = new URLSearchParams({
+    query: q.trim(),
+    limit: String(pageSize),
+    offset: String(offset)
+  });
+  const apiUrl = `https://rest.api.bible/v1/bibles/${translationId}/search?${params}`;
   const resp = await fetch(apiUrl, { headers: { 'api-key': env.API_BIBLE_KEY } });
   if (!resp.ok) {
     const body = await resp.text().catch(() => '');
@@ -722,15 +815,11 @@ async function handleApiBibleSearch(env, url, cors, translationId) {
   }
   const data = await resp.json();
   const apiVerses = data?.data?.verses || [];
-
-  // Transform api.bible verse hits into our common search-result shape:
-  //   { book: 0-based index, chapter, verse, text, ref: localized reference }
   const results = [];
   const bookSet = new Set();
   for (const v of apiVerses) {
     const bookIdx = USFM_CODES.indexOf(v.bookId);
     if (bookIdx < 0) continue;
-    // verseId looks like 'GEN.1.1' or sometimes 'GEN.1.1-GEN.1.3' for ranges
     const m = String(v.id).match(/^[A-Z0-9]+\.(\d+)\.(\d+)/);
     if (!m) continue;
     const chapter = parseInt(m[1]);
@@ -744,11 +833,9 @@ async function handleApiBibleSearch(env, url, cors, translationId) {
     });
     bookSet.add(bookIdx);
   }
-
   const total = data?.data?.total || results.length;
-  const hasMore = (offset + limit) < total;
+  const hasMore = (offset + pageSize) < total;
   const fumsToken = data?.meta?.fums || data?.meta?.fumsId || null;
-
   return new Response(JSON.stringify({
     results,
     hasMore,
@@ -756,8 +843,228 @@ async function handleApiBibleSearch(env, url, cors, translationId) {
     total,
     bookCount: bookSet.size,
     fumsToken,
-    translation: translation.abbreviation
+    translation: translation.abbreviation,
+    source: 'live'
   }), { headers: respHeaders });
+}
+
+// ---- api.bible chapter content parser (text format with [N] / [N-M] markers) ----
+// Returns [{verse: N, text: '...'}].  For grouped verses [N-M], stores the text
+// once under the first verse number (M-N other verses get no entry — matches
+// the front-end "↑ continued above" approach for display consistency).
+function parseApiBibleChapterContent(content) {
+  if (!content) return [];
+  const out = [];
+  const segments = content.split(/(?=\[\d+(?:-\d+)?\])/);
+  for (const seg of segments) {
+    const trimmed = seg.trim();
+    if (!trimmed) continue;
+    const m = trimmed.match(/^\[(\d+)(?:-\d+)?\]\s*([\s\S]*)/);
+    if (!m) continue;
+    const verseStart = parseInt(m[1]);
+    let text = m[2].replace(/\s+/g, ' ').trim();
+    if (text.length < 2) continue;
+    out.push({ verse: verseStart, text });
+  }
+  return out;
+}
+
+async function getApiBibleSearchIndex(env, translationId) {
+  if (APIBIBLE_INDEXES[translationId]) return APIBIBLE_INDEXES[translationId];
+  if (APIBIBLE_INDEX_PROMISES[translationId]) return APIBIBLE_INDEX_PROMISES[translationId];
+  APIBIBLE_INDEX_PROMISES[translationId] = (async () => {
+    const key = `apibible_search_index_${translationId}`;
+    const raw = await env.COMMENTARY_KV.get(key);
+    if (!raw) {
+      APIBIBLE_INDEX_PROMISES[translationId] = null;
+      return null;
+    }
+    try {
+      APIBIBLE_INDEXES[translationId] = JSON.parse(raw);
+    } catch (e) {
+      APIBIBLE_INDEXES[translationId] = null;
+    }
+    APIBIBLE_INDEX_PROMISES[translationId] = null;
+    return APIBIBLE_INDEXES[translationId];
+  })();
+  return APIBIBLE_INDEX_PROMISES[translationId];
+}
+
+// Fetch a chapter directly from api.bible for index building.  Returns the
+// parsed [{verse, text}] list, or throws on failure.  Used both by the live
+// chapter handler (via cache) and by the index builder.  Includes a small
+// 429-aware retry like fetchChapterFromEsv.
+async function fetchChapterFromApiBible(translationId, usfmCode, chapter, env) {
+  const chapterId = `${usfmCode}.${chapter}`;
+  const params = new URLSearchParams({
+    'content-type': 'text',
+    'include-notes': 'false',
+    'include-titles': 'false',
+    'include-chapter-numbers': 'false',
+    'include-verse-numbers': 'true',
+    'include-verse-spans': 'false'
+  });
+  const apiUrl = `https://rest.api.bible/v1/bibles/${translationId}/chapters/${chapterId}?${params}`;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const resp = await fetch(apiUrl, { headers: { 'api-key': env.API_BIBLE_KEY } });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (!data?.data?.content) throw new Error(`empty content for ${chapterId}`);
+      return { data: data.data, meta: data.meta || {} };
+    }
+    if (resp.status === 429) {
+      const wait = 500 * Math.pow(2, attempt); // 500ms, 1s, 2s, 4s, 8s
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    const body = await resp.text().catch(() => '');
+    throw new Error(`status ${resp.status} for ${chapterId}: ${body.slice(0, 200)}`);
+  }
+  throw new Error(`429 retries exhausted for ${chapterId}`);
+}
+
+// Walk a slice of the canonical chapter ordinals and either reuse the cached
+// chapter or call api.bible.  Writes a flat-tuple chunk to KV.  Mirrors
+// handleBuildEnIndex but is per-translation.
+async function handleBuildApiBibleIndex(env, url, cors) {
+  const secret = url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  const translationId = url.searchParams.get('translationId');
+  if (!translationId || !API_BIBLE_TRANSLATIONS[translationId]) {
+    return new Response(JSON.stringify({
+      error: 'translation_required',
+      hint: 'Pass &translationId={id}',
+      authorized: Object.fromEntries(Object.entries(API_BIBLE_TRANSLATIONS).map(([k,v])=>[v.abbreviation,k]))
+    }), {status:400, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  if (!env.API_BIBLE_KEY) {
+    return new Response(JSON.stringify({error:'api_bible_key_unset'}), {status:503, headers:{...cors,'Content-Type':'application/json'}});
+  }
+
+  const from = Math.max(0, parseInt(url.searchParams.get('from') || '0'));
+  const size = Math.min(400, Math.max(1, parseInt(url.searchParams.get('size') || '250')));
+  const refetch = url.searchParams.get('refetch') === '1';
+  const concurrency = 2; // be polite to api.bible
+
+  const tuples = [];
+  let fetched = 0, fromCache = 0, errored = 0;
+  const errors = [];
+
+  const ordinals = [];
+  for (let o = from; o < Math.min(from + size, TOTAL_CHAPTERS); o++) ordinals.push(o);
+
+  for (let i = 0; i < ordinals.length; i += concurrency) {
+    const batch = ordinals.slice(i, i + concurrency);
+    const results = await Promise.all(batch.map(async (ord) => {
+      const [bookIdx, chapter] = ordinalToBookChapter(ord);
+      const usfm = USFM_CODES[bookIdx];
+      const chapterId = `${usfm}.${chapter}`;
+      const cacheKey = `apibible_raw_${translationId}_${chapterId}`;
+      try {
+        let chapterPayload = null;
+        if (!refetch && env.COMMENTARY_KV) {
+          const cached = await env.COMMENTARY_KV.get(cacheKey, 'json');
+          if (cached) { chapterPayload = cached; fromCache++; }
+        }
+        if (!chapterPayload) {
+          chapterPayload = await fetchChapterFromApiBible(translationId, usfm, chapter, env);
+          if (env.COMMENTARY_KV) {
+            // Store WITHOUT the FUMS token; same shape as the on-demand chapter handler.
+            const toStore = JSON.stringify({ data: chapterPayload.data, meta: chapterPayload.meta });
+            await env.COMMENTARY_KV.put(cacheKey, toStore, { expirationTtl: API_BIBLE_CACHE_TTL });
+          }
+          fetched++;
+        }
+        const verses = parseApiBibleChapterContent(chapterPayload.data.content);
+        return verses.map(v => [bookIdx, chapter, v.verse, v.text]);
+      } catch (e) {
+        errored++;
+        errors.push({ ord, bookIdx, chapter, chapterId, msg: String(e.message || e) });
+        return [];
+      }
+    }));
+    for (const r of results) for (const t of r) tuples.push(t);
+  }
+
+  const chunkKey = `apibible_search_chunk_${translationId}_${String(from).padStart(5, '0')}`;
+  if (env.COMMENTARY_KV) {
+    await env.COMMENTARY_KV.put(chunkKey, JSON.stringify(tuples));
+  }
+
+  const nextFrom = from + size;
+  const done = nextFrom >= TOTAL_CHAPTERS;
+  return new Response(JSON.stringify({
+    ok: true,
+    translation: API_BIBLE_TRANSLATIONS[translationId].abbreviation,
+    chunkKey,
+    processedOrdinals: ordinals.length,
+    verseCount: tuples.length,
+    fetchedFromApi: fetched,
+    fromKvCache: fromCache,
+    errored,
+    errors: errors.slice(0, 10),
+    nextFrom: done ? null : nextFrom,
+    nextUrl: done ? null : `/admin/build-apibible-index?secret=...&translationId=${translationId}&from=${nextFrom}&size=${size}`,
+    totalChapters: TOTAL_CHAPTERS,
+    done
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+async function handleMergeApiBibleIndex(env, url, cors) {
+  const secret = url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  if (!env.COMMENTARY_KV) return new Response(JSON.stringify({error:'no_kv'}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
+  const translationId = url.searchParams.get('translationId');
+  if (!translationId || !API_BIBLE_TRANSLATIONS[translationId]) {
+    return new Response(JSON.stringify({error:'translation_required'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
+  }
+
+  const chunkPrefix = `apibible_search_chunk_${translationId}_`;
+  const chunks = [];
+  let cursor = undefined;
+  let safety = 0;
+  while (true) {
+    const list = await env.COMMENTARY_KV.list({ prefix: chunkPrefix, cursor, limit: 1000 });
+    for (const k of list.keys) chunks.push(k.name);
+    if (list.list_complete || !list.cursor) break;
+    cursor = list.cursor;
+    if (++safety > 50) break;
+  }
+  chunks.sort();
+
+  if (chunks.length === 0) {
+    return new Response(JSON.stringify({error:'no_chunks', hint:'run /admin/build-apibible-index first'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
+  }
+
+  const merged = [];
+  for (const key of chunks) {
+    const raw = await env.COMMENTARY_KV.get(key);
+    if (!raw) continue;
+    try {
+      const arr = JSON.parse(raw);
+      for (const t of arr) merged.push(t);
+    } catch (e) { /* skip */ }
+  }
+
+  const indexKey = `apibible_search_index_${translationId}`;
+  const payload = JSON.stringify(merged);
+  await env.COMMENTARY_KV.put(indexKey, payload);
+
+  APIBIBLE_INDEXES[translationId] = null;
+  APIBIBLE_INDEX_PROMISES[translationId] = null;
+
+  return new Response(JSON.stringify({
+    ok: true,
+    translation: API_BIBLE_TRANSLATIONS[translationId].abbreviation,
+    chunksRead: chunks.length,
+    totalVerses: merged.length,
+    indexBytes: payload.length,
+    storedAt: indexKey
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
 // ---- ESV chapter fetch + parse for the English index ----
@@ -1223,6 +1530,8 @@ Only output valid JSON, no markdown, no preamble.`;
     if (path === '/admin/merge-en-index') return handleMergeEnIndex(env, url, cors);
     if (path === '/admin/index-status') return handleIndexStatus(env, url, cors);
     if (path === '/admin/wipe-apibible-cache') return handleWipeApiBibleCache(env, url, cors);
+    if (path === '/admin/build-apibible-index') return handleBuildApiBibleIndex(env, url, cors);
+    if (path === '/admin/merge-apibible-index') return handleMergeApiBibleIndex(env, url, cors);
 
     // ---- api.bible chapter fetch (NLT / NIV / MSG) ----
     //   /apibible/{translationId}/{bookNum}/{chapter}
