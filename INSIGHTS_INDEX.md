@@ -290,6 +290,35 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Levites encamp around tabernacle as human firewall (1:53 anticipated) — priestly mediation typology, Heb 9:11-12
 - Named tribal leaders carry federal-headship logic (Rom 5:12-19) — Nahshon (Judah) traced into Christ's genealogy (Matt 1:4, Luke 3:32) — names buried in "boring" lists as redemptive-history hinges
 
+**Num 2 — Camp arrangement, marching order**
+- God dwells *in the middle* of the camp, not at the front or edge — geography as theology; John 1:14 *eskenosen* (tabernacled among us) → Rev 21:3, 21:22 fulfillment
+- Judah goes east, leads the march — Reuben's forfeiture (Gen 35:22, Gen 49:3-4) and Judah's scepter (Gen 49:10) enacted at camp level; trajectory to Lion of Judah (Rev 5:5)
+
+**Num 3 — Levites for firstborn, three Levite clans**
+- Group-for-group substitution (Levites for Israel's firstborn) — distinct from Lev 1's individual hand-laying substitution; 273 excess redeemed precisely (3:46-51) — God will not let substitution be approximate; Heb 10:12 / Rom 5:6 as ultimate adequacy
+- Gershon (curtains), Kohath (holy furniture), Merari (frames) — differentiated ministry in one body; 1 Cor 12 analogue with literal labor
+
+**Num 4 — Service ages, transport coverings**
+- Service window ages 30-50 — Jesus begins at 30 (Luke 3:23), Joseph at 30 (Gen 41:46), David at 30 (2 Sam 5:4); fifty as transition to guarding/mentoring, healthy view of aging; 1 Tim 5:1, 5:17
+- Aaron covers holy things before Kohathites carry — graded access to holiness; Uzzah's death (2 Sam 6) as the negative illustration; Heb 9:8 (way not yet manifest) → torn veil (Matt 27:51)
+
+**Num 5 — Restitution + jealousy ritual**
+- Confession-plus-restitution + 1/5 surcharge — vertical and horizontal repairs on same track; Matt 5:23-24, Zacchaeus (Luke 19) goes above the floor; the "extra fifth" as recognition that some opportunities cannot be restored
+- The *sotah* / jealousy ritual — judicial restraint that prevents vigilante violence (Matt 1:19 Joseph parallel); only Torah ritual where God adjudicates internal sin without external evidence (Deut 19:15 contrast); foreshadows Heb 4:13 final assize, 1 John 1:7 covering
+
+**Num 6 — Nazirite vow + Aaronic blessing**
+- Nazirite (*nazir*, "separated") as voluntary holiness — open to men AND women (6:2), not just priests; lifelong: Samson (Judg 13:5), Samuel (1 Sam 1:11), John the Baptist (Luke 1:15); Paul appears to complete a vow in Acts 18:18 — institution continues
+- Three restrictions (wine / razor / dead) — refusing normal good for focused devotion (Phil 4:12), visible badge, LORD above natural loyalties (Matt 8:21-22)
+- Aaronic blessing structure — three lines, ascending intimacy (hand → face → sustained face), each line invokes YHWH; *shalom* as comprehensive wholeness; 6:27 "put my name on them" → Matt 28:19 baptismal name
+
+**Num 7 — Twelve days of identical offerings + voice from mercy seat**
+- Verbose repetition (89 verses, 12 nearly-identical tribal gifts) — verbosity IS the message; each tribe individually honored, no footnoting; same logic as Heb 11 "by faith…" list and Rev 7 sealing-by-tribe; corrective to "God lumps offerings"
+- 7:89 closing — Moses hears God's voice from above the *kapporet* between the cherubim, fulfilling Ex 25:22; mercy covering law as the place where God speaks; Paul's *hilasterion* (Rom 3:25) puts that location onto the person of Christ
+
+**Num 8 — Lampstand, Levite consecration as wave offering**
+- Lamps shine *forward*, not on the lampstand itself (8:2) — ministry that points light away from itself; Matt 5:14-16; Rev 1:20 lampstands = churches, Rev 2-3 evaluation
+- Levites themselves presented as a wave offering (8:11) — first time humans (not animals/grain) become the offering; Rom 12:1 living sacrifice anticipated; substitution-for-firstborn frame from Num 3 enacted bodily
+
 ---
 
 ### Colossians
