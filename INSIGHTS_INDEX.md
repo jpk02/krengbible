@@ -280,6 +280,18 @@ Local working file (not committed to public site if you'd prefer — let me know
 
 ---
 
+### Numbers
+
+**Num 1 — First census, Levites set apart**
+- Military census as receipt for Abrahamic seed promise (Gen 15:5, 22:17) — covenant promise made visible in real-time count
+- Contrast with David's census (2 Sam 24, 1 Chron 21) — same act, opposite posture; counting is not the sin, self-trust is
+- Wilderness-camp reorganized into a marching army — God brings order on the road to inheritance
+- Levites exempted because their warfare is sanctuary service — *avodah* (Gen 2:15 echo) as work-that-is-worship
+- Levites encamp around tabernacle as human firewall (1:53 anticipated) — priestly mediation typology, Heb 9:11-12
+- Named tribal leaders carry federal-headship logic (Rom 5:12-19) — Nahshon (Judah) traced into Christ's genealogy (Matt 1:4, Luke 3:32) — names buried in "boring" lists as redemptive-history hinges
+
+---
+
 ### Colossians
 
 **Col 1 — Christ hymn, reconciliation, indwelling**
