@@ -348,6 +348,33 @@ Local working file (not committed to public site if you'd prefer — let me know
 - High-handed sin vs. unintentional sin (15:30-31) — posture, not act, distinguishes them; sacrificial provision saturates one category, the other is the door slammed shut; Heb 10:26-29 carries forward to New Covenant
 - Tassels (*tzitzit*) with blue cord (15:38-39) — embodied memory delegated to a physical object; blue = sanctuary color, lay priesthood at the corner of an ordinary tunic; Mark 5:27 *kraspedon* / Matt 23:5 enlarging-for-show; principle survives in bread, cup, water
 
+**Num 16 — Korah's rebellion**
+- "You have gone too far" — Korah weaponizes the true premise of corporate priesthood (Ex 19:6) to dissolve the distinctions God drew; uses true premise to argue false conclusion; Jude 11 makes it a permanent diagnostic
+- Aaron stands between living and dead with the censer (16:48) — priestly mediation in one frozen frame; Heb 9:15 / 12:24 (Christ as mediator) fulfills the picture; real authority runs toward the plague, false authority calls press conferences
+
+**Num 17 — Aaron's almond rod**
+- Dead stick blooms and bears fruit overnight as God's vindication — election as sovereign vivification, not arbitrary preference; *shaqed* / "watching" wordplay (Jer 1:12); rod kept inside the ark with tablets and manna (Heb 9:4) — command, daily provision, chosen priest as the architecture of covenant; resurrection-shaped sign
+
+**Num 18 — Priests bear iniquity, Levites inherit God Himself**
+- Priests bear iniquity of the sanctuary (18:1) — representational guilt-bearing absorbed on behalf of those whose access they facilitate; Isa 53:11-12 / Heb 9:11-12 fulfills; what Korah was actually grasping for
+- "I am your portion and inheritance" (18:20) — Levites have no land; God Himself as inheritance; Ps 16:5, 73:25-26 echo; universalized for all believers in Col 1:12, Rom 8:17, 1 Pet 1:4
+
+**Num 19 — Red heifer outside the camp**
+- Unique sacrifice with multiple pattern-breaks (red, female, burned whole, outside-camp) — anomalies do work; Heb 13:11-13 explicitly maps this to Christ "suffered outside the gate"; the geographical scandal of the cross (Holy One in a place of refuse) was encoded here
+- Water-of-purification cleanses contact with death — Rom 6:3-4 baptism as union with Christ's death/resurrection cleanses the same contact decisively
+
+**Num 20 — Strike vs. speak, Edom refuses passage**
+- Moses strikes the rock instead of speaking (20:10-12) — manner is part of message in public representation of God; 1 Cor 10:4 (the rock was Christ) plus Heb 9:28 (once-for-all sacrifice) — repeat-strike garbles typology of cross-as-singular; leadership = heightened accountability, not exemption
+- Edom (Esau's seed) refuses brotherly passage (20:14-21) — first major instance of Jacob/Esau bitterness that runs through Obadiah, Ps 137:7, Mal 1:2-3, Rom 9; covenant fellowship ≠ blood kinship; Israel detours rather than retaliates; Heb 13:1 logic
+
+**Num 21 — Bronze serpent, Sihon and Og**
+- Bronze serpent on pole (21:8-9) — Jesus's own typology (John 3:14-15) anchoring John 3:16; serpent looks like the very thing that killed — 2 Cor 5:21 "made him sin for us"; later corruption into Nehushtan (2 Kgs 18:4) as warning about symbols becoming idols
+- First real territorial victories (Sihon, Og — Ps 135:10-12 / 136:17-22 standard refrain); the Heshbon ballad (21:27-30) repurposed from foreign victory song — cultural artifacts under providence that turns them; Acts 17, Titus, Revelation parallel
+
+**Num 22 — Balaam and his donkey**
+- Balaam as type of religious authority for sale — 2 Pet 2:15, Jude 11, Rev 2:14; correct theology + bent desire; re-asks God for new answer because the money got bigger; permanent diagnostic of pious-sounding corruption
+- The donkey sees what the prophet cannot — role reversal as message; the least-likely creature with the clearest vision because no skin in the desired outcome; 1 Cor 2:14 / Matt 13:14 logic anticipated
+
 ---
 
 ### Colossians
