@@ -319,6 +319,35 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Lamps shine *forward*, not on the lampstand itself (8:2) — ministry that points light away from itself; Matt 5:14-16; Rev 1:20 lampstands = churches, Rev 2-3 evaluation
 - Levites themselves presented as a wave offering (8:11) — first time humans (not animals/grain) become the offering; Rom 12:1 living sacrifice anticipated; substitution-for-firstborn frame from Num 3 enacted bodily
 
+**Num 9 — Second Passover, cloud and fire**
+- Make-up Passover for those ritually unclean or on a journey — only feast that gets a second-chance window; God refuses to bar genuinely-willing worshipers; anticipates Luke 23:42-43 (thief), Matt 8:10 (centurion), Matt 20:9 (eleventh hour)
+- Cloud-by-day / fire-by-night dictates camp movement (9:22) — divine guidance stripped of human control; discipline of dependence; Rom 8:14 (led by the Spirit) as same logic interiorized
+
+**Num 10 — Silver trumpets, departure from Sinai**
+- Two silver trumpets as covenant handle on God's memory (10:9-10) — God binds His response to His people's appointed signals; Jericho (Josh 6), Gideon (Judg 7), 1 Cor 15:52 last trumpet, Rev 8-11 seven trumpets
+- Departure from Sinai after 11 months as structural pivot; Hobab the Midianite asked to be guide — divine cloud + practical wisdom held together; Rom 12:2 same balance; 10:35 prayer becomes Ps 68:1
+
+**Num 11 — Manna fatigue, seventy elders, Eldad and Medad**
+- Captivity nostalgia ("we remember the fish in Egypt") — Rom 6:16-21 returning to enslavement; manna boredom as John 6:49-51 boredom with Christ
+- Burden too heavy for one (Moses asks to die); seventy elders share the Spirit; Moses's wish "would that all the LORD's people were prophets" (11:29) — fulfilled at Pentecost (Acts 2:17 quoting Joel 2); Matt 11:28 Christ carries the heavy burden
+
+**Num 12 — Miriam and Aaron, Cushite-wife pretext**
+- Surface complaint (interracial marriage) covers real complaint (jealousy of Moses's prophetic authority) — diagnostic of how complaints work; Miriam struck "white as snow" — judgment fits the slur
+- Moses "very meek, more than all people on earth" (12:3) — *anav* as strength under voluntary restraint; intercedes for the slanderer; Matt 5:5, Matt 11:29 same Greek lexeme; Luke 23:34 fulfillment
+
+**Num 13 — Twelve spies, grasshopper report**
+- Identical data, opposite verdicts — "we seemed to ourselves like grasshoppers" (13:33) as idolatry of self-measurement that forgets God on the scale; Heb 3:19 (unbelief) as the operative variable
+- Caleb's minority report (13:30) — majority consensus can be wrong; rewarded 45 years later in Josh 14:6-14; Num 14:24 named exemption; portable principle for institutional dissent
+
+**Num 14 — Rebellion, intercession, forty-year sentence**
+- Moses pleads God's revealed character (Ex 34:6-7 quoted back to God, 14:17-18) — when no merit to plead, plead God's published character; pattern in Dan 9, Joel 2:13, Jonah 4:2
+- Pardon does not erase consequence (cf. 2 Sam 12:13-14) — forgiveness and the wilderness can both be true
+- Forty years as formation (Deut 8:2-3), conquest-preparation, and warning (Heb 3-4 / Ps 95) — wasted from the rebels' view, curriculum from God's
+
+**Num 15 — Supplementary laws after rebellion**
+- High-handed sin vs. unintentional sin (15:30-31) — posture, not act, distinguishes them; sacrificial provision saturates one category, the other is the door slammed shut; Heb 10:26-29 carries forward to New Covenant
+- Tassels (*tzitzit*) with blue cord (15:38-39) — embodied memory delegated to a physical object; blue = sanctuary color, lay priesthood at the corner of an ordinary tunic; Mark 5:27 *kraspedon* / Matt 23:5 enlarging-for-show; principle survives in bread, cup, water
+
 ---
 
 ### Colossians
