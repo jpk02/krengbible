@@ -1560,7 +1560,7 @@ Only output valid JSON, no markdown, no preamble.`;
     if (path.startsWith('/votd')) {
       const now = new Date();
       const today = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-      const votdKey = `votd2_${today}`;
+      const votdKey = `votd3_${today}`;
 
       const tomorrowDateET = new Date(now.getTime() + 86400000).toLocaleDateString('en-CA', {timeZone:'America/New_York'});
       const midnightET = new Date(`${tomorrowDateET}T00:00:00`);
@@ -1577,10 +1577,10 @@ Only output valid JSON, no markdown, no preamble.`;
 
       const topics = [
         'wheat field golden sunrise',
-        'shepherd hills landscape',
+        'rolling pasture hills countryside',
         'olive trees ancient landscape',
         'mountain valley mist sunrise',
-        'wildflower meadow pastoral',
+        'wildflower meadow no people',
         'calm lake reflection mountains',
         'rolling green hills countryside',
         'lavender field provence landscape',
@@ -1589,18 +1589,64 @@ Only output valid JSON, no markdown, no preamble.`;
         'forest light rays peaceful',
         'coastal cliffs ocean horizon'
       ];
-      const topic = topics[Math.floor(Math.random() * topics.length)];
-      const [votdResp, photoResp] = await Promise.allSettled([
+
+      // Anything in the photo's description/tags that hints at a person being
+      // in frame.  Unsplash has no native no-people filter, so we re-roll if
+      // any of these show up in the metadata of the returned photo.
+      const PEOPLE_KEYWORDS = [
+        'person','people','human','man','woman','boy','girl','child','kid',
+        'baby','family','group','crowd','farmer','shepherd','hiker','rider',
+        'face','portrait','silhouette','model','tourist','traveler'
+      ];
+      const photoHasPeople = (pd) => {
+        const text = [
+          pd.description || '',
+          pd.alt_description || '',
+          ...(pd.tags || []).map(t => (t && t.title) || ''),
+          ...(pd.tags_preview || []).map(t => (t && t.title) || '')
+        ].join(' ').toLowerCase();
+        return PEOPLE_KEYWORDS.some(k =>
+          new RegExp(`\\b${k}\\b`).test(text)
+        );
+      };
+
+      const unsplashKey = 'jdBAQs04z5PyhHphjzUKIJCjl3SyMhQS2rSMfBLQOpk';
+      const fetchOnePhoto = async () => {
+        const t = topics[Math.floor(Math.random() * topics.length)];
+        const r = await fetch(
+          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(t)}` +
+          `&orientation=landscape&content_filter=high&client_id=${unsplashKey}`
+        );
+        if (!r.ok) return null;
+        return await r.json();
+      };
+
+      // First photo attempt runs in parallel with the verse fetch so we don't
+      // pay for the retry loop on the common path.
+      const [votdResp, firstPhotoResp] = await Promise.allSettled([
         fetch('https://labs.bible.org/api/?passage=votd&type=json', {
           headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" }
         }),
-        fetch(`https://api.unsplash.com/photos/random?query=${encodeURIComponent(topic)}&orientation=landscape&content_filter=high&client_id=jdBAQs04z5PyhHphjzUKIJCjl3SyMhQS2rSMfBLQOpk`)
+        fetchOnePhoto()
       ]);
 
       const votdData = votdResp.status === 'fulfilled' ? await votdResp.value.json() : [];
+
+      let pd = firstPhotoResp.status === 'fulfilled' ? firstPhotoResp.value : null;
+      // If the first attempt has people, re-roll up to 3 more times.  VOTD
+      // only fires once a day so the extra Unsplash calls are cheap.
+      let attempts = 1;
+      while (pd && photoHasPeople(pd) && attempts < 4) {
+        pd = await fetchOnePhoto();
+        attempts++;
+      }
+      // If we ran out of retries and still have a people-shot, drop the photo
+      // rather than serve a bad image — the front end falls back to the solid
+      // color card when photo is null.
+      if (pd && photoHasPeople(pd)) pd = null;
+
       let photo = null;
-      if (photoResp.status === 'fulfilled' && photoResp.value.ok) {
-        const pd = await photoResp.value.json();
+      if (pd) {
         photo = {
           url: pd.urls?.regular || null,
           color: pd.color || '#555555',
