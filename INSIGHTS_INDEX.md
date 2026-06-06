@@ -375,6 +375,31 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Balaam as type of religious authority for sale — 2 Pet 2:15, Jude 11, Rev 2:14; correct theology + bent desire; re-asks God for new answer because the money got bigger; permanent diagnostic of pious-sounding corruption
 - The donkey sees what the prophet cannot — role reversal as message; the least-likely creature with the clearest vision because no skin in the desired outcome; 1 Cor 2:14 / Matt 13:14 logic anticipated
 
+**Num 23 — First two oracles, covenant immutability**
+- Balaam cannot curse what God has blessed — covenant immutability spoken from an unlikely mouth (23:8, 23:19); paganism's most expensive prophet cannot find a wavelength on which the blessing reverses; Rom 8:31-39 wall of "nor… nor… nor"
+- "Let me die the death of the righteous" (23:10) — wanting the end of the righteous without the life of the righteous; religious envy without religious commitment; Jas 2:19 demons-believe-and-shudder logic
+
+**Num 24 — Third and fourth oracles, the star**
+- "A star out of Jacob, a scepter out of Israel" (24:17) — Pentateuch's most explicit Messianic prophecy from a bent vessel; Matt 2 Magi as Gentile observers of a Gentile prophet's prophecy fulfilled; Caiaphas (John 11:49-52) and Cyrus (Isa 45:1) as parallel "true word through unworthy mouth"; Rev 19:15 ultimate scepter
+- "How lovely are your tents, O Jacob" (24:5) — God's view of His people unrelated to their behavioral record; Eph 2:6 seated-with-Christ as the angle that matters; Numbers 14 rebels described as gardens-by-the-riverside (24:6)
+
+**Num 25 — Peor, Phinehas**
+- Balaam's actual evil — couldn't curse but could corrupt (Num 31:16, Rev 2:14); seduction succeeds where curse failed; permanent pattern of internal compromise beating frontal hostility
+- Phinehas's zeal stops the plague; "covenant of peace" (25:11-13) as *shalom* pun — restoring the conditions under which wholeness can hold; not transferable to NT church discipline (2 Cor 10:4) but Jesus's temple-cleansing (John 2:15) operates on same logic in new covenant
+
+**Num 26 — Second census**
+- Total nearly identical to Num 1 (601,730 vs. 603,550) — wilderness discipline preserved the seed line; sentence + promise both true simultaneously; Heb 12:11 "fruit of righteousness" pattern; only Caleb and Joshua survive (26:64-65) — God's word kept down to individual
+
+**Num 27 — Zelophehad's daughters, Joshua appointed**
+- Five sisters approach the tent of meeting with a precisely-framed legal grievance (27:1-4) — God answers, Mosaic law amends; Heb 4:16 "draw near with confidence" as NT version; system overlooked them, God did not
+- Joshua publicly commissioned by laying-on-of-hands (27:18-23) — only *some* of Moses's authority transferable; physical/public gesture as anti-suspicion model; precedent for Deut 34:9, Acts 6, Acts 13, 1 Tim 4:14, 2 Tim 1:6
+
+**Num 28 — Daily / weekly / monthly offerings**
+- The *tamid* (twice-daily continual) + Sabbath + new-moon rhythm as embodied theology — no day/week/month without God; generational handoff of worship; Heb 10:24-25 principle without form; what parents pass down is the calendar they live by, not the doctrine they speak
+
+**Num 29 — Seventh-month festival weight**
+- Autumn festivals get the largest sacrificial density (70 bulls for Tabernacles alone) — Trumpets/Atonement/Tabernacles as gospel structure: wake-up → atonement → dwelling-with-God; Heb 9-10 (Atonement), Rev 21:3 (Tabernacles); 70 bulls = 70 Gentile nations (Gen 10) — autumn anticipates the nations brought into worship
+
 ---
 
 ### Colossians
