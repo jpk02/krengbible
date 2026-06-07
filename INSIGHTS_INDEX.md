@@ -428,6 +428,15 @@ Local working file (not committed to public site if you'd prefer — let me know
 
 ---
 
+### Matthew
+
+**Matt 1 — Genealogy, four women, two names**
+- The 17-verse genealogy as anchor + federal-headship + table-of-contents (David and Abraham named first; the OT was about Him); the NT opens with a list deliberately, addressed to post-AD-70 Jewish believers
+- Four women named (Tamar, Rahab, Ruth, "the wife of Uriah") — messianic line moves through grace not pedigree; Gentile inclusion (Rahab, Ruth) built into the foundation, Matt 28:19 not a late add-on; broken sexual situations named not airbrushed; Heb 11:31 inherits the unembarrassment
+- Two names: Jesus (Yeshua, "the LORD saves") — what He DOES; Immanuel (Isa 7:14 fulfilled) — who He IS; order matters (deed → identity); Matt 28:20 "I am with you always" as Immanuel speaking the final verse, having been Jesus the whole way through
+
+---
+
 ### Colossians
 
 **Col 1 — Christ hymn, reconciliation, indwelling**
