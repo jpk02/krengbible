@@ -2584,25 +2584,52 @@ function hlJumpTo(bIdx,ch,v){
 function hlLoad(){try{return JSON.parse(localStorage.getItem(HL_KEY)||'{}');}catch(e){return {};}}
 function hlSave(d){try{localStorage.setItem(HL_KEY,JSON.stringify(d));}catch(e){}}
 function hlKey(b,c,v){return b+'_'+c+'_'+v;}
-function hlApplyAll(){var data=hlLoad();document.querySelectorAll('.verse-row').forEach(function(row){var n=row.id.replace('vr-',''),k=hlKey(bi,ci,n);row.classList.remove('hl-y','hl-g','hl-b','hl-p','hl-r');if(data[k])row.classList.add('hl-'+data[k]);});}
+function hlApplyAll(){
+  var data=hlLoad();
+  var vtData=vtLoad();
+  var vtDirty=false;
+  document.querySelectorAll('.verse-row').forEach(function(row){
+    var n=row.id.replace('vr-',''),k=hlKey(bi,ci,n);
+    row.classList.remove('hl-y','hl-g','hl-b','hl-p','hl-r');
+    if(data[k]){
+      row.classList.add('hl-'+data[k]);
+      // Quietly migrate any previously-saved verse text that still has stray
+      // footnote characters in it.  Re-capture from the now-clean DOM extract.
+      var koEl=row.querySelector('.ko-side .vt');
+      var enEl=row.querySelector('.en-side .vt');
+      var koClean=hlCleanVerseText(koEl);
+      var enClean=hlCleanVerseText(enEl);
+      var prev=vtData[k]||{};
+      if(prev.ko!==koClean||prev.en!==enClean){
+        vtData[k]={ko:koClean,en:enClean};
+        vtDirty=true;
+      }
+    }
+  });
+  if(vtDirty) vtSave(vtData);
+}
+// Extract a verse's text content with footnote-reference superscripts removed.
+// Used by both hlApply (when saving verse text into vtData) and hlCopy (when
+// building clipboard output).  Without this, stray footnote digits/letters
+// from .fn-ref nodes would leak into the saved Saved-sheet display.
+function hlCleanVerseText(el){
+  if(!el) return '';
+  var clone=el.cloneNode(true);
+  clone.querySelectorAll('.fn-ref').forEach(function(fn){fn.remove();});
+  return clone.textContent.trim().replace(/\s+/g,' ');
+}
 function hlCopy(){
   var rows=hlSelectedSet.size>0?Array.from(hlSelectedSet):[hlSelected];
   rows=rows.filter(Boolean);
   if(rows.length===0)return;
   // Sort rows by DOM order
   rows.sort(function(a,b){return a.compareDocumentPosition(b)&4?-1:1;});
-  // Clone .vt, strip footnote-reference superscripts, then grab text
-  function cleanText(el){
-    if(!el)return '';
-    var clone=el.cloneNode(true);
-    clone.querySelectorAll('.fn-ref').forEach(function(fn){fn.remove();});
-    return clone.textContent.trim().replace(/\s+/g,' ');
-  }
+  // Shared hlCleanVerseText (defined above) strips .fn-ref children before grabbing text.
   var koLines=[],enLines=[],verseNumStrs=[];
   rows.forEach(function(row){
     var verseNum=row.id.replace('vr-','');
-    var koText=cleanText(row.querySelector('.ko-side .vt'));
-    var enText=cleanText(row.querySelector('.en-side .vt'));
+    var koText=hlCleanVerseText(row.querySelector('.ko-side .vt'));
+    var enText=hlCleanVerseText(row.querySelector('.en-side .vt'));
     if(koText)koLines.push(verseNum+' '+koText);
     if(enText)enLines.push(verseNum+' '+enText);
     verseNumStrs.push(verseNum);
@@ -2649,7 +2676,7 @@ function hlApply(color){
       var vtData=vtLoad();
       var koEl=row.querySelector('.ko-side .vt');
       var enEl=row.querySelector('.en-side .vt');
-      vtData[k]={ko:koEl?koEl.textContent.trim():'',en:enEl?enEl.textContent.trim():''};
+      vtData[k]={ko:hlCleanVerseText(koEl),en:hlCleanVerseText(enEl)};
       vtSave(vtData);
     } else {
       delete data[k];
