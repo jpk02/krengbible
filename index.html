@@ -463,6 +463,17 @@ body.dark .saved-sort{color:#7a7468}
 body.dark .saved-sort-btn{color:#7a7468}
 .saved-sort-btn.active{color:#1c1c1c;background:#efecea;border-color:#e0ddd8}
 body.dark .saved-sort-btn.active{color:#e8e5e0;background:#2a2a2a;border-color:#3a3a3a}
+.saved-hl-filter{display:flex;align-items:center;gap:6px;font-size:12px;color:#9a9488;flex-wrap:wrap}
+body.dark .saved-hl-filter{color:#7a7468}
+.hl-color-dot{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;-webkit-appearance:none;transition:border-color .15s,opacity .15s,transform .1s;flex-shrink:0}
+.hl-color-dot:active{transform:scale(.92)}
+.hl-color-dot[data-on="0"]{opacity:.32}
+.hl-color-dot[data-on="1"]{border-color:#1c1c1c}
+body.dark .hl-color-dot[data-on="1"]{border-color:#e8e5e0}
+.hl-color-dot.all{width:auto;height:24px;border-radius:14px;background:none;font:600 12px inherit;color:#9a9488;padding:0 10px;letter-spacing:.01em}
+body.dark .hl-color-dot.all{color:#7a7468}
+.hl-color-dot.all[data-on="1"]{color:#1c1c1c;background:#efecea;border-color:#e0ddd8}
+body.dark .hl-color-dot.all[data-on="1"]{color:#e8e5e0;background:#2a2a2a;border-color:#3a3a3a}
 header{display:none!important}
 .desk-only{display:none!important}
 .mob-nav{display:flex!important;align-items:center;justify-content:space-between;width:100%}
@@ -1716,6 +1727,17 @@ function notesClose(){
   }
   // Unlock body scroll.
   notesUnlockBodyScroll();
+  // If the user reached this pane via the Saved sheet, hand them back to
+  // Saved instead of the chapter view they came in over.  Flag-and-clear
+  // so the next plain notes-open from the chapter behaves normally.
+  if(notesReturnToSaved){
+    notesReturnToSaved=false;
+    if(typeof hlOpenSaved==='function'){
+      // Defer to the next tick so the close animation can start cleanly
+      // before Saved re-mounts on top of where the chapter would be.
+      setTimeout(function(){ hlOpenSaved(); }, 20);
+    }
+  }
   // After the slide-off animation, fully unmount the pane from compositing.
   setTimeout(function(){
     if(overlay && overlay.classList.contains('hidden')){
@@ -2108,22 +2130,16 @@ function notesDelete(id,skipConfirm){
 
 // Jump from Saved sheet directly into the notes panel for that note.
 function notesJumpTo(bIdx,ch,id){
-  hlCloseSaved();
+  // Keep Saved sheet open behind the notes pane — when the user closes the
+  // notes pane, notesClose will re-open Saved so they're returned to the
+  // list they came from rather than dumped onto the chapter view.
+  notesReturnToSaved=true;
   bi=bIdx;ci=ch;loaded=true;inIntroMode=false;
   updateLabel();
   load().then(function(){
     setTimeout(function(){
-      // Scroll the chapter view to the note's anchored verse BEFORE opening
-      // the notes panel — so when the user closes the panel, the chapter is
-      // already at the right place (matches hlJumpTo behaviour).
-      var noteData=notesLoad()[id];
-      if(noteData && typeof noteData.startVerse==='number'){
-        var row=document.getElementById('vr-'+noteData.startVerse);
-        var main=document.getElementById('main');
-        if(row && main){
-          main.scrollTop+=row.getBoundingClientRect().top-main.getBoundingClientRect().top-60;
-        }
-      }
+      // Chapter scroll intentionally skipped — the user isn't returning to
+      // the chapter view; they'll go back to Saved when the pane closes.
       notesEditingId=null;
       notesPendingNew=null;
       notesOpen();
@@ -2154,6 +2170,23 @@ function notesJumpTo(bIdx,ch,id){
 var savedTab='hl', savedQuery='', savedSort='book';
 var SAVED_SORT_KEY='krengbible_saved_sort';
 try{var _s=localStorage.getItem(SAVED_SORT_KEY); if(_s==='book'||_s==='date') savedSort=_s;}catch(e){}
+
+// Highlight color filter — null = all colors shown.  Otherwise a Set of color
+// codes (y/g/b/p/r) to keep.  Session-only; resets on reload.
+var hlColorFilter=null;
+function savedToggleHlColor(color){
+  if(color==='all'){ hlColorFilter=null; }
+  else if(hlColorFilter===null){ hlColorFilter=new Set([color]); }
+  else if(hlColorFilter.has(color)){
+    hlColorFilter.delete(color);
+    if(hlColorFilter.size===0) hlColorFilter=null;
+  } else { hlColorFilter.add(color); }
+  savedRender();
+}
+
+// Set by notesJumpTo when the user clicked a note from the Saved sheet, so that
+// notesClose can re-open Saved instead of dumping the user on the chapter page.
+var notesReturnToSaved=false;
 
 // Absolute date for saved-sheet note cards: always show the actual date
 // (not relative), with year included if the note is from a previous calendar year.
@@ -2259,6 +2292,35 @@ function savedRender(){
   if(q){
     hlItems=hlItems.filter(function(it){return it._searchBlob.indexOf(q)!==-1;});
     noteItems=noteItems.filter(function(it){return it._searchBlob.indexOf(q)!==-1;});
+  }
+
+  // Apply highlight color filter (only affects the hl tab).
+  if(hlColorFilter!==null){
+    hlItems=hlItems.filter(function(it){return hlColorFilter.has(hlData[it.key]);});
+  }
+
+  // Render the color filter row (only on hl tab; cleared on notes tab).
+  var filterWrap=document.getElementById('saved-hl-filter-wrap');
+  if(filterWrap){
+    if(savedTab==='hl'){
+      var COLORS=[
+        {k:'y',bg:'#fde047'},{k:'g',bg:'#86efac'},{k:'b',bg:'#93c5fd'},
+        {k:'p',bg:'#d8b4fe'},{k:'r',bg:'#fca5a5'}
+      ];
+      var allOn=hlColorFilter===null;
+      var fh='<div class="saved-hl-filter">';
+      fh+='<button class="hl-color-dot all" data-on="'+(allOn?'1':'0')+'" onclick="savedToggleHlColor(\'all\')">'+(isKo?'전체':'All')+'</button>';
+      COLORS.forEach(function(c){
+        var on=allOn||hlColorFilter.has(c.k);
+        fh+='<button class="hl-color-dot" style="background:'+c.bg+'" data-on="'+(on?'1':'0')+'" onclick="savedToggleHlColor(\''+c.k+'\')" aria-label="'+c.k+'"></button>';
+      });
+      fh+='</div>';
+      filterWrap.innerHTML=fh;
+      filterWrap.style.display='';
+    } else {
+      filterWrap.innerHTML='';
+      filterWrap.style.display='none';
+    }
   }
 
   // Tab counts.
@@ -9553,6 +9615,7 @@ window.authDoDelete=authDoDelete;
         <button id="saved-sort-date" class="saved-sort-btn" onclick="savedSetSort('date')">날짜 순</button>
       </div>
     </div>
+    <div id="saved-hl-filter-wrap"></div>
   </div>
   <div id="saved-list" style="flex:1;overflow-y:auto;overscroll-behavior:contain"></div>
 </div>
