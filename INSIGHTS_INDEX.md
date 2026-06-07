@@ -400,6 +400,32 @@ Local working file (not committed to public site if you'd prefer — let me know
 **Num 29 — Seventh-month festival weight**
 - Autumn festivals get the largest sacrificial density (70 bulls for Tabernacles alone) — Trumpets/Atonement/Tabernacles as gospel structure: wake-up → atonement → dwelling-with-God; Heb 9-10 (Atonement), Rev 21:3 (Tabernacles); 70 bulls = 70 Gentile nations (Gen 10) — autumn anticipates the nations brought into worship
 
+**Num 30 — Vows, women's vow annulment**
+- "Shall not break his word" (30:2) — vow as voluntary but binding; speech matters because the LORD speaks creation, keeps covenant by His word (Num 23:19), becomes Word made flesh (John 1:14); Eccl 5:5 / Ps 15:4; Matt 5:33-37 restoration not raising
+- Father/husband annulment provision (30:3-15) — household economic interdependence as the constraint, NOT female competence; widows/divorced fully bound (30:9); Eph 5:21 mutual subjection + 1 Cor 7:4 mutual authority as trajectory; "do not pledge what is not entirely yours to pledge"
+
+**Num 31 — War on Midian, Balaam dies**
+- Judicial war, not random conquest — divine command + specific Peor offense (Num 25 + 31:16); category closer to courtroom verdict than nationalist ambition; not portable to Christian ethics (Eph 6:12 weapons-not-flesh), but covenant-integrity seriousness preserved
+- Balaam's death (31:8) closes the loop on his 23:10 prayer — "death of the righteous" wished, defeated-Midianite-collaborator received; the prayer and the life were opposite; 2 Pet 2:15-16, Jude 11, Rev 2:14 remember the end, not the oracles
+
+**Num 32 — Reuben, Gad, half-Manasseh request east territory**
+- Moses sees Numbers 13-14 pattern returning — comfort-that-abandons-mission (32:6-8); tribes commit fighting men until brothers' inheritance secured (32:16-19); rest acceptable only when not disengaging from the mission
+- "Be sure your sin will find you out" (32:23) — not all-sin-exposed-real-time but sin-sealed-by-promise eventually surfaces
+
+**Num 33 — Itinerary of 42 wilderness stations**
+- "Moses wrote down… by command of the LORD" (33:2) — God commands the route be recorded; hard places named alongside merciful (Marah, Rephidim, Hazeroth, Mount Hor); Deut 8:2-3 echo, Heb 11 named-station list, Rev 7 named-tribe sealing all share the granular God
+
+**Num 34 — Boundaries of the land**
+- Surveyor's precision of land borders — specificity as grace under contract; gift becomes real when gift becomes specific; identity-through-specificity; named tribal chiefs (34:17-29) as accountable, named, visible process
+
+**Num 35 — Levitical cities, cities of refuge**
+- 48 Levitical cities scattered across all tribes — priestly presence decentralized into proximity; Acts 1:8 geographic spread pattern; Heb 13:15 every-Christian-priest; cross-territorial accountability
+- Cities of refuge tied to high priest's death (35:25, 28) — the High Priest who has died releases the refugee (Heb 6:18, Heb 7:23-25, 9:11-15); intent distinction (35:16-21) survives in Heb 10:26
+
+**Num 36 — Zelophehad's daughters revisited, tribal land integrity**
+- Two true principles (daughters inherit + tribal territories preserved) held together by additional constraint (marry within tribe, 36:6-9); pattern recurs in Rom 9-11, Eph 5, Heb 7; "what additional constraint do I not yet see?" as biblical mind under instruction
+- Book closes: "These are the commandments… in the plains of Moab by the Jordan at Jericho" (36:13); the wilderness is over, the river is the next sentence — bridge into Deuteronomy
+
 ---
 
 ### Colossians
