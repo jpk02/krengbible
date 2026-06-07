@@ -463,17 +463,6 @@ body.dark .saved-sort{color:#7a7468}
 body.dark .saved-sort-btn{color:#7a7468}
 .saved-sort-btn.active{color:#1c1c1c;background:#efecea;border-color:#e0ddd8}
 body.dark .saved-sort-btn.active{color:#e8e5e0;background:#2a2a2a;border-color:#3a3a3a}
-.saved-hl-filter{display:flex;align-items:center;gap:6px;font-size:12px;color:#9a9488;flex-wrap:wrap}
-body.dark .saved-hl-filter{color:#7a7468}
-.hl-color-dot{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;-webkit-appearance:none;transition:border-color .15s,opacity .15s,transform .1s;flex-shrink:0}
-.hl-color-dot:active{transform:scale(.92)}
-.hl-color-dot[data-on="0"]{opacity:.32}
-.hl-color-dot[data-on="1"]{border-color:#1c1c1c}
-body.dark .hl-color-dot[data-on="1"]{border-color:#e8e5e0}
-.hl-color-dot.all{width:auto;height:24px;border-radius:14px;background:none;font:600 12px inherit;color:#9a9488;padding:0 10px;letter-spacing:.01em}
-body.dark .hl-color-dot.all{color:#7a7468}
-.hl-color-dot.all[data-on="1"]{color:#1c1c1c;background:#efecea;border-color:#e0ddd8}
-body.dark .hl-color-dot.all[data-on="1"]{color:#e8e5e0;background:#2a2a2a;border-color:#3a3a3a}
 header{display:none!important}
 .desk-only{display:none!important}
 .mob-nav{display:flex!important;align-items:center;justify-content:space-between;width:100%}
@@ -491,7 +480,7 @@ header{display:none!important}
 .notes-pane{position:fixed;top:0;right:0;width:440px;max-width:100vw;height:100vh;height:100dvh;background:var(--bg);z-index:1500;display:flex;flex-direction:column;border-left:1px solid #ece8e0;box-shadow:-16px 0 40px rgba(0,0,0,.04);transform:translateX(0);transition:transform 0.32s cubic-bezier(0.32,0.72,0.36,1)}
 .notes-pane.hidden{transform:translateX(100%);pointer-events:none}
 body.dark .notes-pane{border-left-color:#1f1f1f;box-shadow:-16px 0 40px rgba(0,0,0,.55)}
-.notes-pane-close{position:absolute;top:18px;right:18px;background:none;border:none;cursor:pointer;color:#9a9488;padding:6px;line-height:0;border-radius:50%;z-index:2;transition:color .15s,background .15s}
+.notes-pane-close{position:absolute;top:18px;left:18px;background:none;border:none;cursor:pointer;color:#9a9488;padding:6px;line-height:0;border-radius:50%;z-index:2;transition:color .15s,background .15s}
 .notes-pane-close:hover{color:#1c1c1c;background:rgba(0,0,0,.04)}
 body.dark .notes-pane-close{color:#e8e5e0}
 body.dark .notes-pane-close:hover{color:#f0ede8;background:rgba(255,255,255,.06)}
@@ -2136,33 +2125,33 @@ function notesJumpTo(bIdx,ch,id){
   notesReturnToSaved=true;
   bi=bIdx;ci=ch;loaded=true;inIntroMode=false;
   updateLabel();
-  load().then(function(){
-    setTimeout(function(){
-      // Chapter scroll intentionally skipped — the user isn't returning to
-      // the chapter view; they'll go back to Saved when the pane closes.
-      notesEditingId=null;
-      notesPendingNew=null;
-      notesOpen();
-      // Scroll the matching note card into view and pulse it briefly.
-      setTimeout(function(){
-        var all=notesLoad();
-        if(!all[id]) return;
-        var listEl=document.getElementById('notes-list');
-        if(!listEl) return;
-        var card=listEl.querySelector('.note-entry[data-note-id="'+id+'"]');
-        if(card){
-          card.scrollIntoView({behavior:'smooth',block:'center'});
-          var pulse=card.querySelector('.note-entry-content');
-          if(pulse){
-            pulse.style.transition='background 0.4s';
-            var orig=pulse.style.background;
-            pulse.style.background=darkMode?'#3a3520':'#fff9d8';
-            setTimeout(function(){pulse.style.background=orig;},900);
-          }
-        }
-      },180);
-    },400);
-  });
+  // notesRender does NOT need chapter verse text — it reads BOOKS[bi] (sync
+  // lookup) and notesLoad() (localStorage) only.  So open the pane immediately
+  // and kick off the chapter fetch in the background.  By the time the user
+  // closes notes AND then closes Saved, the chapter view will be ready.
+  notesEditingId=null;
+  notesPendingNew=null;
+  notesOpen();
+  // Fire-and-forget chapter load so the chapter view is fresh under Saved.
+  load().catch(function(){});
+  // Pulse the matching note card once the pane slide-in has started.
+  setTimeout(function(){
+    var all=notesLoad();
+    if(!all[id]) return;
+    var listEl=document.getElementById('notes-list');
+    if(!listEl) return;
+    var card=listEl.querySelector('.note-entry[data-note-id="'+id+'"]');
+    if(card){
+      card.scrollIntoView({behavior:'smooth',block:'center'});
+      var pulse=card.querySelector('.note-entry-content');
+      if(pulse){
+        pulse.style.transition='background 0.4s';
+        var orig=pulse.style.background;
+        pulse.style.background=darkMode?'#3a3520':'#fff9d8';
+        setTimeout(function(){pulse.style.background=orig;},900);
+      }
+    }
+  },180);
 }
 
 // Saved-sheet view state.  savedTab: 'hl' or 'notes'.  savedQuery: filter text.
@@ -2170,19 +2159,6 @@ function notesJumpTo(bIdx,ch,id){
 var savedTab='hl', savedQuery='', savedSort='book';
 var SAVED_SORT_KEY='krengbible_saved_sort';
 try{var _s=localStorage.getItem(SAVED_SORT_KEY); if(_s==='book'||_s==='date') savedSort=_s;}catch(e){}
-
-// Highlight color filter — null = all colors shown.  Otherwise a Set of color
-// codes (y/g/b/p/r) to keep.  Session-only; resets on reload.
-var hlColorFilter=null;
-function savedToggleHlColor(color){
-  if(color==='all'){ hlColorFilter=null; }
-  else if(hlColorFilter===null){ hlColorFilter=new Set([color]); }
-  else if(hlColorFilter.has(color)){
-    hlColorFilter.delete(color);
-    if(hlColorFilter.size===0) hlColorFilter=null;
-  } else { hlColorFilter.add(color); }
-  savedRender();
-}
 
 // Set by notesJumpTo when the user clicked a note from the Saved sheet, so that
 // notesClose can re-open Saved instead of dumping the user on the chapter page.
@@ -2294,36 +2270,9 @@ function savedRender(){
     noteItems=noteItems.filter(function(it){return it._searchBlob.indexOf(q)!==-1;});
   }
 
-  // Apply highlight color filter (only affects the hl tab).
-  if(hlColorFilter!==null){
-    hlItems=hlItems.filter(function(it){return hlColorFilter.has(hlData[it.key]);});
-  }
-
-  // Render the color filter row (only on hl tab; cleared on notes tab).
-  var filterWrap=document.getElementById('saved-hl-filter-wrap');
-  if(filterWrap){
-    if(savedTab==='hl'){
-      var COLORS=[
-        {k:'y',bg:'#fde047'},{k:'g',bg:'#86efac'},{k:'b',bg:'#93c5fd'},
-        {k:'p',bg:'#d8b4fe'},{k:'r',bg:'#fca5a5'}
-      ];
-      var allOn=hlColorFilter===null;
-      var fh='<div class="saved-hl-filter">';
-      fh+='<button class="hl-color-dot all" data-on="'+(allOn?'1':'0')+'" onclick="savedToggleHlColor(\'all\')">'+(isKo?'전체':'All')+'</button>';
-      COLORS.forEach(function(c){
-        var on=allOn||hlColorFilter.has(c.k);
-        fh+='<button class="hl-color-dot" style="background:'+c.bg+'" data-on="'+(on?'1':'0')+'" onclick="savedToggleHlColor(\''+c.k+'\')" aria-label="'+c.k+'"></button>';
-      });
-      fh+='</div>';
-      filterWrap.innerHTML=fh;
-      filterWrap.style.display='';
-    } else {
-      filterWrap.innerHTML='';
-      filterWrap.style.display='none';
-    }
-  }
-
-  // Tab counts.
+  // Tab counts.  hlItems has one entry per highlighted verse (hlData is keyed
+  // by bookIdx_chapter_verse), so this count reflects total verses — not the
+  // number of grouped cards rendered below.
   var hlCount=document.getElementById('saved-tab-hl-count');
   var noteCount=document.getElementById('saved-tab-notes-count');
   if(hlCount)hlCount.textContent=' ('+hlItems.length+')';
@@ -9642,14 +9591,13 @@ window.authDoDelete=authDoDelete;
         <button id="saved-sort-date" class="saved-sort-btn" onclick="savedSetSort('date')">날짜 순</button>
       </div>
     </div>
-    <div id="saved-hl-filter-wrap"></div>
   </div>
   <div id="saved-list" style="flex:1;overflow-y:auto;overscroll-behavior:contain"></div>
 </div>
 <div id="notes-backdrop" class="notes-backdrop hidden" onclick="notesClose()"></div>
 <div id="notes-modal" class="notes-pane hidden" role="dialog" aria-label="Notes">
-  <button class="notes-pane-close" onclick="notesClose()" aria-label="Close">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+  <button class="notes-pane-close" onclick="notesClose()" aria-label="Back">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
   </button>
   <div id="notes-list" class="notes-doc"></div>
 </div>
