@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f1eb" id="theme-color-meta">
+<title>매일 / Daily — krengbible</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#f4f1eb;--card:#fff;--text:#1c1c1c;--muted:#9a9488;--border:#ede9e3;--accent:#1b2a4a;--accent-text:#fff;--success:#16a34a;--pending:#d1cec8}
+body.dark{--bg:#1a1a1a;--card:#242424;--text:#e8e5e0;--muted:#7a7468;--border:#333;--accent:#3a4d75;--accent-text:#e8e5e0;--success:#22c55e;--pending:#3a3a3a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Noto Sans KR',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;min-height:100dvh}
+button{font-family:inherit;-webkit-appearance:none;border:none;cursor:pointer}
+input,textarea{font-family:inherit;-webkit-appearance:none}
+.hidden{display:none!important}
+
+/* Top bar */
+.top-bar{position:sticky;top:0;background:var(--bg);z-index:10;display:flex;align-items:center;padding:14px 16px;gap:12px;border-bottom:.5px solid var(--border)}
+.top-back{background:none;color:var(--text);display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;flex-shrink:0;text-decoration:none}
+.top-back:hover{background:rgba(0,0,0,.04)}
+body.dark .top-back:hover{background:rgba(255,255,255,.06)}
+.page-title{flex:1;font-size:15px;font-weight:600;color:var(--text);margin:0;letter-spacing:-.01em}
+.icon-btn{background:none;color:var(--muted);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.icon-btn:hover{background:rgba(0,0,0,.04)}
+body.dark .icon-btn:hover{background:rgba(255,255,255,.06)}
+
+/* Main container */
+.container{max-width:720px;margin:0 auto;padding:18px 16px 80px}
+
+/* Today section */
+.today-section{margin-bottom:32px}
+.today-date{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:12px}
+.today-greeting{font-size:24px;font-weight:700;color:var(--text);letter-spacing:-.015em;margin-bottom:24px;line-height:1.2}
+
+/* Cards */
+.card{background:var(--card);border:.5px solid var(--border);border-radius:18px;padding:20px 18px;margin-bottom:14px;position:relative}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.card-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;background:var(--pending);color:var(--muted);letter-spacing:.02em}
+.card-status.done{background:var(--success);color:#fff}
+
+/* QT card body */
+.qt-card .card-body{display:flex;flex-direction:column;gap:12px}
+.qt-preview{background:rgba(0,0,0,.025);border-radius:12px;padding:12px 14px;margin-top:8px}
+body.dark .qt-preview{background:rgba(255,255,255,.03)}
+.preview-ref{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.02em;margin-bottom:6px}
+body.dark .preview-ref{color:#7a8eaa}
+.preview-text{font-size:13px;line-height:1.5;color:var(--text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;opacity:.85}
+
+/* Prayer card */
+.stopwatch-display{font-family:'DM Sans',monospace;font-size:54px;font-weight:600;letter-spacing:-.02em;text-align:center;margin:8px 0 18px;color:var(--text);font-variant-numeric:tabular-nums}
+.stopwatch-display.running{color:var(--accent)}
+body.dark .stopwatch-display.running{color:#8ba3d4}
+.stopwatch-actions{display:flex;gap:8px;justify-content:center;margin-bottom:14px}
+.stopwatch-actions button{padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;letter-spacing:.02em;transition:opacity .15s,transform .1s}
+.stopwatch-actions button:active{transform:scale(.96)}
+.btn-primary{background:var(--accent);color:var(--accent-text)}
+.btn-secondary{background:var(--card);border:.5px solid var(--border);color:var(--text)}
+.btn-tertiary{background:transparent;color:var(--muted);font-weight:500}
+.prayer-total{font-size:12px;color:var(--muted);text-align:center;letter-spacing:.02em}
+
+/* Primary buttons */
+.primary-btn{background:var(--accent);color:var(--accent-text);padding:12px 16px;border-radius:12px;font-size:14px;font-weight:600;letter-spacing:.01em;width:100%;transition:opacity .15s,transform .1s}
+.primary-btn:active{transform:scale(.98)}
+.primary-btn.secondary{background:var(--card);border:.5px solid var(--border);color:var(--text)}
+
+/* Section heading */
+.section-title{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:36px 0 12px}
+
+/* Calendar */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px}
+.cal-title{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-.015em}
+.cal-nav-btn{background:var(--card);border:.5px solid var(--border);width:36px;height:36px;border-radius:10px;color:var(--text);font-size:16px;display:flex;align-items:center;justify-content:center}
+.cal-nav-btn:hover{background:rgba(0,0,0,.02)}
+body.dark .cal-nav-btn:hover{background:rgba(255,255,255,.03)}
+.cal-year-select{background:var(--card);border:.5px solid var(--border);padding:6px 10px;border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer}
+.weekday-row{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+.weekday-cell{font-size:11px;font-weight:600;color:var(--muted);text-align:center;letter-spacing:.04em;padding:6px 0}
+.weekday-cell.sun{color:#dc2626}
+.weekday-cell.sat{color:#2563eb}
+body.dark .weekday-cell.sun{color:#f87171}
+body.dark .weekday-cell.sat{color:#60a5fa}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day-cell{background:var(--card);border:.5px solid var(--border);border-radius:10px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:6px 4px;cursor:pointer;transition:background .15s,border-color .15s;position:relative;min-height:54px}
+.day-cell.empty{background:transparent;border:none;cursor:default}
+.day-cell.future{opacity:.4;cursor:default}
+.day-cell.today{border:1.5px solid var(--accent);border-color:var(--accent)}
+body.dark .day-cell.today{border-color:#8ba3d4}
+.day-cell:hover:not(.empty):not(.future){background:rgba(0,0,0,.02)}
+body.dark .day-cell:hover:not(.empty):not(.future){background:rgba(255,255,255,.04)}
+.day-num{font-size:13px;font-weight:600;color:var(--text);line-height:1.1}
+.day-num.sun{color:#dc2626}
+.day-num.sat{color:#2563eb}
+body.dark .day-num.sun{color:#f87171}
+body.dark .day-num.sat{color:#60a5fa}
+.day-dots{display:flex;gap:3px;margin-top:auto;margin-bottom:2px}
+.day-dot{width:6px;height:6px;border-radius:50%;background:var(--pending)}
+.day-dot.qt{background:#f59e0b}
+.day-dot.prayed{background:#16a34a}
+body.dark .day-dot.qt{background:#fbbf24}
+body.dark .day-dot.prayed{background:#22c55e}
+.day-mins{font-size:9px;color:var(--muted);line-height:1;margin-top:1px;font-weight:600}
+
+/* Modal */
+.modal{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;flex-direction:column;animation:slideUp .25s ease-out}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:.5px solid var(--border)}
+.modal-back{background:none;color:var(--text);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.modal-back:hover{background:rgba(0,0,0,.04)}
+body.dark .modal-back:hover{background:rgba(255,255,255,.06)}
+.modal-title{flex:1;font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.modal-save{background:var(--accent);color:var(--accent-text);padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;flex-shrink:0}
+.modal-save.disabled{opacity:.4;cursor:not-allowed}
+.modal-body{flex:1;overflow-y:auto;padding:24px 20px}
+.modal-date{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:14px}
+.passage-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);padding:10px 0;font-size:18px;font-weight:600;color:var(--text);outline:none;margin-bottom:22px;letter-spacing:-.01em}
+.passage-input::placeholder{color:var(--muted);font-weight:500}
+.qt-textarea{width:100%;background:transparent;border:none;font-size:15px;line-height:1.7;color:var(--text);min-height:300px;outline:none;resize:none;letter-spacing:-.005em}
+.qt-textarea::placeholder{color:var(--muted)}
+.modal-readonly-banner{background:rgba(0,0,0,.04);color:var(--muted);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;letter-spacing:.02em;margin-bottom:18px;text-align:center}
+body.dark .modal-readonly-banner{background:rgba(255,255,255,.06)}
+
+/* Sync status */
+.sync-status{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--card);border:.5px solid var(--border);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.02em;opacity:0;transition:opacity .3s;pointer-events:none;z-index:50}
+.sync-status.visible{opacity:1}
+.sync-status.error{color:#dc2626}
+
+/* QT history button at bottom */
+.qt-history-btn{display:block;width:100%;padding:14px;text-align:center;background:transparent;color:var(--accent);font-size:13px;font-weight:600;letter-spacing:.02em;margin-top:8px}
+body.dark .qt-history-btn{color:#8ba3d4}
+
+@media (max-width: 480px){
+  .container{padding:14px 14px 80px}
+  .today-greeting{font-size:21px}
+  .stopwatch-display{font-size:46px}
+  .day-cell{min-height:48px;padding:5px 3px}
+  .day-num{font-size:12px}
+  .day-dot{width:5px;height:5px}
+  .day-mins{font-size:8px}
+}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<header class="top-bar">
+  <a href="/" class="top-back" aria-label="Home">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+  </a>
+  <h1 class="page-title" id="page-title">매일 / Daily</h1>
+  <button class="icon-btn" onclick="toggleLang()" id="lang-btn" aria-label="Language">한</button>
+  <button class="icon-btn" onclick="toggleDark()" id="dark-btn" aria-label="Dark mode">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+</header>
+
+<div class="container">
+
+  <!-- Today section -->
+  <section class="today-section">
+    <div class="today-date" id="today-date"></div>
+    <div class="today-greeting" id="today-greeting"></div>
+
+    <!-- QT card -->
+    <div class="card qt-card">
+      <div class="card-header">
+        <span class="card-title" id="qt-title">QT</span>
+        <span class="card-status" id="qt-status">대기 중 / Pending</span>
+      </div>
+      <button class="primary-btn" onclick="openTodayQt()" id="qt-btn">오늘의 QT 시작하기 / Start today's QT</button>
+      <div class="qt-preview hidden" id="qt-preview">
+        <div class="preview-ref" id="preview-ref"></div>
+        <div class="preview-text" id="preview-text"></div>
+      </div>
+    </div>
+
+    <!-- Prayer card -->
+    <div class="card prayer-card">
+      <div class="card-header">
+        <span class="card-title" id="prayer-title">기도 / Prayer</span>
+        <span class="card-status" id="prayer-status">대기 중 / Pending</span>
+      </div>
+      <div class="stopwatch-display" id="stopwatch-display">00:00</div>
+      <div class="stopwatch-actions">
+        <button class="btn-primary" onclick="prayerStart()" id="prayer-start-btn">시작 / Start</button>
+        <button class="btn-secondary hidden" onclick="prayerPause()" id="prayer-pause-btn">일시정지 / Pause</button>
+        <button class="btn-secondary hidden" onclick="prayerSave()" id="prayer-save-btn">기록 / Save</button>
+      </div>
+      <div class="prayer-total" id="prayer-total">오늘 총 기도 시간: 0분 / Today: 0 min</div>
+    </div>
+  </section>
+
+  <!-- Monthly calendar -->
+  <section class="calendar-section">
+    <div class="section-title" id="cal-section-title">기록 / History</div>
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calPrev()" aria-label="Previous month">‹</button>
+      <span class="cal-title" id="cal-title">2026년 6월</span>
+      <button class="cal-nav-btn" onclick="calNext()" aria-label="Next month">›</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <select class="cal-year-select" id="cal-year" onchange="calYearChange()"></select>
+    </div>
+    <div class="weekday-row" id="weekday-row"></div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+    <button class="qt-history-btn" onclick="openQtHistory()" id="qt-history-btn">QT 기록 전체 보기 / View all QT entries →</button>
+  </section>
+
+</div>
+
+<!-- QT Editor Modal -->
+<div class="modal hidden" id="qt-editor">
+  <div class="modal-header">
+    <button class="modal-back" onclick="closeQtEditor()" aria-label="Back">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <span class="modal-title" id="qt-editor-title">오늘의 QT / Today's QT</span>
+    <button class="modal-save" onclick="saveQt()" id="qt-save-btn">저장 / Save</button>
+  </div>
+  <div class="modal-body">
+    <div class="modal-date" id="qt-editor-date"></div>
+    <div class="modal-readonly-banner hidden" id="qt-readonly-banner">읽기 전용 / Read only</div>
+    <input type="text" class="passage-input" id="qt-passage" placeholder="요한복음 3:16-21 / John 3:16-21" autocomplete="off" spellcheck="false">
+    <textarea class="qt-textarea" id="qt-text" placeholder="오늘의 QT를 작성하세요... / Write today's reflection..."></textarea>
+  </div>
+</div>
+
+<!-- QT History Modal -->
+<div class="modal hidden" id="qt-history-modal">
+  <div class="modal-header">
+    <button class="modal-back" onclick="closeQtHistory()" aria-label="Back">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <span class="modal-title" id="qt-history-title">QT 기록 / QT History</span>
+    <span style="width:36px"></span>
+  </div>
+  <div class="modal-body" id="qt-history-list">
+  </div>
+</div>
+
+<!-- Sync status toast -->
+<div class="sync-status" id="sync-status"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, setDoc, getDocs, onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCrIbFW4Yt_AVid0Zw3JEDgJYI_G2w6JOM",
+  authDomain: "krengbible.firebaseapp.com",
+  projectId: "krengbible",
+  storageBucket: "krengbible.firebasestorage.app",
+  messagingSenderId: "871488415040",
+  appId: "1:871488415040:web:9ec46e06b12741ae2346a5"
+};
+const fbApp = initializeApp(firebaseConfig);
+const fbAuth = getAuth(fbApp);
+const fbDB = getFirestore(fbApp);
+setPersistence(fbAuth, browserLocalPersistence).catch(()=>{});
+
+window.fbAuth = fbAuth;
+window.fbDB = fbDB;
+window.fbUser = null;
+window._fbDailyUnsub = null;
+window._fbQtUnsub = null;
+
+window._fb = {
+  doc, setDoc, collection, getDocs, onSnapshot
+};
+
+onAuthStateChanged(fbAuth, async (user) => {
+  window.fbUser = user || null;
+  if (typeof onAuthChange === 'function') onAuthChange(user);
+});
+</script>
+
+<script>
+// ===== State =====
+var LANG_KEY = 'krengbible_daily_lang';
+var DARK_KEY = 'krengbible_dark';
+var DAILY_KEY = 'krengbible_daily_data';
+var QT_KEY = 'krengbible_qt_journal';
+var TIMER_KEY = 'krengbible_daily_timer';
+
+var lang = (function(){
+  try { var v = localStorage.getItem(LANG_KEY); return (v==='ko'||v==='en') ? v : 'ko'; } catch(e){ return 'ko'; }
+})();
+var darkMode = (function(){
+  try { return localStorage.getItem(DARK_KEY) === '1'; } catch(e){ return false; }
+})();
+
+var calView = { year: 0, month: 0 }; // populated in init
+
+var prayerTimer = null;             // setInterval id when running
+var prayerState = { running: false, startedAt: null, accumulated: 0 };
+var PRAYED_THRESHOLD_SEC = 600;     // 10 minutes
+
+// ===== Helpers =====
+function todayKey(){
+  // YYYY-MM-DD in local time
+  return new Date().toLocaleDateString('en-CA');
+}
+function dateKey(d){
+  return d.toLocaleDateString('en-CA');
+}
+function parseKey(k){
+  var p = k.split('-');
+  return { year: +p[0], month: +p[1], day: +p[2] };
+}
+function formatSec(sec){
+  sec = Math.max(0, Math.floor(sec));
+  var h = Math.floor(sec/3600);
+  var m = Math.floor((sec%3600)/60);
+  var s = sec%60;
+  if(h>0) return h+':'+pad2(m)+':'+pad2(s);
+  return pad2(m)+':'+pad2(s);
+}
+function pad2(n){ return (n<10?'0':'')+n; }
+function formatMin(sec){
+  return Math.floor(sec/60);
+}
+
+// ===== Storage =====
+function loadDaily(){
+  try { return JSON.parse(localStorage.getItem(DAILY_KEY)||'{}'); } catch(e){ return {}; }
+}
+function saveDaily(d){
+  try { localStorage.setItem(DAILY_KEY, JSON.stringify(d)); } catch(e){}
+}
+function loadQt(){
+  try { return JSON.parse(localStorage.getItem(QT_KEY)||'{}'); } catch(e){ return {}; }
+}
+function saveQtStore(d){
+  try { localStorage.setItem(QT_KEY, JSON.stringify(d)); } catch(e){}
+}
+function getDay(k){
+  var d = loadDaily();
+  return d[k] || { qt:false, prayed:false, prayerSeconds:0 };
+}
+function setDay(k, patch){
+  var d = loadDaily();
+  var cur = d[k] || { qt:false, prayed:false, prayerSeconds:0 };
+  Object.keys(patch).forEach(function(p){ cur[p] = patch[p]; });
+  cur.prayed = (cur.prayerSeconds||0) >= PRAYED_THRESHOLD_SEC ? true : !!cur.prayed;
+  cur.updatedAt = Date.now();
+  d[k] = cur;
+  saveDaily(d);
+  syncDayToFirestore(k, cur);
+  return cur;
+}
+function getQtEntry(k){
+  var d = loadQt();
+  return d[k] || null;
+}
+function setQtEntry(k, entry){
+  var d = loadQt();
+  var existing = d[k] || {};
+  entry.createdAt = existing.createdAt || Date.now();
+  entry.updatedAt = Date.now();
+  d[k] = entry;
+  saveQtStore(d);
+  syncQtToFirestore(k, entry);
+  // Mark day as QT done
+  setDay(k, { qt: true });
+}
+
+// ===== Firestore sync =====
+function syncDayToFirestore(k, data){
+  if(!window.fbUser || !window._fb) return;
+  try {
+    var ref = window._fb.doc(window.fbDB, 'users', window.fbUser.uid, 'daily', k);
+    window._fb.setDoc(ref, data, { merge: true }).catch(function(e){ flashSync('error', e.message); });
+  } catch(e){}
+}
+function syncQtToFirestore(k, data){
+  if(!window.fbUser || !window._fb) return;
+  try {
+    var ref = window._fb.doc(window.fbDB, 'users', window.fbUser.uid, 'qt', k);
+    window._fb.setDoc(ref, data, { merge: true }).catch(function(e){ flashSync('error', e.message); });
+  } catch(e){}
+}
+window.onAuthChange = function(user){
+  if(user){
+    flashSync('ok', lang==='ko'?'동기화됨':'Synced');
+    // Pull on sign-in
+    pullDailyFromFirestore();
+    pullQtFromFirestore();
+  } else {
+    flashSync('ok', lang==='ko'?'로컬 저장':'Local only');
+  }
+};
+async function pullDailyFromFirestore(){
+  if(!window.fbUser) return;
+  try {
+    var col = window._fb.collection(window.fbDB, 'users', window.fbUser.uid, 'daily');
+    var snap = await window._fb.getDocs(col);
+    var local = loadDaily();
+    var dirty = false;
+    snap.forEach(function(s){
+      var k = s.id;
+      var remote = s.data();
+      var loc = local[k];
+      if(!loc || (remote.updatedAt||0) > (loc.updatedAt||0)){
+        local[k] = remote;
+        dirty = true;
+      }
+    });
+    if(dirty) saveDaily(local);
+    render();
+  } catch(e){
+    flashSync('error', e.message);
+  }
+}
+async function pullQtFromFirestore(){
+  if(!window.fbUser) return;
+  try {
+    var col = window._fb.collection(window.fbDB, 'users', window.fbUser.uid, 'qt');
+    var snap = await window._fb.getDocs(col);
+    var local = loadQt();
+    var dirty = false;
+    snap.forEach(function(s){
+      var k = s.id;
+      var remote = s.data();
+      var loc = local[k];
+      if(!loc || (remote.updatedAt||0) > (loc.updatedAt||0)){
+        local[k] = remote;
+        dirty = true;
+      }
+    });
+    if(dirty) saveQtStore(local);
+    render();
+  } catch(e){
+    flashSync('error', e.message);
+  }
+}
+function flashSync(kind, msg){
+  var el = document.getElementById('sync-status');
+  if(!el) return;
+  el.textContent = msg;
+  el.className = 'sync-status visible' + (kind==='error'?' error':'');
+  setTimeout(function(){ el.classList.remove('visible'); }, 2500);
+}
+
+// ===== Labels =====
+var LABELS = {
+  page: { ko:'매일 / Daily', en:'Daily / 매일' },
+  qtCard: { ko:'QT', en:'QT' },
+  prayerCard: { ko:'기도', en:'Prayer' },
+  pending: { ko:'대기 중', en:'Pending' },
+  done: { ko:'완료', en:'Done' },
+  qtStartBtn: { ko:'오늘의 QT 시작하기', en:'Start today\'s QT' },
+  qtContinueBtn: { ko:'QT 이어 쓰기', en:'Continue QT' },
+  qtViewBtn: { ko:'QT 보기', en:'View QT' },
+  start: { ko:'시작', en:'Start' },
+  pause: { ko:'일시정지', en:'Pause' },
+  save: { ko:'기록', en:'Save' },
+  resume: { ko:'재개', en:'Resume' },
+  prayerTotal: { ko:'오늘 총 기도 시간', en:'Today total' },
+  history: { ko:'기록', en:'History' },
+  qtHistoryBtn: { ko:'QT 기록 전체 보기', en:'View all QT entries' },
+  qtModalToday: { ko:'오늘의 QT', en:'Today\'s QT' },
+  qtModalPast: { ko:'지난 QT', en:'Past QT' },
+  saveBtn: { ko:'저장', en:'Save' },
+  qtPlaceholder: { ko:'오늘의 QT를 작성하세요...', en:'Write today\'s reflection...' },
+  passagePlaceholder: { ko:'요한복음 3:16-21', en:'John 3:16-21' },
+  readonly: { ko:'읽기 전용', en:'Read only' },
+  qtHistoryTitle: { ko:'QT 기록', en:'QT History' },
+  noEntries: { ko:'아직 작성된 QT가 없습니다', en:'No QT entries yet' }
+};
+function L(key){
+  var v = LABELS[key];
+  return v ? v[lang] : key;
+}
+function bilingualL(key){
+  var v = LABELS[key];
+  if(!v) return key;
+  return lang==='ko' ? (v.ko+' / '+v.en) : (v.en+' / '+v.ko);
+}
+
+// ===== Date formatting =====
+function formatTodayDate(){
+  var d = new Date();
+  if(lang==='ko'){
+    var months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    var days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+    return d.getFullYear()+'년 '+months[d.getMonth()]+' '+d.getDate()+'일 '+days[d.getDay()];
+  }
+  return d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+function formatGreeting(){
+  var d = new Date();
+  var h = d.getHours();
+  if(lang==='ko'){
+    if(h<5) return '늦은 밤입니다';
+    if(h<12) return '좋은 아침입니다';
+    if(h<18) return '좋은 오후입니다';
+    return '좋은 저녁입니다';
+  }
+  if(h<5) return 'Late night';
+  if(h<12) return 'Good morning';
+  if(h<18) return 'Good afternoon';
+  return 'Good evening';
+}
+function formatMonthHeader(year, month){
+  if(lang==='ko'){
+    return year+'년 '+(month+1)+'월';
+  }
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return months[month]+' '+year;
+}
+
+// ===== Theme =====
+function applyTheme(){
+  if(darkMode) document.body.classList.add('dark');
+  else document.body.classList.remove('dark');
+  var meta = document.getElementById('theme-color-meta');
+  if(meta) meta.setAttribute('content', darkMode ? '#1a1a1a' : '#f4f1eb');
+}
+function toggleDark(){
+  darkMode = !darkMode;
+  try { localStorage.setItem(DARK_KEY, darkMode?'1':'0'); } catch(e){}
+  applyTheme();
+}
+function toggleLang(){
+  lang = (lang==='ko') ? 'en' : 'ko';
+  try { localStorage.setItem(LANG_KEY, lang); } catch(e){}
+  render();
+}
+
+// ===== Render: top section =====
+function renderToday(){
+  document.getElementById('today-date').textContent = formatTodayDate();
+  document.getElementById('today-greeting').textContent = formatGreeting();
+  document.getElementById('page-title').textContent = lang==='ko' ? '매일 / Daily' : 'Daily / 매일';
+  document.getElementById('lang-btn').textContent = lang==='ko' ? '한' : 'Eng';
+
+  var k = todayKey();
+  var day = getDay(k);
+  var qt = getQtEntry(k);
+
+  // QT card
+  document.getElementById('qt-title').textContent = bilingualL('qtCard');
+  var qtStatusEl = document.getElementById('qt-status');
+  if(day.qt){
+    qtStatusEl.textContent = bilingualL('done');
+    qtStatusEl.classList.add('done');
+  } else {
+    qtStatusEl.textContent = bilingualL('pending');
+    qtStatusEl.classList.remove('done');
+  }
+  var qtBtn = document.getElementById('qt-btn');
+  var qtPreview = document.getElementById('qt-preview');
+  if(qt && (qt.text || qt.passageRef)){
+    qtBtn.textContent = (lang==='ko' ? 'QT 이어 쓰기 / Continue QT' : 'Continue QT / QT 이어 쓰기');
+    qtPreview.classList.remove('hidden');
+    document.getElementById('preview-ref').textContent = qt.passageRef || '';
+    document.getElementById('preview-text').textContent = qt.text || '';
+  } else {
+    qtBtn.textContent = (lang==='ko' ? '오늘의 QT 시작하기 / Start today\'s QT' : 'Start today\'s QT / 오늘의 QT 시작하기');
+    qtPreview.classList.add('hidden');
+  }
+
+  // Prayer card
+  document.getElementById('prayer-title').textContent = bilingualL('prayerCard');
+  var prStatusEl = document.getElementById('prayer-status');
+  if(day.prayed){
+    prStatusEl.textContent = bilingualL('done');
+    prStatusEl.classList.add('done');
+  } else {
+    prStatusEl.textContent = bilingualL('pending');
+    prStatusEl.classList.remove('done');
+  }
+  // Stopwatch display reflects current session live time
+  updateStopwatchDisplay();
+  // Today total
+  var totalSec = day.prayerSeconds || 0;
+  var totalMin = formatMin(totalSec);
+  document.getElementById('prayer-total').textContent =
+    (lang==='ko' ? '오늘 총 기도 시간: '+totalMin+'분' : 'Today: '+totalMin+' min')
+    + ' / '
+    + (lang==='ko' ? 'Today: '+totalMin+' min' : '오늘 총: '+totalMin+'분');
+}
+
+function updateStopwatchDisplay(){
+  var sec = 0;
+  if(prayerState.running && prayerState.startedAt){
+    sec = (Date.now() - prayerState.startedAt)/1000 + (prayerState.accumulated||0);
+  } else {
+    sec = prayerState.accumulated || 0;
+  }
+  var el = document.getElementById('stopwatch-display');
+  if(el){
+    el.textContent = formatSec(sec);
+    if(prayerState.running) el.classList.add('running');
+    else el.classList.remove('running');
+  }
+  // Button visibility based on state
+  var startBtn = document.getElementById('prayer-start-btn');
+  var pauseBtn = document.getElementById('prayer-pause-btn');
+  var saveBtn = document.getElementById('prayer-save-btn');
+  if(prayerState.running){
+    startBtn.classList.add('hidden');
+    pauseBtn.classList.remove('hidden');
+    saveBtn.classList.add('hidden');
+    pauseBtn.textContent = (lang==='ko' ? '일시정지 / Pause' : 'Pause / 일시정지');
+  } else if((prayerState.accumulated||0) > 0){
+    startBtn.classList.remove('hidden');
+    pauseBtn.classList.add('hidden');
+    saveBtn.classList.remove('hidden');
+    startBtn.textContent = (lang==='ko' ? '재개 / Resume' : 'Resume / 재개');
+    saveBtn.textContent = (lang==='ko' ? '기록 / Save' : 'Save / 기록');
+  } else {
+    startBtn.classList.remove('hidden');
+    pauseBtn.classList.add('hidden');
+    saveBtn.classList.add('hidden');
+    startBtn.textContent = (lang==='ko' ? '시작 / Start' : 'Start / 시작');
+  }
+}
+
+// ===== Prayer stopwatch =====
+function persistTimer(){
+  try {
+    if(prayerState.running || (prayerState.accumulated||0) > 0){
+      localStorage.setItem(TIMER_KEY, JSON.stringify({
+        running: prayerState.running,
+        startedAt: prayerState.startedAt,
+        accumulated: prayerState.accumulated,
+        dayKey: prayerState._dayKey || todayKey()
+      }));
+    } else {
+      localStorage.removeItem(TIMER_KEY);
+    }
+  } catch(e){}
+}
+function restoreTimer(){
+  try {
+    var raw = localStorage.getItem(TIMER_KEY);
+    if(!raw) return;
+    var t = JSON.parse(raw);
+    // If timer was started yesterday or earlier, commit the saved-but-uncommitted time
+    // to that day and clear out.
+    if(t.dayKey && t.dayKey !== todayKey()){
+      var elapsed = (t.accumulated||0);
+      if(t.running && t.startedAt){
+        // Cross-midnight: commit elapsed up to midnight as best effort
+        elapsed += (Date.now() - t.startedAt)/1000;
+      }
+      if(elapsed > 0){
+        var prev = getDay(t.dayKey);
+        setDay(t.dayKey, { prayerSeconds: (prev.prayerSeconds||0) + Math.floor(elapsed) });
+      }
+      localStorage.removeItem(TIMER_KEY);
+      return;
+    }
+    prayerState.accumulated = t.accumulated || 0;
+    prayerState.running = !!t.running;
+    prayerState.startedAt = t.running ? t.startedAt : null;
+    prayerState._dayKey = t.dayKey;
+    if(prayerState.running) startTick();
+  } catch(e){}
+}
+function startTick(){
+  if(prayerTimer) clearInterval(prayerTimer);
+  prayerTimer = setInterval(updateStopwatchDisplay, 1000);
+}
+function stopTick(){
+  if(prayerTimer){ clearInterval(prayerTimer); prayerTimer = null; }
+}
+function prayerStart(){
+  prayerState.startedAt = Date.now();
+  prayerState.running = true;
+  prayerState._dayKey = todayKey();
+  persistTimer();
+  startTick();
+  updateStopwatchDisplay();
+}
+function prayerPause(){
+  if(!prayerState.running) return;
+  var elapsed = (Date.now() - prayerState.startedAt)/1000;
+  prayerState.accumulated = (prayerState.accumulated||0) + elapsed;
+  prayerState.running = false;
+  prayerState.startedAt = null;
+  stopTick();
+  persistTimer();
+  updateStopwatchDisplay();
+}
+function prayerSave(){
+  // Commit the accumulated time to today's record, reset the timer.
+  var sec = Math.floor(prayerState.accumulated || 0);
+  if(prayerState.running && prayerState.startedAt){
+    sec += Math.floor((Date.now() - prayerState.startedAt)/1000);
+  }
+  if(sec > 0){
+    var k = todayKey();
+    var prev = getDay(k);
+    setDay(k, { prayerSeconds: (prev.prayerSeconds||0) + sec });
+  }
+  prayerState = { running:false, startedAt:null, accumulated:0 };
+  stopTick();
+  persistTimer();
+  render();
+}
+
+// ===== QT editor =====
+var qtEditorContext = { date: null, readonly: false };
+function openTodayQt(){
+  openQtEditorFor(todayKey(), false);
+}
+function openQtEditorFor(dateKey_, readonly){
+  qtEditorContext.date = dateKey_;
+  qtEditorContext.readonly = !!readonly;
+  var entry = getQtEntry(dateKey_) || { passageRef:'', text:'' };
+  var modal = document.getElementById('qt-editor');
+  document.getElementById('qt-passage').value = entry.passageRef || '';
+  document.getElementById('qt-text').value = entry.text || '';
+  document.getElementById('qt-passage').readOnly = readonly;
+  document.getElementById('qt-text').readOnly = readonly;
+  document.getElementById('qt-save-btn').classList.toggle('hidden', readonly);
+  document.getElementById('qt-readonly-banner').classList.toggle('hidden', !readonly);
+  // Date label
+  var p = parseKey(dateKey_);
+  var d = new Date(p.year, p.month-1, p.day);
+  var dateLabel = '';
+  if(lang==='ko'){
+    var days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+    dateLabel = p.year+'년 '+p.month+'월 '+p.day+'일 '+days[d.getDay()];
+  } else {
+    dateLabel = d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  }
+  document.getElementById('qt-editor-date').textContent = dateLabel;
+  // Title: today or past
+  var isToday = (dateKey_ === todayKey());
+  document.getElementById('qt-editor-title').textContent =
+    isToday ? bilingualL('qtModalToday') : bilingualL('qtModalPast');
+  // Placeholders
+  document.getElementById('qt-passage').placeholder = lang==='ko'
+    ? '요한복음 3:16-21 / John 3:16-21'
+    : 'John 3:16-21 / 요한복음 3:16-21';
+  document.getElementById('qt-text').placeholder = lang==='ko'
+    ? '오늘의 QT를 작성하세요... / Write today\'s reflection...'
+    : 'Write today\'s reflection... / 오늘의 QT를 작성하세요...';
+  document.getElementById('qt-save-btn').textContent = bilingualL('saveBtn');
+  document.getElementById('qt-readonly-banner').textContent = bilingualL('readonly');
+  modal.classList.remove('hidden');
+  if(!readonly) setTimeout(function(){ document.getElementById('qt-passage').focus(); }, 200);
+}
+function closeQtEditor(){
+  document.getElementById('qt-editor').classList.add('hidden');
+}
+function saveQt(){
+  if(qtEditorContext.readonly) return;
+  var ref = document.getElementById('qt-passage').value.trim();
+  var text = document.getElementById('qt-text').value.trim();
+  if(!ref && !text){
+    closeQtEditor();
+    return;
+  }
+  setQtEntry(qtEditorContext.date, { passageRef: ref, text: text });
+  closeQtEditor();
+  render();
+}
+
+// ===== QT history =====
+function openQtHistory(){
+  var all = loadQt();
+  var keys = Object.keys(all).filter(function(k){ return all[k] && (all[k].text || all[k].passageRef); });
+  keys.sort(function(a,b){ return a < b ? 1 : -1; }); // newest first
+  var listEl = document.getElementById('qt-history-list');
+  document.getElementById('qt-history-title').textContent = bilingualL('qtHistoryTitle');
+  if(keys.length === 0){
+    listEl.innerHTML = '<div style="color:var(--muted);text-align:center;padding:60px 20px;font-size:14px">'+(lang==='ko'?'아직 작성된 QT가 없습니다':'No QT entries yet')+'</div>';
+  } else {
+    var html = '';
+    keys.forEach(function(k){
+      var e = all[k];
+      var p = parseKey(k);
+      var d = new Date(p.year, p.month-1, p.day);
+      var dateLabel;
+      if(lang==='ko'){
+        dateLabel = p.year+'년 '+p.month+'월 '+p.day+'일';
+      } else {
+        dateLabel = d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+      }
+      var preview = (e.text||'').slice(0,120) + ((e.text||'').length>120?'…':'');
+      html += '<div onclick="historyOpenEntry(\''+k+'\')" style="background:var(--card);border:.5px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:pointer">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em">'+escHTML(dateLabel)+'</span></div>';
+      if(e.passageRef) html += '<div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:6px">'+escHTML(e.passageRef)+'</div>';
+      if(preview) html += '<div style="font-size:13px;line-height:1.5;color:var(--text);opacity:.85">'+escHTML(preview)+'</div>';
+      html += '</div>';
+    });
+    listEl.innerHTML = html;
+  }
+  document.getElementById('qt-history-modal').classList.remove('hidden');
+}
+function closeQtHistory(){
+  document.getElementById('qt-history-modal').classList.add('hidden');
+}
+function historyOpenEntry(k){
+  var isToday = (k === todayKey());
+  openQtEditorFor(k, !isToday);
+}
+function escHTML(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ===== Calendar =====
+function calRender(){
+  document.getElementById('cal-title').textContent = formatMonthHeader(calView.year, calView.month);
+  document.getElementById('cal-section-title').textContent = bilingualL('history');
+  document.getElementById('qt-history-btn').textContent =
+    (lang==='ko' ? 'QT 기록 전체 보기 / View all QT entries' : 'View all QT entries / QT 기록 전체 보기') + ' →';
+
+  // Year picker (current year ± 5 years back, 1 year forward as needed)
+  var sel = document.getElementById('cal-year');
+  var thisYear = new Date().getFullYear();
+  var minYear = Math.min(thisYear - 5, calView.year);
+  var maxYear = Math.max(thisYear, calView.year);
+  sel.innerHTML = '';
+  for(var y=maxYear; y>=minYear; y--){
+    var opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = (lang==='ko' ? y+'년' : y);
+    if(y === calView.year) opt.selected = true;
+    sel.appendChild(opt);
+  }
+
+  // Weekday row
+  var wkRow = document.getElementById('weekday-row');
+  var labels = (lang==='ko')
+    ? ['일','월','화','수','목','금','토']
+    : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  wkRow.innerHTML = labels.map(function(l, i){
+    var cls = i===0 ? 'sun' : (i===6 ? 'sat' : '');
+    return '<div class="weekday-cell '+cls+'">'+l+'</div>';
+  }).join('');
+
+  // Calendar grid
+  var grid = document.getElementById('calendar-grid');
+  var firstDay = new Date(calView.year, calView.month, 1);
+  var firstWeekday = firstDay.getDay();
+  var daysInMonth = new Date(calView.year, calView.month+1, 0).getDate();
+  var todayK = todayKey();
+  var daily = loadDaily();
+  var qtData = loadQt();
+  var html = '';
+  for(var i=0;i<firstWeekday;i++){
+    html += '<div class="day-cell empty"></div>';
+  }
+  for(var day=1; day<=daysInMonth; day++){
+    var d = new Date(calView.year, calView.month, day);
+    var k = dateKey(d);
+    var dayData = daily[k] || { qt:false, prayed:false, prayerSeconds:0 };
+    var hasQt = !!(qtData[k] && (qtData[k].text || qtData[k].passageRef));
+    var isFuture = k > todayK;
+    var isToday = k === todayK;
+    var dayOfWeek = (firstWeekday + day - 1) % 7;
+    var classes = ['day-cell'];
+    if(isFuture) classes.push('future');
+    if(isToday) classes.push('today');
+    var numClass = dayOfWeek===0 ? 'sun' : (dayOfWeek===6 ? 'sat' : '');
+    var dotsHtml = '';
+    if(hasQt || dayData.qt) dotsHtml += '<div class="day-dot qt"></div>';
+    if(dayData.prayed) dotsHtml += '<div class="day-dot prayed"></div>';
+    var minsHtml = dayData.prayerSeconds ? '<div class="day-mins">'+formatMin(dayData.prayerSeconds)+'m</div>' : '';
+    html += '<div class="'+classes.join(' ')+'" onclick="calDayClick(\''+k+'\','+(isFuture?'true':'false')+')">';
+    html += '<div class="day-num '+numClass+'">'+day+'</div>';
+    if(dotsHtml) html += '<div class="day-dots">'+dotsHtml+'</div>';
+    html += minsHtml;
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+function calPrev(){
+  if(calView.month === 0){ calView.month = 11; calView.year--; }
+  else calView.month--;
+  calRender();
+}
+function calNext(){
+  if(calView.month === 11){ calView.month = 0; calView.year++; }
+  else calView.month++;
+  calRender();
+}
+function calYearChange(){
+  var y = parseInt(document.getElementById('cal-year').value);
+  if(!isNaN(y)) calView.year = y;
+  calRender();
+}
+function calDayClick(k, isFuture){
+  if(isFuture) return;
+  var entry = getQtEntry(k);
+  var isToday = (k === todayKey());
+  if(isToday){
+    openQtEditorFor(k, false);
+  } else if(entry && (entry.text || entry.passageRef)){
+    openQtEditorFor(k, true);
+  }
+  // Past days without entries: do nothing for now (no retroactive entry)
+}
+
+// ===== Render all =====
+function render(){
+  renderToday();
+  calRender();
+}
+
+// ===== Init =====
+function init(){
+  applyTheme();
+  // Calendar starts at current month
+  var now = new Date();
+  calView.year = now.getFullYear();
+  calView.month = now.getMonth();
+  restoreTimer();
+  render();
+  // Update stopwatch display continuously even when stopped (so the displayed
+  // value reflects edits) — but tick only when running
+  setInterval(function(){
+    // Re-check if midnight crossed: if running prayer's day differs from today, commit yesterday
+    if(prayerState.running && prayerState._dayKey && prayerState._dayKey !== todayKey()){
+      // Commit elapsed to original day, then re-render
+      prayerSave();
+    }
+  }, 30000);
+}
+
+// Expose to onclick handlers
+window.toggleLang = toggleLang;
+window.toggleDark = toggleDark;
+window.openTodayQt = openTodayQt;
+window.openQtEditorFor = openQtEditorFor;
+window.closeQtEditor = closeQtEditor;
+window.saveQt = saveQt;
+window.openQtHistory = openQtHistory;
+window.closeQtHistory = closeQtHistory;
+window.historyOpenEntry = historyOpenEntry;
+window.prayerStart = prayerStart;
+window.prayerPause = prayerPause;
+window.prayerSave = prayerSave;
+window.calPrev = calPrev;
+window.calNext = calNext;
+window.calYearChange = calYearChange;
+window.calDayClick = calDayClick;
+
+init();
+
+// Persist pending timer on unload so we don't lose in-progress time.
+window.addEventListener('beforeunload', persistTimer);
+</script>
+
+</body>
+</html>
+</content>
+</invoke>
