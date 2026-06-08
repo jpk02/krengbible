@@ -121,7 +121,7 @@ body.dark .modal-back:hover{background:rgba(255,255,255,.06)}
 .modal-date{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:14px}
 .passage-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);padding:10px 0;font-size:18px;font-weight:600;color:var(--text);outline:none;margin-bottom:22px;letter-spacing:-.01em}
 .passage-input::placeholder{color:var(--muted);font-weight:500}
-.qt-textarea{width:100%;background:transparent;border:none;font-size:15px;line-height:1.7;color:var(--text);min-height:300px;outline:none;resize:none;letter-spacing:-.005em}
+.qt-textarea{width:100%;background:transparent;border:none;font-size:15px;line-height:1.5;color:var(--text);min-height:300px;outline:none;resize:none;letter-spacing:-.005em}
 .qt-textarea::placeholder{color:var(--muted)}
 .modal-readonly-banner{background:rgba(0,0,0,.04);color:var(--muted);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;letter-spacing:.02em;margin-bottom:18px;text-align:center}
 body.dark .modal-readonly-banner{background:rgba(255,255,255,.06)}
@@ -134,11 +134,14 @@ body.dark .qt-row{background:#b91c1c}
 .qt-row-card{position:relative;background:var(--card);border:.5px solid var(--border);padding:14px 16px;cursor:pointer;transition:transform .22s cubic-bezier(0.25,0.46,0.45,0.94);will-change:transform;-webkit-user-select:none;user-select:none;border-radius:14px}
 .qt-row.dragging .qt-row-card{transition:none}
 
-/* Delete button at the bottom of the QT editor */
-.qt-editor-delete{display:block;width:100%;background:none;color:#dc2626;border:1px solid #dc2626;padding:11px;border-radius:10px;font-size:13px;font-weight:600;letter-spacing:.02em;margin-top:32px;transition:background .15s,color .15s}
-.qt-editor-delete:hover{background:#dc2626;color:#fff}
-body.dark .qt-editor-delete{color:#f87171;border-color:#f87171}
-body.dark .qt-editor-delete:hover{background:#dc2626;color:#fff;border-color:#dc2626}
+/* Bottom action row in the QT editor: prominent Save + small trash icon */
+.qt-editor-actions{margin-top:32px;display:flex;align-items:center;gap:12px}
+.qt-editor-save{flex:1;background:var(--accent);color:var(--accent-text);padding:14px;border-radius:12px;font-size:15px;font-weight:600;letter-spacing:.01em;transition:opacity .15s,transform .1s}
+.qt-editor-save:active{transform:scale(.98)}
+.qt-editor-trash{flex-shrink:0;width:48px;height:48px;background:transparent;border:1px solid var(--border);border-radius:12px;color:#dc2626;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,border-color .15s}
+.qt-editor-trash:hover{background:#dc2626;color:#fff;border-color:#dc2626}
+body.dark .qt-editor-trash{color:#f87171}
+body.dark .qt-editor-trash:hover{background:#dc2626;color:#fff;border-color:#dc2626}
 
 /* Confirmation dialog */
 .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .15s ease-out}
@@ -243,14 +246,19 @@ body.dark .qt-history-btn{color:#8ba3d4}
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
     </button>
     <span class="modal-title" id="qt-editor-title">오늘의 QT</span>
-    <button class="modal-save" onclick="saveQt()" id="qt-save-btn">저장</button>
+    <span style="width:36px"></span>
   </div>
   <div class="modal-body">
     <div class="modal-date" id="qt-editor-date"></div>
     <div class="modal-readonly-banner hidden" id="qt-readonly-banner">읽기 전용</div>
     <input type="text" class="passage-input" id="qt-passage" placeholder="요한복음 3:16-21" autocomplete="off" spellcheck="false">
     <textarea class="qt-textarea" id="qt-text" placeholder="오늘의 QT를 작성하세요..."></textarea>
-    <button class="qt-editor-delete hidden" onclick="qtEditorDelete()" id="qt-editor-delete-btn">삭제</button>
+    <div class="qt-editor-actions" id="qt-editor-actions">
+      <button class="qt-editor-save" onclick="saveQt()" id="qt-save-btn">저장</button>
+      <button class="qt-editor-trash hidden" onclick="qtEditorDelete()" id="qt-editor-delete-btn" aria-label="Delete">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -729,7 +737,11 @@ function prayerSave(){
 
 // ===== QT editor =====
 var qtEditorContext = { date: null, readonly: false };
+// Set when the editor was opened from the history list, so closing the editor
+// returns the user to that list rather than dropping them on the calendar.
+var _qtEditorFromHistory = false;
 function openTodayQt(){
+  _qtEditorFromHistory = false;
   openQtEditorFor(todayKey(), false);
 }
 function openQtEditorFor(dateKey_, readonly){
@@ -741,7 +753,11 @@ function openQtEditorFor(dateKey_, readonly){
   document.getElementById('qt-text').value = entry.text || '';
   document.getElementById('qt-passage').readOnly = readonly;
   document.getElementById('qt-text').readOnly = readonly;
-  document.getElementById('qt-save-btn').classList.toggle('hidden', readonly);
+  var saveBtn = document.getElementById('qt-save-btn');
+  if(saveBtn){
+    saveBtn.classList.toggle('hidden', readonly);
+    saveBtn.textContent = lang==='ko' ? '저장' : 'Save';
+  }
   document.getElementById('qt-readonly-banner').classList.toggle('hidden', !readonly);
   // Date label
   var p = parseKey(dateKey_);
@@ -765,14 +781,12 @@ function openQtEditorFor(dateKey_, readonly){
   document.getElementById('qt-text').placeholder = lang==='ko'
     ? '오늘의 QT를 작성하세요...'
     : 'Write today\'s reflection...';
-  document.getElementById('qt-save-btn').textContent = L('saveBtn');
   document.getElementById('qt-readonly-banner').textContent = L('readonly');
-  // Delete button: visible whenever an existing entry has content (whether
-  // editable or read-only).  Hidden if there's nothing saved yet.
+  // Trash icon: visible whenever an existing entry has content (whether the
+  // editor is editable or read-only).  Hidden for fresh new entries.
   var delBtn = document.getElementById('qt-editor-delete-btn');
   if(delBtn){
     if(entry && (entry.text || entry.passageRef)){
-      delBtn.textContent = lang==='ko' ? '삭제' : 'Delete';
       delBtn.classList.remove('hidden');
     } else {
       delBtn.classList.add('hidden');
@@ -783,6 +797,13 @@ function openQtEditorFor(dateKey_, readonly){
 }
 function closeQtEditor(){
   document.getElementById('qt-editor').classList.add('hidden');
+  // If we opened the editor from the history list, re-open history so the user
+  // can keep browsing their entries.
+  if(_qtEditorFromHistory){
+    _qtEditorFromHistory = false;
+    // Re-open after a short delay so the editor's hide transition completes.
+    setTimeout(function(){ openQtHistory(); }, 20);
+  }
 }
 function saveQt(){
   if(qtEditorContext.readonly) return;
@@ -946,6 +967,10 @@ function closeQtHistory(){
   document.getElementById('qt-history-modal').classList.add('hidden');
 }
 function historyOpenEntry(k){
+  // Close history modal first so the editor (same z-index) is actually visible.
+  // Mark that we came from history so closing the editor returns there.
+  _qtEditorFromHistory = true;
+  document.getElementById('qt-history-modal').classList.add('hidden');
   var isToday = (k === todayKey());
   openQtEditorFor(k, !isToday);
 }
