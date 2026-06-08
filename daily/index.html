@@ -127,6 +127,27 @@ body.dark .modal-back:hover{background:rgba(255,255,255,.06)}
 .modal-readonly-banner{background:rgba(0,0,0,.04);color:var(--muted);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;letter-spacing:.02em;margin-bottom:18px;text-align:center}
 body.dark .modal-readonly-banner{background:rgba(255,255,255,.06)}
 
+/* Swipe-to-delete row in QT history */
+.qt-row{position:relative;margin-bottom:10px;border-radius:14px;overflow:hidden;background:#dc2626}
+body.dark .qt-row{background:#b91c1c}
+.qt-row-delete-area{position:absolute;top:0;right:0;bottom:0;width:90px;display:flex;align-items:center;justify-content:center}
+.qt-row-delete-btn{background:none;color:#fff;font-size:13px;font-weight:700;letter-spacing:.02em;padding:8px 14px;width:100%;height:100%}
+.qt-row-card{position:relative;background:var(--card);border:.5px solid var(--border);padding:14px 16px;cursor:pointer;transition:transform .22s cubic-bezier(0.25,0.46,0.45,0.94);will-change:transform;-webkit-user-select:none;user-select:none;border-radius:14px}
+.qt-row.revealed .qt-row-card{transform:translateX(-90px)}
+.qt-row.dragging .qt-row-card{transition:none}
+
+/* Confirmation dialog */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .15s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.confirm-box{background:var(--card);border-radius:18px;padding:24px 22px 18px;max-width:340px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.18);border:.5px solid var(--border)}
+.confirm-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-.01em}
+.confirm-msg{font-size:14px;line-height:1.5;color:var(--muted);margin-bottom:20px}
+.confirm-actions{display:flex;gap:8px;justify-content:flex-end}
+.confirm-actions button{padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;letter-spacing:.02em}
+.btn-cancel{background:var(--card);border:.5px solid var(--border);color:var(--text)}
+.btn-danger{background:#dc2626;color:#fff}
+body.dark .btn-danger{background:#b91c1c}
+
 /* Sync status */
 .sync-status{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--card);border:.5px solid var(--border);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.02em;opacity:0;transition:opacity .3s;pointer-events:none;z-index:50}
 .sync-status.visible{opacity:1}
@@ -243,6 +264,18 @@ body.dark .qt-history-btn{color:#8ba3d4}
   </div>
 </div>
 
+<!-- Confirm delete dialog -->
+<div class="confirm-overlay hidden" id="qt-confirm">
+  <div class="confirm-box">
+    <div class="confirm-title" id="qt-confirm-title">QT 삭제</div>
+    <div class="confirm-msg" id="qt-confirm-msg">이 QT 기록을 삭제하시겠습니까?  되돌릴 수 없습니다.</div>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="qtCancelDelete()" id="qt-confirm-cancel">취소</button>
+      <button class="btn-danger" onclick="qtConfirmDelete()" id="qt-confirm-ok">삭제</button>
+    </div>
+  </div>
+</div>
+
 <!-- Sync status toast -->
 <div class="sync-status" id="sync-status"></div>
 
@@ -252,7 +285,7 @@ import {
   getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 import {
-  getFirestore, collection, doc, setDoc, getDocs, onSnapshot
+  getFirestore, collection, doc, setDoc, deleteDoc, getDocs, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -275,7 +308,7 @@ window._fbDailyUnsub = null;
 window._fbQtUnsub = null;
 
 window._fb = {
-  doc, setDoc, collection, getDocs, onSnapshot
+  doc, setDoc, deleteDoc, collection, getDocs, onSnapshot
 };
 
 onAuthStateChanged(fbAuth, async (user) => {
@@ -776,6 +809,7 @@ function openQtHistory(){
     listEl.innerHTML = '<div style="color:var(--muted);text-align:center;padding:60px 20px;font-size:14px">'+(lang==='ko'?'아직 작성된 QT가 없습니다':'No QT entries yet')+'</div>';
   } else {
     var html = '';
+    var deleteLabel = (lang==='ko' ? '삭제' : 'Delete');
     keys.forEach(function(k){
       var e = all[k];
       var p = parseKey(k);
@@ -787,15 +821,130 @@ function openQtHistory(){
         dateLabel = d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
       }
       var preview = (e.text||'').slice(0,120) + ((e.text||'').length>120?'…':'');
-      html += '<div onclick="historyOpenEntry(\''+k+'\')" style="background:var(--card);border:.5px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:pointer">';
+      html += '<div class="qt-row" data-date="'+k+'">';
+      html += '<div class="qt-row-delete-area"><button class="qt-row-delete-btn" onclick="event.stopPropagation();qtAskDelete(\''+k+'\')">'+deleteLabel+'</button></div>';
+      html += '<div class="qt-row-card" onclick="qtRowClick(\''+k+'\',event)">';
       html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em">'+escHTML(dateLabel)+'</span></div>';
       if(e.passageRef) html += '<div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:6px">'+escHTML(e.passageRef)+'</div>';
       if(preview) html += '<div style="font-size:13px;line-height:1.5;color:var(--text);opacity:.85">'+escHTML(preview)+'</div>';
-      html += '</div>';
+      html += '</div></div>';
     });
     listEl.innerHTML = html;
+    attachSwipeHandlers();
   }
   document.getElementById('qt-history-modal').classList.remove('hidden');
+}
+
+// Tracks which row is currently swipe-revealed.  Only one row can be revealed
+// at a time; tapping anywhere else resets.
+var _swipeRevealed = null;
+function qtRowClick(k, ev){
+  // If THIS row is the revealed one, the user tapped the card itself
+  // (not the delete button) — collapse it instead of opening the entry.
+  var row = ev && ev.currentTarget && ev.currentTarget.parentNode;
+  if(row && row.classList.contains('revealed')){
+    row.classList.remove('revealed');
+    if(_swipeRevealed === row) _swipeRevealed = null;
+    return;
+  }
+  historyOpenEntry(k);
+}
+function attachSwipeHandlers(){
+  var rows = document.querySelectorAll('#qt-history-list .qt-row');
+  rows.forEach(function(row){
+    var card = row.querySelector('.qt-row-card');
+    if(!card || card._swipeBound) return;
+    card._swipeBound = true;
+    var sx=0, sy=0, currentX=0, baseX=0, dragging=false, decided=false;
+    card.addEventListener('touchstart', function(e){
+      var t = e.touches[0]; sx = t.clientX; sy = t.clientY;
+      baseX = row.classList.contains('revealed') ? -90 : 0;
+      currentX = baseX;
+      dragging = false; decided = false;
+      row.classList.add('dragging');
+    }, { passive: true });
+    card.addEventListener('touchmove', function(e){
+      var t = e.touches[0];
+      var dx = t.clientX - sx;
+      var dy = t.clientY - sy;
+      if(!decided){
+        // Need to decide whether this is a horizontal swipe or a vertical scroll.
+        if(Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        decided = true;
+        if(Math.abs(dy) > Math.abs(dx)){
+          // Vertical scroll — abandon swipe.
+          dragging = false;
+          row.classList.remove('dragging');
+          card.style.transform = '';
+          return;
+        }
+        dragging = true;
+      }
+      if(!dragging) return;
+      currentX = Math.max(-120, Math.min(0, baseX + dx));
+      card.style.transform = 'translateX(' + currentX + 'px)';
+    }, { passive: true });
+    card.addEventListener('touchend', function(){
+      row.classList.remove('dragging');
+      if(!dragging){ card.style.transform = ''; return; }
+      // Snap: if past midpoint (-45px or more left), reveal; else collapse.
+      if(currentX < -45){
+        // Collapse any other revealed row first
+        if(_swipeRevealed && _swipeRevealed !== row){
+          _swipeRevealed.classList.remove('revealed');
+          var prevCard = _swipeRevealed.querySelector('.qt-row-card');
+          if(prevCard) prevCard.style.transform = '';
+        }
+        row.classList.add('revealed');
+        _swipeRevealed = row;
+        card.style.transform = '';
+      } else {
+        row.classList.remove('revealed');
+        if(_swipeRevealed === row) _swipeRevealed = null;
+        card.style.transform = '';
+      }
+    });
+  });
+}
+
+// ===== QT delete with confirmation =====
+var _qtDeletePending = null;
+function qtAskDelete(k){
+  _qtDeletePending = k;
+  // Localize confirmation text
+  document.getElementById('qt-confirm-title').textContent = lang==='ko' ? 'QT 삭제' : 'Delete QT';
+  document.getElementById('qt-confirm-msg').textContent = lang==='ko'
+    ? '이 QT 기록을 삭제하시겠습니까?  되돌릴 수 없습니다.'
+    : 'Delete this QT entry?  This cannot be undone.';
+  document.getElementById('qt-confirm-cancel').textContent = lang==='ko' ? '취소' : 'Cancel';
+  document.getElementById('qt-confirm-ok').textContent = lang==='ko' ? '삭제' : 'Delete';
+  document.getElementById('qt-confirm').classList.remove('hidden');
+}
+function qtCancelDelete(){
+  _qtDeletePending = null;
+  document.getElementById('qt-confirm').classList.add('hidden');
+}
+function qtConfirmDelete(){
+  var k = _qtDeletePending;
+  if(!k){ document.getElementById('qt-confirm').classList.add('hidden'); return; }
+  // Remove from local QT journal
+  var qts = loadQt();
+  delete qts[k];
+  saveQtStore(qts);
+  // Un-mark day's QT checkbox (entry was the proof)
+  setDay(k, { qt: false });
+  // Delete from Firestore if signed in
+  if(window.fbUser && window._fb && window._fb.deleteDoc){
+    try {
+      var ref = window._fb.doc(window.fbDB, 'users', window.fbUser.uid, 'qt', k);
+      window._fb.deleteDoc(ref).catch(function(e){ flashSync('error', e.message); });
+    } catch(e){}
+  }
+  _qtDeletePending = null;
+  _swipeRevealed = null;
+  document.getElementById('qt-confirm').classList.add('hidden');
+  openQtHistory(); // refresh list
+  render();        // refresh calendar dots + today section
 }
 function closeQtHistory(){
   document.getElementById('qt-history-modal').classList.add('hidden');
@@ -945,6 +1094,10 @@ window.calPrev = calPrev;
 window.calNext = calNext;
 window.calYearChange = calYearChange;
 window.calDayClick = calDayClick;
+window.qtRowClick = qtRowClick;
+window.qtAskDelete = qtAskDelete;
+window.qtCancelDelete = qtCancelDelete;
+window.qtConfirmDelete = qtConfirmDelete;
 
 init();
 
