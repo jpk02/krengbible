@@ -463,6 +463,13 @@ body.dark .saved-sort{color:#7a7468}
 body.dark .saved-sort-btn{color:#7a7468}
 .saved-sort-btn.active{color:#1c1c1c;background:#efecea;border-color:#e0ddd8}
 body.dark .saved-sort-btn.active{color:#e8e5e0;background:#2a2a2a;border-color:#3a3a3a}
+/* Swipe-to-delete on Saved sheet note cards */
+.saved-swipe-row{position:relative;border-radius:14px;overflow:hidden;background:#dc2626;margin-bottom:0}
+body.dark .saved-swipe-row{background:#b91c1c}
+.saved-swipe-delete-area{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;padding-right:24px;pointer-events:none}
+.saved-swipe-delete-label{color:#fff;font-size:13px;font-weight:700;letter-spacing:.04em}
+.saved-swipe-card{position:relative;transition:transform .22s cubic-bezier(0.25,0.46,0.45,0.94);will-change:transform}
+.saved-swipe-row.dragging .saved-swipe-card{transition:none}
 header{display:none!important}
 .desk-only{display:none!important}
 .mob-nav{display:flex!important;align-items:center;justify-content:space-between;width:100%}
@@ -554,6 +561,10 @@ body.dark .note-entry-textarea::placeholder{color:#888}
 .note-entry-edit-actions{
   display:none;justify-content:flex-end;align-items:center;gap:6px;margin-top:18px;
 }
+.note-entry-edit-actions .ne-btn.delete{margin-right:auto;background:transparent;color:#dc2626;border:1px solid transparent}
+.note-entry-edit-actions .ne-btn.delete:hover{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.3)}
+body.dark .note-entry-edit-actions .ne-btn.delete{color:#f87171}
+body.dark .note-entry-edit-actions .ne-btn.delete:hover{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3)}
 .note-entry.focused .note-entry-edit-actions{display:flex}
 .note-entry-edit-actions .ne-btn{
   border:none;cursor:pointer;
@@ -1960,6 +1971,7 @@ function notesRender(){
           +esc(n.text||'')
         +'</div>'
         +'<div class="note-entry-edit-actions">'
+          +(isNew?'':'<button class="ne-btn delete" onmousedown="event.preventDefault()" onclick="notesDelete(\''+noteId+'\')">'+(isKo?'삭제':'Delete')+'</button>')
           +'<button class="ne-btn cancel" onmousedown="event.preventDefault()" onclick="notesCancelButton(this)">'+(isKo?'취소':'Cancel')+'</button>'
           +'<button class="ne-btn save" onmousedown="event.preventDefault()" onclick="notesSaveButton(this)">'+(isKo?'저장':'Save')+'</button>'
         +'</div>'
@@ -2330,7 +2342,12 @@ function savedRender(){
   function renderNote(it){
     // Notes always show their date (regardless of sort mode).
     var dateStr=savedAbsDate(it.ts,isKo);
-    var s='<div onclick="notesJumpTo('+it.bIdx+','+it.ch+',\''+it.id+'\')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
+    var del=isKo?'삭제':'Delete';
+    // Outer swipe-row contains a red delete area (revealed during swipe) and
+    // the actual card content that translates horizontally.
+    var s='<div class="saved-swipe-row" data-note-id="'+it.id+'">';
+    s+='<div class="saved-swipe-delete-area"><span class="saved-swipe-delete-label">'+del+'</span></div>';
+    s+='<div class="saved-swipe-card" onclick="notesJumpTo('+it.bIdx+','+it.ch+',\''+it.id+'\')" style="background:'+(darkMode?'#242424':'#fff')+';border-radius:14px;overflow:hidden;cursor:pointer;border:.5px solid '+(darkMode?'#333':'#ede9e3')+';">';
     s+='<div style="display:flex">';
     s+='<div style="width:5px;min-width:5px;background:'+(darkMode?'#3a4d75':'#1b2a4a')+'"></div>';
     s+='<div style="padding:14px 16px;flex:1;min-width:0">';
@@ -2339,7 +2356,7 @@ function savedRender(){
     s+='<span style="font-size:11px;font-weight:700;color:'+(darkMode?'#7a8eaa':'#1b2a4a')+'">'+esc(it.ref)+'</span>';
     if(dateStr) s+='<span style="font-size:11px;color:'+(darkMode?'#7a7468':'#9a9488')+';font-weight:500">'+esc(dateStr)+'</span>';
     s+='</div>';
-    s+='</div></div></div>';
+    s+='</div></div></div></div>';
     return s;
   }
 
@@ -2445,6 +2462,61 @@ function savedRender(){
 
   html+='</div>';
   list.innerHTML=html;
+  attachSavedNoteSwipeHandlers();
+}
+
+// Swipe-left-to-delete on note cards in the Saved sheet.  Past 50% of card
+// width triggers the existing notesDelete() flow (which shows the styled
+// confirmation modal); less than that springs the card back.
+function attachSavedNoteSwipeHandlers(){
+  var rows = document.querySelectorAll('#saved-list .saved-swipe-row');
+  rows.forEach(function(row){
+    var card = row.querySelector('.saved-swipe-card');
+    if(!card || card._swipeBound) return;
+    card._swipeBound = true;
+    var sx=0, sy=0, currentX=0, dragging=false, decided=false, cardWidth=0;
+    card.addEventListener('touchstart', function(e){
+      var t = e.touches[0]; sx = t.clientX; sy = t.clientY;
+      cardWidth = card.offsetWidth || 320;
+      currentX = 0;
+      dragging = false; decided = false;
+      row.classList.add('dragging');
+    }, { passive: true });
+    card.addEventListener('touchmove', function(e){
+      var t = e.touches[0];
+      var dx = t.clientX - sx;
+      var dy = t.clientY - sy;
+      if(!decided){
+        if(Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        decided = true;
+        if(Math.abs(dy) > Math.abs(dx)){
+          dragging = false;
+          row.classList.remove('dragging');
+          card.style.transform = '';
+          return;
+        }
+        dragging = true;
+      }
+      if(!dragging) return;
+      currentX = Math.max(-cardWidth, Math.min(0, dx));
+      card.style.transform = 'translateX(' + currentX + 'px)';
+    }, { passive: true });
+    card.addEventListener('touchend', function(){
+      row.classList.remove('dragging');
+      if(!dragging){ card.style.transform = ''; return; }
+      var threshold = cardWidth * 0.5;
+      if(currentX < -threshold){
+        card.style.transform = 'translateX(-' + cardWidth + 'px)';
+        var noteId = row.getAttribute('data-note-id');
+        setTimeout(function(){
+          card.style.transform = '';
+          if(noteId && typeof notesDelete === 'function') notesDelete(noteId);
+        }, 180);
+      } else {
+        card.style.transform = '';
+      }
+    });
+  });
 }
 
 function hlOpenSaved(){
