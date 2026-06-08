@@ -33,8 +33,7 @@ body.dark .icon-btn:hover{background:rgba(255,255,255,.06)}
 
 /* Today section */
 .today-section{margin-bottom:32px}
-.today-date{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:12px}
-.today-greeting{font-size:24px;font-weight:700;color:var(--text);letter-spacing:-.015em;margin-bottom:24px;line-height:1.2}
+.today-date{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:24px}
 
 /* Cards */
 .card{background:var(--card);border:.5px solid var(--border);border-radius:18px;padding:20px 18px;margin-bottom:14px;position:relative}
@@ -164,7 +163,6 @@ body.dark .qt-history-btn{color:#8ba3d4}
 
 @media (max-width: 480px){
   .container{padding:14px 14px 80px}
-  .today-greeting{font-size:21px}
   .stopwatch-display{font-size:46px}
   .day-cell{min-height:48px;padding:5px 3px}
   .day-num{font-size:12px}
@@ -189,7 +187,6 @@ body.dark .qt-history-btn{color:#8ba3d4}
   <!-- Today section -->
   <section class="today-section">
     <div class="today-date" id="today-date"></div>
-    <div class="today-greeting" id="today-greeting"></div>
 
     <!-- QT card -->
     <div class="card qt-card">
@@ -531,18 +528,6 @@ function formatTodayDate(){
   }
   return d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 }
-function formatGreeting(){
-  var d = new Date();
-  var h = d.getHours();
-  if(lang==='ko'){
-    if(h<12) return '좋은 아침입니다';
-    if(h<18) return '좋은 오후입니다';
-    return '좋은 저녁입니다';
-  }
-  if(h<12) return 'Good morning';
-  if(h<18) return 'Good afternoon';
-  return 'Good evening';
-}
 function formatMonthHeader(year, month){
   if(lang==='ko'){
     return year+'년 '+(month+1)+'월';
@@ -572,7 +557,6 @@ function toggleLang(){
 // ===== Render: top section =====
 function renderToday(){
   document.getElementById('today-date').textContent = formatTodayDate();
-  document.getElementById('today-greeting').textContent = formatGreeting();
   document.getElementById('page-title').textContent = lang==='ko' ? '매일' : 'Daily';
   document.getElementById('lang-btn').textContent = lang==='ko' ? '한' : 'Eng';
   var bibleLinkEl = document.getElementById('bible-link');
