@@ -134,14 +134,24 @@ body.dark .qt-row{background:#b91c1c}
 .qt-row-card{position:relative;background:var(--card);border:.5px solid var(--border);padding:14px 16px;cursor:pointer;transition:transform .22s cubic-bezier(0.25,0.46,0.45,0.94);will-change:transform;-webkit-user-select:none;user-select:none;border-radius:14px}
 .qt-row.dragging .qt-row-card{transition:none}
 
-/* Bottom action row in the QT editor: prominent Save + small trash icon */
-.qt-editor-actions{margin-top:32px;display:flex;align-items:center;gap:12px}
-.qt-editor-save{flex:1;background:var(--accent);color:var(--accent-text);padding:14px;border-radius:12px;font-size:15px;font-weight:600;letter-spacing:.01em;transition:opacity .15s,transform .1s}
+/* Bottom action row in the QT editor: Cancel + Save side-by-side */
+.qt-editor-actions{margin-top:32px;display:flex;align-items:center;gap:10px}
+.qt-editor-cancel{flex:1;background:transparent;border:1px solid var(--border);color:var(--muted);padding:14px;border-radius:12px;font-size:15px;font-weight:600;letter-spacing:.01em;transition:background .15s,color .15s,transform .1s}
+.qt-editor-cancel:active{transform:scale(.98)}
+.qt-editor-cancel:hover{background:rgba(0,0,0,.04);color:var(--text)}
+body.dark .qt-editor-cancel:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.qt-editor-save{flex:1.4;background:var(--accent);color:var(--accent-text);padding:14px;border-radius:12px;font-size:15px;font-weight:600;letter-spacing:.01em;transition:opacity .15s,transform .1s}
 .qt-editor-save:active{transform:scale(.98)}
-.qt-editor-trash{flex-shrink:0;width:48px;height:48px;background:transparent;border:1px solid var(--border);border-radius:12px;color:#dc2626;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,border-color .15s}
-.qt-editor-trash:hover{background:#dc2626;color:#fff;border-color:#dc2626}
-body.dark .qt-editor-trash{color:#f87171}
-body.dark .qt-editor-trash:hover{background:#dc2626;color:#fff;border-color:#dc2626}
+
+/* Top header icon buttons (undo, share, trash) — match the back arrow style */
+.qt-editor-icon{background:none;color:var(--muted);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s}
+.qt-editor-icon:hover{background:rgba(0,0,0,.04);color:var(--text)}
+body.dark .qt-editor-icon:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.qt-editor-icon.danger{color:#dc2626}
+.qt-editor-icon.danger:hover{background:rgba(220,38,38,.1);color:#dc2626}
+body.dark .qt-editor-icon.danger{color:#f87171}
+body.dark .qt-editor-icon.danger:hover{background:rgba(248,113,113,.12);color:#f87171}
+.qt-editor-header-actions{display:flex;align-items:center;gap:2px}
 
 /* Confirmation dialog */
 .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .15s ease-out}
@@ -246,7 +256,17 @@ body.dark .qt-history-btn{color:#8ba3d4}
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
     </button>
     <span class="modal-title" id="qt-editor-title">오늘의 QT</span>
-    <span style="width:36px"></span>
+    <div class="qt-editor-header-actions">
+      <button class="qt-editor-icon" onclick="qtEditorUndo()" id="qt-editor-undo-btn" aria-label="Undo">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 0 1 14-7l4 4"/></svg>
+      </button>
+      <button class="qt-editor-icon" onclick="qtEditorShare()" id="qt-editor-share-btn" aria-label="Share">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
+      </button>
+      <button class="qt-editor-icon danger hidden" onclick="qtEditorDelete()" id="qt-editor-delete-btn" aria-label="Delete">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>
+    </div>
   </div>
   <div class="modal-body">
     <div class="modal-date" id="qt-editor-date"></div>
@@ -254,10 +274,8 @@ body.dark .qt-history-btn{color:#8ba3d4}
     <input type="text" class="passage-input" id="qt-passage" placeholder="요한복음 3:16-21" autocomplete="off" spellcheck="false">
     <textarea class="qt-textarea" id="qt-text" placeholder="오늘의 QT를 작성하세요..."></textarea>
     <div class="qt-editor-actions" id="qt-editor-actions">
+      <button class="qt-editor-cancel" onclick="closeQtEditor()" id="qt-cancel-btn">취소</button>
       <button class="qt-editor-save" onclick="saveQt()" id="qt-save-btn">저장</button>
-      <button class="qt-editor-trash hidden" onclick="qtEditorDelete()" id="qt-editor-delete-btn" aria-label="Delete">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-      </button>
     </div>
   </div>
 </div>
@@ -753,11 +771,16 @@ function openQtEditorFor(dateKey_, readonly){
   document.getElementById('qt-text').value = entry.text || '';
   document.getElementById('qt-passage').readOnly = readonly;
   document.getElementById('qt-text').readOnly = readonly;
+  // Save + Cancel buttons (bottom row) — hidden in read-only mode.
   var saveBtn = document.getElementById('qt-save-btn');
-  if(saveBtn){
-    saveBtn.classList.toggle('hidden', readonly);
-    saveBtn.textContent = lang==='ko' ? '저장' : 'Save';
-  }
+  var cancelBtn = document.getElementById('qt-cancel-btn');
+  var actionsRow = document.getElementById('qt-editor-actions');
+  if(saveBtn) saveBtn.textContent = lang==='ko' ? '저장' : 'Save';
+  if(cancelBtn) cancelBtn.textContent = lang==='ko' ? '취소' : 'Cancel';
+  if(actionsRow) actionsRow.classList.toggle('hidden', readonly);
+  // Undo button (header) — only useful while editing.
+  var undoBtn = document.getElementById('qt-editor-undo-btn');
+  if(undoBtn) undoBtn.classList.toggle('hidden', readonly);
   document.getElementById('qt-readonly-banner').classList.toggle('hidden', !readonly);
   // Date label
   var p = parseKey(dateKey_);
@@ -934,12 +957,62 @@ function qtCancelDelete(){
   document.getElementById('qt-confirm').classList.add('hidden');
 }
 function qtEditorDelete(){
-  // Triggered by the editor's bottom Delete button.  Closes the editor first
-  // so the confirmation modal is the only thing on top.
+  // Triggered by the header trash icon.  Closes the editor first so the
+  // confirmation modal is the only thing on top.
   var k = qtEditorContext.date;
   if(!k) return;
   closeQtEditor();
   qtAskDelete(k);
+}
+function qtEditorUndo(){
+  // Undo the last typing change in whichever field is currently focused —
+  // falls back to the textarea if neither is focused.  execCommand('undo')
+  // works on textareas/inputs in all major browsers including iOS Safari.
+  var focused = document.activeElement;
+  var target = (focused && (focused.id === 'qt-passage' || focused.id === 'qt-text'))
+    ? focused
+    : document.getElementById('qt-text');
+  if(!target) return;
+  target.focus();
+  try { document.execCommand('undo'); } catch(e){}
+}
+function qtEditorShare(){
+  // Open native share sheet with the QT entry's passage + text.  Web Share
+  // API is supported on iOS Safari, Android Chrome.  Falls back to a copy-
+  // to-clipboard message on desktop where share isn't available.
+  var passage = document.getElementById('qt-passage').value.trim();
+  var text = document.getElementById('qt-text').value.trim();
+  var k = qtEditorContext.date;
+  var parts = [];
+  if(passage) parts.push(passage);
+  if(text) parts.push(text);
+  var body = parts.join('\n\n');
+  if(!body){
+    flashSync('error', lang==='ko' ? '공유할 내용이 없습니다' : 'Nothing to share');
+    return;
+  }
+  // Title is the date.
+  var p = parseKey(k || todayKey());
+  var d = new Date(p.year, p.month-1, p.day);
+  var dateLabel;
+  if(lang==='ko'){
+    dateLabel = p.year+'년 '+p.month+'월 '+p.day+'일 QT';
+  } else {
+    dateLabel = d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) + ' QT';
+  }
+  if(navigator.share){
+    navigator.share({ title: dateLabel, text: body })
+      .catch(function(e){
+        // User cancelled — silent.  Real error — flash.
+        if(e && e.name !== 'AbortError') flashSync('error', e.message || 'Share failed');
+      });
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(dateLabel + '\n\n' + body)
+      .then(function(){ flashSync('ok', lang==='ko' ? '클립보드에 복사됨' : 'Copied to clipboard'); })
+      .catch(function(){ flashSync('error', lang==='ko' ? '복사 실패' : 'Copy failed'); });
+  } else {
+    flashSync('error', lang==='ko' ? '공유 미지원' : 'Share not supported');
+  }
 }
 function qtConfirmDelete(){
   var k = _qtDeletePending;
@@ -1120,6 +1193,8 @@ window.qtAskDelete = qtAskDelete;
 window.qtCancelDelete = qtCancelDelete;
 window.qtConfirmDelete = qtConfirmDelete;
 window.qtEditorDelete = qtEditorDelete;
+window.qtEditorUndo = qtEditorUndo;
+window.qtEditorShare = qtEditorShare;
 
 init();
 
