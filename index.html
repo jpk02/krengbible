@@ -9476,7 +9476,7 @@ var AUTH_TXT={
     btn_working:'처리 중…',
     btn_signout:'로그아웃', btn_delete:'계정 삭제', btn_resend:'인증 메일 다시 보내기',
     label_email:'이메일', label_pwd:'비밀번호',
-    ph_email:'you@example.com', ph_pwd:'6자 이상',
+    ph_email:'you@example.com', ph_pwd:'',
     link_reset:'비밀번호를 잊으셨나요?',
     link_signup:'계정이 없으신가요?  만들기',
     link_signin:'이미 계정이 있으신가요?  로그인',
@@ -9497,7 +9497,7 @@ var AUTH_TXT={
     btn_working:'Working…',
     btn_signout:'Sign out', btn_delete:'Delete account', btn_resend:'Resend verification email',
     label_email:'Email', label_pwd:'Password',
-    ph_email:'you@example.com', ph_pwd:'At least 6 characters',
+    ph_email:'you@example.com', ph_pwd:'',
     link_reset:'Forgot password?',
     link_signup:"Don't have an account?  Create one",
     link_signin:'Already have an account?  Sign in',
@@ -9784,7 +9784,7 @@ window.authDoDelete=authDoDelete;
         <div class="auth-label">Email</div>
         <input type="email" id="auth-email" class="auth-input" autocomplete="email" placeholder="you@example.com">
         <div class="auth-label" id="auth-pwd-label">Password</div>
-        <input type="password" id="auth-password" class="auth-input" autocomplete="current-password" placeholder="At least 6 characters">
+        <input type="password" id="auth-password" class="auth-input" autocomplete="current-password" placeholder="">
         <button id="auth-submit-btn" class="auth-btn" onclick="authSubmit()">Sign in</button>
         <div id="auth-err" class="auth-err"></div>
         <div id="auth-info" class="auth-info"></div>
