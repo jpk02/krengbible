@@ -535,12 +535,10 @@ function formatGreeting(){
   var d = new Date();
   var h = d.getHours();
   if(lang==='ko'){
-    if(h<5) return '늦은 밤입니다';
     if(h<12) return '좋은 아침입니다';
     if(h<18) return '좋은 오후입니다';
     return '좋은 저녁입니다';
   }
-  if(h<5) return 'Late night';
   if(h<12) return 'Good morning';
   if(h<18) return 'Good afternoon';
   return 'Good evening';
