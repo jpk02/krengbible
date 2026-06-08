@@ -9476,7 +9476,7 @@ var AUTH_TXT={
     btn_working:'처리 중…',
     btn_signout:'로그아웃', btn_delete:'계정 삭제', btn_resend:'인증 메일 다시 보내기',
     label_email:'이메일', label_pwd:'비밀번호',
-    ph_email:'you@example.com', ph_pwd:'',
+    ph_email:'', ph_pwd:'',
     link_reset:'비밀번호를 잊으셨나요?',
     link_signup:'계정이 없으신가요?  만들기',
     link_signin:'이미 계정이 있으신가요?  로그인',
@@ -9497,7 +9497,7 @@ var AUTH_TXT={
     btn_working:'Working…',
     btn_signout:'Sign out', btn_delete:'Delete account', btn_resend:'Resend verification email',
     label_email:'Email', label_pwd:'Password',
-    ph_email:'you@example.com', ph_pwd:'',
+    ph_email:'', ph_pwd:'',
     link_reset:'Forgot password?',
     link_signup:"Don't have an account?  Create one",
     link_signin:'Already have an account?  Sign in',
@@ -9655,10 +9655,12 @@ function mapFbAuthErr(code, fallback){
     'auth/invalid-credential':'Email or password is incorrect.',
     'auth/email-already-in-use':'An account already exists for this email.',
     'auth/weak-password':'Password should be at least 6 characters.',
-    'auth/network-request-failed':'Network error. Check your connection.',
-    'auth/too-many-requests':'Too many attempts. Try again in a few minutes.'
+    'auth/network-request-failed':"Couldn't reach the sign-in server.  If your internet works elsewhere, the cause is usually a content blocker, Safari Private mode, or stale cached data.  Try clearing this site's data and reloading.",
+    'auth/too-many-requests':'Too many attempts. Try again in a few minutes.',
+    'auth/internal-error':'Sign-in service had an internal error.  Try again in a moment or clear site data.'
   };
-  return map[code] || fallback || 'Something went wrong.';
+  // For unmapped errors, surface the raw code so the user can report it.
+  return map[code] || ((fallback || 'Something went wrong.') + (code ? ' ['+code+']' : ''));
 }
 
 function authResend(){
@@ -9782,7 +9784,7 @@ window.authDoDelete=authDoDelete;
       </div>
       <div id="auth-form">
         <div class="auth-label">Email</div>
-        <input type="email" id="auth-email" class="auth-input" autocomplete="email" placeholder="you@example.com">
+        <input type="email" id="auth-email" class="auth-input" autocomplete="email" placeholder="">
         <div class="auth-label" id="auth-pwd-label">Password</div>
         <input type="password" id="auth-password" class="auth-input" autocomplete="current-password" placeholder="">
         <button id="auth-submit-btn" class="auth-btn" onclick="authSubmit()">Sign in</button>
