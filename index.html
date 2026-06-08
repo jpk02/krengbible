@@ -8684,10 +8684,17 @@ function openSearch(){
   var overlay=document.getElementById('search-overlay');
   overlay.style.transform='';overlay.style.transition='';
   overlay.classList.remove('hidden');
-  var emptyMsg=langOrder==='ko-en'?'검색어를 입력하세요 / Enter a search term':'Enter a search term / 검색어를 입력하세요';
-  document.getElementById('search-results').innerHTML='<div class="search-empty"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>'+emptyMsg+'</span></div>';
+  // Only seed the empty-state if there's no prior query.  Otherwise leave the
+  // previous results (and input value) untouched — continuity across closes.
+  if(!inp.value){
+    var emptyMsg=langOrder==='ko-en'?'검색어를 입력하세요 / Enter a search term':'Enter a search term / 검색어를 입력하세요';
+    document.getElementById('search-results').innerHTML='<div class="search-empty"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>'+emptyMsg+'</span></div>';
+  }
   // Focus synchronously inside the user-gesture event so iOS opens the keyboard.
   inp.focus();
+  // Place caret at end of existing text so it's obvious there's a prior query
+  // that can be edited rather than overwritten by typing.
+  try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e){}
 }
 // Swipe right to close search with drag-follow animation
 (function(){
@@ -8733,10 +8740,10 @@ function openSearch(){
   },{passive:true});
 })();
 function closeSearch(){
+  // Hide only — do NOT clear input or results.  When the user re-opens
+  // search, they should see their last query and the results that went
+  // with it.  If they want a clean start they can clear the input manually.
   document.getElementById('search-overlay').classList.add('hidden');
-  document.getElementById('search-input').value='';
-  searchState={q:'',isKo:false,loading:false,hasMore:false,nextOffset:0,nextPage:1};
-  document.getElementById('search-results').innerHTML='<div class="search-empty"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:#ddd"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>검색어를 입력하세요 / Enter a search term</span></div>';
 }
 window.addEventListener('load', function(){
 document.getElementById('search-input').addEventListener('input',function(){
