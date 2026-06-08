@@ -176,7 +176,7 @@ body.dark .qt-history-btn{color:#8ba3d4}
         <div class="preview-ref" id="preview-ref"></div>
         <div class="preview-text" id="preview-text"></div>
       </div>
-      <a href="/" class="bible-link" id="bible-link">krengbible에서 본문 읽기 →</a>
+      <a href="/" class="bible-link" id="bible-link">본문 읽기 →</a>
     </div>
 
     <!-- Prayer card -->
@@ -539,7 +539,7 @@ function renderToday(){
   document.getElementById('page-title').textContent = lang==='ko' ? '매일' : 'Daily';
   document.getElementById('lang-btn').textContent = lang==='ko' ? '한' : 'Eng';
   var bibleLinkEl = document.getElementById('bible-link');
-  if(bibleLinkEl) bibleLinkEl.textContent = (lang==='ko' ? 'krengbible에서 본문 읽기' : 'Read in krengbible') + ' →';
+  if(bibleLinkEl) bibleLinkEl.textContent = (lang==='ko' ? '본문 읽기' : 'Read passage') + ' →';
 
   var k = todayKey();
   var day = getDay(k);
