@@ -238,13 +238,15 @@ function parseNkrvHtml(html) {
       .replace(/&gt;/g, '>')
       .replace(/\s+/g, ' ')
       .trim();
-    // Convert Korean letter markers to (KN:N) using the position map so
-    // they line up with the footnotes dict.  Then convert digit markers.
+    // Defensive cleanup for any markers that escaped the <a class=comment>
+    // pre-processing above (rare, but possible if bskorea ever renders
+    // markers as plain text).  Negative lookbehind on the digit regex
+    // prevents re-matching the "1)" inside already-emitted "(KN:1)".
     text = text.replace(/([ㄱ-ㅎ])\)\s*/g, (_, ch) => {
       const n = KO_FN_LETTER_TO_NUM[ch];
       return n ? `(KN:${n})` : '';
     });
-    text = text.replace(/(\d+)\)\s*/g, '(KN:$1)');
+    text = text.replace(/(?<!\(KN:)(\d+)\)\s*/g, '(KN:$1)');
     const verseLabel = numStr.includes('-') ? numStr : num;
     if (text.length > 1) verses.push({ verse: verseLabel, text });
   }

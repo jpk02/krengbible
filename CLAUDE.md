@@ -4,7 +4,15 @@ Bilingual Korean/English Bible reader, single-page static site in `index.html`. 
 
 ## Worker source
 
-The Worker source lives at `worker/index.js` in this repo.  Cloudflare-dashboard-edited deploys are still the workflow — paste the file into the dashboard when changing.  See `worker/README.md` for routes, env vars (`COMMENTARY_KV`, `ESV_TOKEN`, `ANTHROPIC_KEY`, `ADMIN_SECRET`), and the search-index build runbook.
+The Worker source lives at `worker/index.js` in this repo.  **Deploy with `wrangler deploy` from the `worker/` directory** — `wrangler.toml` is configured with the account id, worker name, and KV binding so the deploy is one command.  No more dashboard paste workflow.
+
+To bust the KV cache for a single chapter (e.g., to test a worker change):
+
+```
+wrangler kv key delete --binding=COMMENTARY_KV "nkrv_1_1" --remote
+```
+
+See `worker/README.md` for routes, env vars (`COMMENTARY_KV`, `ESV_TOKEN`, `ANTHROPIC_KEY`, `ADMIN_SECRET`, `API_BIBLE_KEY`), and the search-index build runbook.
 
 ### Korean search architecture
 
