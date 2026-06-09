@@ -247,6 +247,12 @@ function parseNkrvHtml(html) {
       return n ? `(KN:${n})` : '';
     });
     text = text.replace(/(?<!\(KN:)(\d+)\)\s*/g, '(KN:$1)');
+    // bskorea places footnote anchors BEFORE the annotated word; the marker
+    // belongs AFTER the word per Korean Bible convention.  Swap each
+    // "(KN:N)WORD" → "WORD(KN:N)" so consumers can render markers inline
+    // without further post-processing.
+    text = text.replace(/^\(KN:(\d+)\)(\S+)/, '$2(KN:$1)');
+    text = text.replace(/(\s)\(KN:(\d+)\)(\S+)/g, '$1$3(KN:$2)');
     const verseLabel = numStr.includes('-') ? numStr : num;
     if (text.length > 1) verses.push({ verse: verseLabel, text });
   }
