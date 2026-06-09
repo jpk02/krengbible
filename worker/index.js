@@ -149,6 +149,15 @@ async function getEnSearchIndex(env) {
 }
 
 // ---- HTML -> verses parser for bskorea.or.kr (extracted so /admin/build-index can reuse it) ----
+// Korean consonant footnote markers (ㄱ ㄴ ㄷ ㄹ ㅁ ㅂ ㅅ ㅇ ㅈ ㅊ ㅋ ㅌ ㅍ ㅎ)
+// map to position numbers 1..14.  bskorea uses these as visual inline
+// markers but the corresponding popup footnotes are keyed by digit, so
+// we normalize both forms to the same numeric key.
+const KO_FN_LETTER_TO_NUM = {
+  'ㄱ': 1, 'ㄴ': 2, 'ㄷ': 3, 'ㄹ': 4, 'ㅁ': 5, 'ㅂ': 6, 'ㅅ': 7,
+  'ㅇ': 8, 'ㅈ': 9, 'ㅊ': 10, 'ㅋ': 11, 'ㅌ': 12, 'ㅍ': 13, 'ㅎ': 14
+};
+
 function parseNkrvHtml(html) {
   const divTextMap = {};
   const d2Re = /<div\b[^>]*\bid=['"]?(D_\d+_\d+)['"]?[^>]*>/gi;
@@ -170,12 +179,20 @@ function parseNkrvHtml(html) {
   }
 
   const footnotes = {};
-  const popRe = /clickPopUp\('([^']+)'[^)]*\)[^<]*<font[^>]*>(\d+)\)<\/font>/gi;
+  // Match either digit or Korean consonant footnote labels in the popup
+  // anchor.  Normalize Korean letters to position numbers so the key
+  // matches the inline-marker key we'll emit below.
+  const popRe = /clickPopUp\('([^']+)'[^)]*\)[^<]*<font[^>]*>([ㄱ-ㅎ\d]+)\)<\/font>/gi;
   let popMatch;
   while ((popMatch = popRe.exec(html)) !== null) {
     const divId = popMatch[1];
-    const fnNum = popMatch[2];
-    if (fnNum && divId && divTextMap[divId]) footnotes[fnNum] = divTextMap[divId];
+    let fnKey = popMatch[2];
+    if (/^[ㄱ-ㅎ]+$/.test(fnKey)) {
+      const mapped = KO_FN_LETTER_TO_NUM[fnKey];
+      if (!mapped) continue;
+      fnKey = String(mapped);
+    }
+    if (fnKey && divId && divTextMap[divId]) footnotes[fnKey] = divTextMap[divId];
   }
 
   const verses = [];
@@ -205,7 +222,12 @@ function parseNkrvHtml(html) {
       .replace(/&gt;/g, '>')
       .replace(/\s+/g, ' ')
       .trim();
-    text = text.replace(/[ㄱ-ㅎ]\)\s*/g, '');
+    // Convert Korean letter markers to (KN:N) using the position map so
+    // they line up with the footnotes dict.  Then convert digit markers.
+    text = text.replace(/([ㄱ-ㅎ])\)\s*/g, (_, ch) => {
+      const n = KO_FN_LETTER_TO_NUM[ch];
+      return n ? `(KN:${n})` : '';
+    });
     text = text.replace(/(\d+)\)\s*/g, '(KN:$1)');
     const verseLabel = numStr.includes('-') ? numStr : num;
     if (text.length > 1) verses.push({ verse: verseLabel, text });
