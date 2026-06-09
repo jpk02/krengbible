@@ -125,9 +125,9 @@ body.dark .modal-back:hover{background:rgba(255,255,255,.06)}
    Within a paragraph: normal line-height.  Between paragraphs: margin-bottom
    for breathing room.  Auto-grows with content. */
 .qt-textarea{width:100%;background:transparent;border:none;font-size:15px;line-height:1.6;color:var(--text);min-height:240px;outline:none;letter-spacing:-.005em;word-break:break-word;-webkit-user-select:text;user-select:text}
-.qt-textarea p{margin:0 0 1.6em 0}
+.qt-textarea p{margin:0 0 .5em 0}
 .qt-textarea p:last-child{margin-bottom:0}
-.qt-textarea div{margin:0 0 1.6em 0}
+.qt-textarea div{margin:0 0 .5em 0}
 .qt-textarea div:last-child{margin-bottom:0}
 .qt-textarea br + br{display:none}
 .qt-textarea:empty:before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
@@ -766,6 +766,28 @@ var qtEditorContext = { date: null, readonly: false };
 // returns the user to that list rather than dropping them on the calendar.
 var _qtEditorFromHistory = false;
 
+// Body scroll lock — prevents the main page from scrolling behind the modal
+// when the contenteditable is focused and iOS tries to bring it into view.
+var _bodyLockY = 0;
+function bodyLock(){
+  if(document.body.dataset.locked === '1') return;
+  _bodyLockY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  document.body.style.position = 'fixed';
+  document.body.style.top = '-' + _bodyLockY + 'px';
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.dataset.locked = '1';
+}
+function bodyUnlock(){
+  if(document.body.dataset.locked !== '1') return;
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  window.scrollTo(0, _bodyLockY);
+  document.body.dataset.locked = '0';
+}
+
 // Get / set the contenteditable QT body, treating double-newline as paragraph
 // breaks and single-newline as line breaks within a paragraph.
 function qtTextGet(){
@@ -847,16 +869,34 @@ function openQtEditorFor(dateKey_, readonly){
     }
   }
   modal.classList.remove('hidden');
+  bodyLock();
   if(!readonly) setTimeout(function(){ document.getElementById('qt-passage').focus(); }, 200);
 }
 function closeQtEditor(){
-  document.getElementById('qt-editor').classList.add('hidden');
-  // If we opened the editor from the history list, re-open history so the user
-  // can keep browsing their entries.
+  // Blur any focused contenteditable / input first so the iOS keyboard starts
+  // dismissing before the modal hides.  Otherwise the back-tap feels laggy.
+  if(document.activeElement && document.activeElement.blur && document.activeElement !== document.body){
+    try { document.activeElement.blur(); } catch(e){}
+  }
   if(_qtEditorFromHistory){
     _qtEditorFromHistory = false;
-    // Re-open after a short delay so the editor's hide transition completes.
-    setTimeout(function(){ openQtHistory(); }, 20);
+    // Open history first so it's already covering the area when the editor
+    // hides — no main-page flicker between the two.
+    openQtHistory();
+    document.getElementById('qt-editor').classList.add('hidden');
+  } else {
+    document.getElementById('qt-editor').classList.add('hidden');
+    maybeUnlockBody();
+  }
+}
+function maybeUnlockBody(){
+  var qe = document.getElementById('qt-editor');
+  var qh = document.getElementById('qt-history-modal');
+  var qc = document.getElementById('qt-confirm');
+  if((!qe || qe.classList.contains('hidden')) &&
+     (!qh || qh.classList.contains('hidden')) &&
+     (!qc || qc.classList.contains('hidden'))){
+    bodyUnlock();
   }
 }
 function saveQt(){
@@ -907,6 +947,7 @@ function openQtHistory(){
     attachSwipeHandlers();
   }
   document.getElementById('qt-history-modal').classList.remove('hidden');
+  bodyLock();
 }
 
 function qtRowClick(k, ev){
@@ -996,15 +1037,11 @@ function qtEditorDelete(){
   qtAskDelete(k);
 }
 function qtEditorUndo(){
-  // Undo the last typing change in whichever field is currently focused —
-  // falls back to the textarea if neither is focused.  execCommand('undo')
-  // works on textareas/inputs in all major browsers including iOS Safari.
+  // Undo only if a QT field is already focused — otherwise calling focus()
+  // would pop the keyboard for no reason.  No-op if the user isn't actively
+  // typing.
   var focused = document.activeElement;
-  var target = (focused && (focused.id === 'qt-passage' || focused.id === 'qt-text'))
-    ? focused
-    : document.getElementById('qt-text');
-  if(!target) return;
-  target.focus();
+  if(!focused || (focused.id !== 'qt-passage' && focused.id !== 'qt-text')) return;
   try { document.execCommand('undo'); } catch(e){}
 }
 function qtEditorShare(){
@@ -1077,6 +1114,7 @@ function qtConfirmDelete(){
 }
 function closeQtHistory(){
   document.getElementById('qt-history-modal').classList.add('hidden');
+  maybeUnlockBody();
 }
 function historyOpenEntry(k){
   // Close history modal first so the editor (same z-index) is actually visible.
