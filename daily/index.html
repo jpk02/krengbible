@@ -121,8 +121,16 @@ body.dark .modal-back:hover{background:rgba(255,255,255,.06)}
 .modal-date{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:14px}
 .passage-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);padding:10px 0;font-size:18px;font-weight:600;color:var(--text);outline:none;margin-bottom:22px;letter-spacing:-.01em}
 .passage-input::placeholder{color:var(--muted);font-weight:500}
-.qt-textarea{width:100%;background:transparent;border:none;font-size:15px;line-height:2.55;color:var(--text);min-height:300px;outline:none;resize:none;letter-spacing:-.005em}
-.qt-textarea::placeholder{color:var(--muted)}
+/* The QT body is a contenteditable so Enter creates a real paragraph block.
+   Within a paragraph: normal line-height.  Between paragraphs: margin-bottom
+   for breathing room.  Auto-grows with content. */
+.qt-textarea{width:100%;background:transparent;border:none;font-size:15px;line-height:1.6;color:var(--text);min-height:240px;outline:none;letter-spacing:-.005em;word-break:break-word;-webkit-user-select:text;user-select:text}
+.qt-textarea p{margin:0 0 1.6em 0}
+.qt-textarea p:last-child{margin-bottom:0}
+.qt-textarea div{margin:0 0 1.6em 0}
+.qt-textarea div:last-child{margin-bottom:0}
+.qt-textarea br + br{display:none}
+.qt-textarea:empty:before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
 .modal-readonly-banner{background:rgba(0,0,0,.04);color:var(--muted);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;letter-spacing:.02em;margin-bottom:18px;text-align:center}
 body.dark .modal-readonly-banner{background:rgba(255,255,255,.06)}
 
@@ -134,14 +142,13 @@ body.dark .qt-row{background:#b91c1c}
 .qt-row-card{position:relative;background:var(--card);border:.5px solid var(--border);padding:14px 16px;cursor:pointer;transition:transform .22s cubic-bezier(0.25,0.46,0.45,0.94);will-change:transform;-webkit-user-select:none;user-select:none;border-radius:14px}
 .qt-row.dragging .qt-row-card{transition:none}
 
-/* Bottom action row in the QT editor: Cancel + Save side-by-side */
-.qt-editor-actions{margin-top:32px;display:flex;align-items:center;gap:10px}
-.qt-editor-cancel{flex:1;background:transparent;border:1px solid var(--border);color:var(--muted);padding:14px;border-radius:12px;font-size:15px;font-weight:600;letter-spacing:.01em;transition:background .15s,color .15s,transform .1s}
-.qt-editor-cancel:active{transform:scale(.98)}
+/* Bottom action row in the QT editor: minimal Cancel + Save buttons */
+.qt-editor-actions{margin-top:28px;display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.qt-editor-cancel{background:transparent;color:var(--muted);padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;letter-spacing:.01em;transition:background .15s,color .15s}
 .qt-editor-cancel:hover{background:rgba(0,0,0,.04);color:var(--text)}
 body.dark .qt-editor-cancel:hover{background:rgba(255,255,255,.06);color:var(--text)}
-.qt-editor-save{flex:1.4;background:var(--accent);color:var(--accent-text);padding:14px;border-radius:12px;font-size:15px;font-weight:600;letter-spacing:.01em;transition:opacity .15s,transform .1s}
-.qt-editor-save:active{transform:scale(.98)}
+.qt-editor-save{background:var(--accent);color:var(--accent-text);padding:8px 20px;border-radius:8px;font-size:14px;font-weight:600;letter-spacing:.01em;transition:opacity .15s,transform .1s}
+.qt-editor-save:active{transform:scale(.97)}
 
 /* Top header icon buttons (undo, share, trash) — match the back arrow style */
 .qt-editor-icon{background:none;color:var(--muted);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s}
@@ -272,7 +279,7 @@ body.dark .qt-history-btn{color:#8ba3d4}
     <div class="modal-date" id="qt-editor-date"></div>
     <div class="modal-readonly-banner hidden" id="qt-readonly-banner">읽기 전용</div>
     <input type="text" class="passage-input" id="qt-passage" placeholder="요한복음 3:16-21" autocomplete="off" spellcheck="false">
-    <textarea class="qt-textarea" id="qt-text" placeholder="오늘의 QT를 작성하세요..."></textarea>
+    <div class="qt-textarea" id="qt-text" contenteditable="true" data-placeholder="오늘의 QT를 작성하세요..." spellcheck="false"></div>
     <div class="qt-editor-actions" id="qt-editor-actions">
       <button class="qt-editor-cancel" onclick="closeQtEditor()" id="qt-cancel-btn">취소</button>
       <button class="qt-editor-save" onclick="saveQt()" id="qt-save-btn">저장</button>
@@ -758,6 +765,30 @@ var qtEditorContext = { date: null, readonly: false };
 // Set when the editor was opened from the history list, so closing the editor
 // returns the user to that list rather than dropping them on the calendar.
 var _qtEditorFromHistory = false;
+
+// Get / set the contenteditable QT body, treating double-newline as paragraph
+// breaks and single-newline as line breaks within a paragraph.
+function qtTextGet(){
+  var el = document.getElementById('qt-text');
+  if(!el) return '';
+  // innerText preserves visual line breaks across paragraphs and <br> tags,
+  // which is what we want.  Collapse runs of 3+ newlines down to 2.
+  return (el.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+}
+function qtTextSet(text){
+  var el = document.getElementById('qt-text');
+  if(!el) return;
+  text = String(text || '');
+  if(!text){ el.innerHTML = ''; return; }
+  // Split on blank lines into paragraphs, then split each paragraph on \n into
+  // <br>-joined inner content.  Each paragraph is its own <p> so margin-bottom
+  // CSS gives the breathing room the user wanted.
+  var paras = text.split(/\n{2,}/);
+  el.innerHTML = paras.map(function(p){
+    var inner = p.split('\n').map(escHTML).join('<br>');
+    return '<p>' + inner + '</p>';
+  }).join('');
+}
 function openTodayQt(){
   _qtEditorFromHistory = false;
   openQtEditorFor(todayKey(), false);
@@ -768,9 +799,9 @@ function openQtEditorFor(dateKey_, readonly){
   var entry = getQtEntry(dateKey_) || { passageRef:'', text:'' };
   var modal = document.getElementById('qt-editor');
   document.getElementById('qt-passage').value = entry.passageRef || '';
-  document.getElementById('qt-text').value = entry.text || '';
+  qtTextSet(entry.text || '');
   document.getElementById('qt-passage').readOnly = readonly;
-  document.getElementById('qt-text').readOnly = readonly;
+  document.getElementById('qt-text').setAttribute('contenteditable', readonly ? 'false' : 'true');
   // Save + Cancel buttons (bottom row) — hidden in read-only mode.
   var saveBtn = document.getElementById('qt-save-btn');
   var cancelBtn = document.getElementById('qt-cancel-btn');
@@ -831,7 +862,7 @@ function closeQtEditor(){
 function saveQt(){
   if(qtEditorContext.readonly) return;
   var ref = document.getElementById('qt-passage').value.trim();
-  var text = document.getElementById('qt-text').value.trim();
+  var text = qtTextGet();
   if(!ref && !text){
     closeQtEditor();
     return;
@@ -957,11 +988,11 @@ function qtCancelDelete(){
   document.getElementById('qt-confirm').classList.add('hidden');
 }
 function qtEditorDelete(){
-  // Triggered by the header trash icon.  Closes the editor first so the
-  // confirmation modal is the only thing on top.
+  // Triggered by the header trash icon.  Show the confirmation modal on top
+  // of the editor — the editor stays open in the background.  Closes only
+  // if the user confirms; if they cancel, the editor is right there.
   var k = qtEditorContext.date;
   if(!k) return;
-  closeQtEditor();
   qtAskDelete(k);
 }
 function qtEditorUndo(){
@@ -981,7 +1012,7 @@ function qtEditorShare(){
   // API is supported on iOS Safari, Android Chrome.  Falls back to a copy-
   // to-clipboard message on desktop where share isn't available.
   var passage = document.getElementById('qt-passage').value.trim();
-  var text = document.getElementById('qt-text').value.trim();
+  var text = qtTextGet();
   var k = qtEditorContext.date;
   var parts = [];
   if(passage) parts.push(passage);
@@ -1031,9 +1062,17 @@ function qtConfirmDelete(){
     } catch(e){}
   }
   _qtDeletePending = null;
-  _swipeRevealed = null;
   document.getElementById('qt-confirm').classList.add('hidden');
-  openQtHistory(); // refresh list
+  // If the editor was open (because trash was tapped from inside it), close
+  // it now that the entry is gone.  closeQtEditor will handle returning to
+  // the history list if we came from there.
+  var editor = document.getElementById('qt-editor');
+  if(editor && !editor.classList.contains('hidden')){
+    closeQtEditor();
+  } else {
+    // Trash was tapped from the history list directly — refresh that view.
+    openQtHistory();
+  }
   render();        // refresh calendar dots + today section
 }
 function closeQtHistory(){
