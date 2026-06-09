@@ -209,6 +209,22 @@ function parseNkrvHtml(html) {
     let text = raw
       .replace(/<font\b[^>]*class=["']smallTitle["'][^>]*>[\s\S]*?<\/font>/gi, '')
       .replace(/<div[^>]*>[\s\S]*?<\/div>/gi, '')
+      // Extract footnote markers from bskorea's <a class=comment>...<font>N)</font></a>
+      // tags BEFORE the general <a> strip below.  Marker may be digit (1, 2, ...) or
+      // Korean consonant (ㄱ, ㄴ, ...); normalize Korean letters to position numbers
+      // so the key matches the digit-keyed `footnotes` dict.
+      .replace(
+        /<a\s+class=["']?comment["']?[^>]*>[\s\S]*?<font[^>]*>([ㄱ-ㅎ\d]+)\)<\/font>[\s\S]*?<\/a>/gi,
+        (_, marker) => {
+          let key = marker;
+          if (/^[ㄱ-ㅎ]+$/.test(key)) {
+            const mapped = KO_FN_LETTER_TO_NUM[key];
+            if (!mapped) return '';
+            key = String(mapped);
+          }
+          return `(KN:${key})`;
+        }
+      )
       .replace(/<a[^>]*>[\s\S]*?<\/a>/gi, '')
       .replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '')
       .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, '')
