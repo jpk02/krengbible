@@ -1334,6 +1334,12 @@ function sheetSelectCh(ch){bi=pendingBook;ci=ch;loaded=true;sheetClose();updateL
 function sheetClose(){document.getElementById('mob-sheet').classList.add('hidden');pendingBook=null;}
 function adjFont(d){fs=Math.min(22,Math.max(11,fs+d));applyFs();var p=document.querySelector('.mob-font-preview');if(p)p.textContent='가 Aa — '+fs+'px';if(typeof fbPushSettings==='function')fbPushSettings();}
 async function load(){
+  // Dismiss any open highlight bar on every chapter render.  Catches
+  // swipe navigation, edge arrows, sheet selection, passage input,
+  // and intro view — anything that ends up calling load().  Without
+  // this, the highlight bar from the previous chapter persists into
+  // the new one because nothing else tells it to hide.
+  if(typeof hlHideToolbar==='function')hlHideToolbar();
   var bk=BOOKS[bi];
   var ebp=document.getElementById('edge-bp');if(ebp)ebp.disabled=(bi===0&&ci===1);
   var ebn=document.getElementById('edge-bn');if(ebn)ebn.disabled=(bi===BOOKS.length-1&&ci===bk.ch);
