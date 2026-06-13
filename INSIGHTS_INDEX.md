@@ -435,6 +435,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Four women named (Tamar, Rahab, Ruth, "the wife of Uriah") — messianic line moves through grace not pedigree; Gentile inclusion (Rahab, Ruth) built into the foundation, Matt 28:19 not a late add-on; broken sexual situations named not airbrushed; Heb 11:31 inherits the unembarrassment
 - Two names: Jesus (Yeshua, "the LORD saves") — what He DOES; Immanuel (Isa 7:14 fulfilled) — who He IS; order matters (deed → identity); Matt 28:20 "I am with you always" as Immanuel speaking the final verse, having been Jesus the whole way through
 
+**Matt 2 — Magi, Hosea 11:1, Rachel weeping**
+- Pagan magi as Persian/Babylonian astrologer-priests; Deut 18:10-12 forbids their craft yet they reach the cradle; Num 24:17 (Balaam's star) traveled with them; general revelation as prelude, special revelation (Mic 5:2 in Jerusalem priests' mouths) completes; star decommissioned once Scripture speaks
+- Hosea 11:1 "out of Egypt I called my son" — originally about Israel's exodus, Matthew applies to Jesus' return from Egypt because Jesus is the true Israel; typology not allegory; Jesus retraces Israel's failure points (Egypt → wilderness → mountain) and obeys where Israel collapsed; foundational lens for all NT-uses-OT
+- Holy Innocents — slaughter as historical underside of Rev 12 (dragon waiting for child); incarnation arrives in war zone, not safety; babies as first martyrs not collateral; Jer 31:15 quoted because Jer 31:16-17 promises hope and Jer 31:31-34 promises the new covenant — Rachel's weeping is in the new-covenant chapter on purpose
+
 ---
 
 ### Colossians
