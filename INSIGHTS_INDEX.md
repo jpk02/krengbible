@@ -440,6 +440,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Hosea 11:1 "out of Egypt I called my son" — originally about Israel's exodus, Matthew applies to Jesus' return from Egypt because Jesus is the true Israel; typology not allegory; Jesus retraces Israel's failure points (Egypt → wilderness → mountain) and obeys where Israel collapsed; foundational lens for all NT-uses-OT
 - Holy Innocents — slaughter as historical underside of Rev 12 (dragon waiting for child); incarnation arrives in war zone, not safety; babies as first martyrs not collateral; Jer 31:15 quoted because Jer 31:16-17 promises hope and Jer 31:31-34 promises the new covenant — Rachel's weeping is in the new-covenant chapter on purpose
 
+**Matt 3 — John the Baptist, Jesus' baptism, Trinity at the Jordan**
+- John as Elijah-figure (Mal 3:1 + 4:5; 2 Kgs 1:8 dress); 400-year prophetic silence breaking; baptism applied to Jewish covenant insiders is the scandal (pedigree saves no one; 3:9 stones-to-Abraham); leveling mountains and filling valleys (Isa 40) is the forerunner's job for every preacher pre-Christ
+- Why the sinless baptized: identification with sinners as rehearsal of the cross's substitution; retracing Israel's path (Red Sea → wilderness ≈ Jordan → wilderness, 1 Cor 10:1-2); public inauguration as Son — anointing of King and Servant
+- First explicit Trinity scene in NT — Father (voice), Son (in water), Spirit (descending); Ps 2:7 (Son-King) and Isa 42:1 (Servant) fused in one declaration so conquering King and suffering Servant placed on one Person; revealed not at temple but at riverbank among confessing sinners
+
 ---
 
 ### Colossians
