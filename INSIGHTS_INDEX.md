@@ -445,6 +445,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Why the sinless baptized: identification with sinners as rehearsal of the cross's substitution; retracing Israel's path (Red Sea → wilderness ≈ Jordan → wilderness, 1 Cor 10:1-2); public inauguration as Son — anointing of King and Servant
 - First explicit Trinity scene in NT — Father (voice), Son (in water), Spirit (descending); Ps 2:7 (Son-King) and Isa 42:1 (Servant) fused in one declaration so conquering King and suffering Servant placed on one Person; revealed not at temple but at riverbank among confessing sinners
 
+**Matt 4 — Three temptations, Galilee of the Gentiles, fishermen called**
+- Three temptations as Deuteronomy re-run: Deut 8:3 (bread/hunger), Deut 6:16 (presumption/Massah), Deut 6:13 (worship/idolatry) — Jesus as true Israel and second Adam passing the wilderness exam Israel failed; testing what kind of Son He will be; bread = self-provision outside Father's timing, temple-leap = manipulating promises, kingdoms = crown without cross
+- Galilee of the Gentiles (Isa 9:1-2 fulfillment) — Christ deliberately based in despised mixed northern region, not Jerusalem; same margin-first pattern as four women, Bethlehem, magi; sets up Matt 28:19 commission
+- Immediately they left their nets — abruptness as Matthew's point; nets + father as symbols of livelihood + lineage (later spelled out in 10:37, 19:29); call begins with vocation not theology — old craft re-aimed not erased; Matthew strips John's prior-meeting backstory to emphasize the rupture
+
 ---
 
 ### Colossians
