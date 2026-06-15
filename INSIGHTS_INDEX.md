@@ -450,6 +450,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Galilee of the Gentiles (Isa 9:1-2 fulfillment) — Christ deliberately based in despised mixed northern region, not Jerusalem; same margin-first pattern as four women, Bethlehem, magi; sets up Matt 28:19 commission
 - Immediately they left their nets — abruptness as Matthew's point; nets + father as symbols of livelihood + lineage (later spelled out in 10:37, 19:29); call begins with vocation not theology — old craft re-aimed not erased; Matthew strips John's prior-meeting backstory to emphasize the rupture
 
+**Matt 5 — Beatitudes, Law fulfillment, antitheses**
+- Beatitudes as indicatives not imperatives — announcing who is already kingdom citizens, not commands to become poor/sad; one kind of person from eight angles; kingdom-belongs bracket (5:3, 5:10); Isa 61 standing fulfilled; pastoral edge against piling more law on tired consciences
+- "Not abolish but fulfill" — *plērōsai* = bringing to intended completion via obedience + embodiment + deepening; three-fold moral/ceremonial/civil distinction (moral binding, ceremonial finished in Christ per Heb 10, civil expired with Israel as theocracy); Jesus relaxes nothing, deepens everything
+- Six antitheses ("but I say to you") — Pharisaic narrowing to behavior, Jesus pushes to heart-root (anger → murder, lust → adultery); Sermon designed to crush self-righteousness AND reveal the holiness gospel produces (Rom 8:15, Jer 31:33); 5:48 as goal of grace not threshold of merit
+
 ---
 
 ### Colossians
