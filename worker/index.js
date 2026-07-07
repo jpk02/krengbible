@@ -158,6 +158,57 @@ const KO_FN_LETTER_TO_NUM = {
   'ㅇ': 8, 'ㅈ': 9, 'ㅊ': 10, 'ㅋ': 11, 'ㅌ': 12, 'ㅍ': 13, 'ㅎ': 14
 };
 
+// bskorea's cross-reference anchors encode a target verse as
+// "BGAE" + 3-char NKRV book code + 3-digit chapter + 3-digit verse,
+// e.g. "BGAEmrk002001" -> Mark 2:1.  All NKRV_CODES entries are
+// exactly 3 characters, so this is fixed-width and safe to parse.
+function parseTarRef(tar) {
+  const m = /^BGAE([a-z0-9]{3})(\d{3})(\d{3})$/.exec(tar);
+  if (!m) return null;
+  const bookIdx = NKRV_CODES.indexOf(m[1]);
+  if (bookIdx === -1) return null;
+  return { bookIdx, chapter: parseInt(m[2], 10), verse: parseInt(m[3], 10) };
+}
+
+// Section headings on bskorea look like:
+//   <font class="smallTitle">중풍병자를 고치시다(<a TAR="BGAEmrk002001">막 2:1-12</A>; <a TAR="BGAEluk005017">눅 5:17-26</A>)</font>
+// immediately followed (after a couple of <br/> tags) by the verse
+// span the heading introduces.  Extract the plain title, the
+// Synoptic-parallel links (both a human label and a parsed jump
+// target), and the verse number the heading anchors to.
+function extractHeadings(html) {
+  const headings = [];
+  const titleRe = /<font class="smallTitle">([\s\S]*?)<\/font>/gi;
+  let m;
+  while ((m = titleRe.exec(html)) !== null) {
+    const block = m[1];
+
+    const parallels = [];
+    const aRe = /<a\s+TAR=["']?([^"'>]+)["']?[^>]*>([^<]+)<\/a>/gi;
+    let am;
+    while ((am = aRe.exec(block)) !== null) {
+      parallels.push({ label: am[2].trim(), ref: parseTarRef(am[1]) });
+    }
+
+    const plainBlock = block
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .trim();
+    const title = plainBlock.split('(')[0].trim();
+    if (!title) continue;
+
+    // The verse this heading introduces is the next "number" span
+    // after the heading closes — look a short distance ahead rather
+    // than re-parsing the whole document.
+    const afterIdx = titleRe.lastIndex;
+    const nextNumMatch = /<span class="number">(\d+)/.exec(html.slice(afterIdx, afterIdx + 500));
+    if (nextNumMatch) {
+      headings.push({ verse: parseInt(nextNumMatch[1], 10), title, parallels });
+    }
+  }
+  return headings;
+}
+
 function parseNkrvHtml(html) {
   const divTextMap = {};
   const d2Re = /<div\b[^>]*\bid=['"]?(D_\d+_\d+)['"]?[^>]*>/gi;
@@ -257,7 +308,102 @@ function parseNkrvHtml(html) {
     if (text.length > 1) verses.push({ verse: verseLabel, text });
   }
 
-  return { verses, footnotes };
+  const headings = extractHeadings(html);
+
+  return { verses, footnotes, headings };
+}
+
+// ---- ESV headings + cross-references (best-effort, additive) ----
+// Fetches the SAME passage from ESV's HTML endpoint (separate from the
+// proven text-endpoint fetch used for verses/footnotes, which this
+// never touches) purely to harvest section headings and cross-refs.
+// Uses HTMLRewriter (Workers' native streaming HTML parser) rather
+// than regex, since we don't have a verified copy of ESV's exact
+// output markup to test against — HTMLRewriter degrades gracefully
+// (matches nothing, returns empty arrays) if a selector doesn't hit,
+// rather than throwing on malformed-regex-assumptions.  `verse-num`
+// is confirmed from ESV's own docs example; the heading tag level
+// (h2/h3/h4) and crossref container class are reasonable but
+// UNVERIFIED guesses — check real output after deploying and refine
+// the selectors below if headings/crossrefs come back empty.
+async function fetchEsvHeadingsAndCrossrefs(q, env) {
+  try {
+    const htmlUrl = 'https://api.esv.org/v3/passage/html/?q=' + encodeURIComponent(q)
+      + '&include-headings=true&include-subheadings=true&include-crossrefs=true'
+      + '&include-footnotes=false&include-verse-numbers=true'
+      + '&include-passage-references=false&include-audio-link=false'
+      + '&include-css-link=false&include-copyright=false&include-short-copyright=false'
+      + '&include-chapter-numbers=false&include-book-titles=false';
+    const resp = await fetch(htmlUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
+    if (!resp.ok) return { headings: [], crossrefs: [] };
+    const data = await resp.json();
+    const htmlStr = data.passages && data.passages[0];
+    if (!htmlStr) return { headings: [], crossrefs: [] };
+    return await parseEsvHtmlForHeadingsAndCrossrefs(htmlStr);
+  } catch (e) {
+    return { headings: [], crossrefs: [] };
+  }
+}
+
+async function parseEsvHtmlForHeadingsAndCrossrefs(htmlStr) {
+  const headings = [];
+  const crossrefs = [];
+  let pendingHeading = null;
+  let headingBuf = '';
+  let inHeading = false;
+  let currentVerse = null;
+
+  const rewriter = new HTMLRewriter()
+    .on('h2, h3, h4', {
+      // Finalize on the heading's own end tag, not on lastInTextNode —
+      // ESV wraps the divine name in a nested <span class="divine-name">
+      // (e.g. "Seek the <span>Lord</span> and Live"), and lastInTextNode
+      // fires per text NODE, which ends at that nested span's boundary
+      // and would truncate the title before "and Live".
+      element(el) {
+        inHeading = true;
+        headingBuf = '';
+        el.onEndTag(() => {
+          const title = headingBuf.replace(/\s+/g, ' ').trim();
+          if (title) pendingHeading = title;
+          inHeading = false;
+        });
+      },
+      text(t) {
+        if (inHeading) headingBuf += t.text;
+      }
+    })
+    .on('b.verse-num', {
+      element(el) {
+        const id = el.getAttribute('id') || '';
+        // Format is "v{2-digit book}{3-digit chapter}{3-digit verse}-{instance}",
+        // e.g. "v43011035-1" = John(43) 11:35, instance 1.  The trailing
+        // "-N" is a paragraph-fragment index (almost always 1), NOT the
+        // verse number — the verse is the last 3 digits of the 8-digit
+        // OSIS-style code before the dash.
+        const m = /^v\d{2}\d{3}(\d{3})-\d+$/.exec(id);
+        if (!m) return;
+        currentVerse = parseInt(m[1], 10);
+        if (pendingHeading) {
+          headings.push({ verse: currentVerse, title: pendingHeading });
+          pendingHeading = null;
+        }
+      }
+    })
+    .on('a.cf', {
+      // Inline cross-ref markers look like
+      // <sup><a class="cf" href="Jeremiah 6:17; Ezekiel 33:2/" title="Jer. 6:17; Ezek. 33:2">i</a></sup>
+      // — the full reference is right in href, no endnote-list
+      // correlation needed.  Strip the trailing "/" ESV appends.
+      element(el) {
+        const href = el.getAttribute('href') || '';
+        const label = href.replace(/\/$/, '').trim();
+        if (label && currentVerse) crossrefs.push({ verse: currentVerse, label });
+      }
+    });
+
+  await rewriter.transform(new Response(htmlStr)).text();
+  return { headings, crossrefs };
 }
 
 async function fetchChapterFromBskorea(bookNum, chapter) {
@@ -1370,8 +1516,12 @@ export default {
         "Cache-Control": "no-store, must-revalidate"
       };
 
-      // Cache forever per query — ESV text is static.  Key is the raw q string.
-      const cacheKey = 'esv_raw_' + q;
+      // Cache forever per query — ESV text is static.  Key is versioned so
+      // response-shape changes (e.g. adding headings/crossrefs) bust every
+      // previously-cached chapter automatically instead of silently
+      // serving the old shape forever with no invalidation path.  Bump
+      // this version string whenever the /esv/ response shape changes.
+      const cacheKey = 'esv_raw_v3_' + q;
       if (env.COMMENTARY_KV) {
         const cached = await env.COMMENTARY_KV.get(cacheKey);
         if (cached) return new Response(cached, { headers: respHeaders });
@@ -1419,6 +1569,13 @@ export default {
           status: 503, headers: respHeaders
         });
       }
+
+      // Headings + crossrefs are a separate, best-effort fetch from the
+      // HTML endpoint — failures there fall back to empty arrays and
+      // never affect the verse/footnote data above.
+      const extra = await fetchEsvHeadingsAndCrossrefs(q, env);
+      data.headings = extra.headings;
+      data.crossrefs = extra.crossrefs;
 
       // Only cache real passage data (not error responses leaking through).
       const body = JSON.stringify(data);
