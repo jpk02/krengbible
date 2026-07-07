@@ -484,7 +484,7 @@ async function handleBuildIndex(env, url, cors) {
     const batch = ordinals.slice(i, i + concurrency);
     const results = await Promise.all(batch.map(async (ord) => {
       const [bookIdx, chapter] = ordinalToBookChapter(ord);
-      const key = `nkrv_${bookIdx + 1}_${chapter}`;
+      const key = `nkrv_v2_${bookIdx + 1}_${chapter}`;
       try {
         let data = null;
         if (!refetch && env.COMMENTARY_KV) {
@@ -1875,7 +1875,10 @@ Only output valid JSON, no markdown, no preamble.`;
     else if (m2) { bookNum = +m2[1]; chapter = +m2[2]; }
     else return new Response(JSON.stringify({error:"Use /nkrv/{book}/{chapter}"}), {status:400, headers:{...cors,"Content-Type":"application/json"}});
 
-    const verseKey = `nkrv_${bookNum}_${chapter}`;
+    // v2: response gained `headings`.  Versioned so every previously
+    // cached chapter (this cache has no TTL) picks up the new field
+    // instead of silently serving the old shape forever.
+    const verseKey = `nkrv_v2_${bookNum}_${chapter}`;
     if (env.COMMENTARY_KV) {
       const cachedVerses = await env.COMMENTARY_KV.get(verseKey);
       if (cachedVerses) {
