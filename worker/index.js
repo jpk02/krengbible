@@ -524,6 +524,111 @@ async function fetchChapterFromBskorea(bookNum, chapter) {
   return parseNkrvHtml(html);
 }
 
+// NKRV (Korean) section headings are the app's canonical section
+// structure — they're the ones that carry Synoptic-parallel links, and
+// they're what an English reader should see too rather than losing the
+// structure entirely.  ESV's own headings are shown natively alongside
+// them (see ChapterPane), but only NKRV's need a translation path.
+// Cached per unique title string (not per chapter) since headings do
+// repeat across the canon ("기도" etc), so the one-time translation
+// cost is amortized across every chapter that shares a title.
+//
+// `ok: false` on the returned object (mirrors fetchEsvHeadingsAndCrossrefs)
+// means the translation genuinely failed after retries — some entries
+// may be missing `titleEn`.  Caller must NOT write this into a no-TTL
+// forever cache, same reasoning as the ESV headings bug: a throttled
+// translation call must never permanently bake in a missing/wrong title.
+async function translateHeadingsToEnglish(headings, env) {
+  if (!headings || headings.length === 0) return { headings: headings || [], ok: true };
+
+  const results = new Array(headings.length);
+  const toTranslate = [];
+  for (let i = 0; i < headings.length; i++) {
+    const cacheKey = `heading_tr_v1_en_${headings[i].title}`;
+    const cached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(cacheKey) : null;
+    if (cached) results[i] = cached;
+    else toTranslate.push(i);
+  }
+  if (toTranslate.length === 0) {
+    return { headings: headings.map((h, i) => ({ ...h, titleEn: results[i] })), ok: true };
+  }
+
+  const prompt = `Translate the following Korean Bible section headings into concise, natural English Bible section-heading style (the kind used in the ESV or NIV — short title-case phrase, no verse numbers, no explanation, no quotation marks).
+
+Respond with ONLY a JSON array of strings, same order, no markdown, no preamble:
+
+${toTranslate.map((idx, k) => `${k + 1}. ${headings[idx].title}`).join('\n')}`;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': env.ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 500,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      if (resp.status === 429) {
+        await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+        continue;
+      }
+      if (!resp.ok) break;
+      const aiData = await resp.json();
+      const text = aiData.content?.[0]?.text || '[]';
+      const clean = text.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
+      const arr = JSON.parse(clean);
+      if (!Array.isArray(arr) || arr.length !== toTranslate.length) break;
+      for (let k = 0; k < toTranslate.length; k++) {
+        const i = toTranslate[k];
+        const translated = String(arr[k] || '').trim();
+        if (!translated) continue;
+        results[i] = translated;
+        if (env.COMMENTARY_KV) {
+          await env.COMMENTARY_KV.put(`heading_tr_v1_en_${headings[i].title}`, translated);
+        }
+      }
+      const allDone = toTranslate.every((i) => results[i]);
+      return { headings: headings.map((h, i) => ({ ...h, titleEn: results[i] })), ok: allDone };
+    } catch (e) {
+      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+    }
+  }
+  return { headings: headings.map((h, i) => ({ ...h, titleEn: results[i] })), ok: false };
+}
+
+// ---- NKRV fetch + cache, shared by the live /nkrv/ route, the search-
+// index builder, and /qt-reflection.  Three separate call sites used to
+// each do their own fetch+cache — exactly the kind of duplication that
+// let the ESV heading-poisoning bug slip through one of three spots
+// unnoticed.  One shared path now, so heading translation can't be
+// skipped by whichever caller happens to populate the cache first. ----
+async function fetchAndCacheNkrv(bookNum, chapter, env) {
+  // v3: headings gained `titleEn` (see translateHeadingsToEnglish).
+  // Bumped so every already-cached chapter (no TTL) gets a real
+  // translation pass instead of serving the old shape forever.
+  const verseKey = `nkrv_v3_${bookNum}_${chapter}`;
+  if (env.COMMENTARY_KV) {
+    const cached = await env.COMMENTARY_KV.get(verseKey);
+    if (cached) return { ok: true, cached: true, data: JSON.parse(cached) };
+  }
+  const data = await fetchChapterFromBskorea(bookNum, chapter);
+  if (data.verses.length === 0) {
+    return { ok: false, error: 'parse_failed' };
+  }
+  const { headings: translatedHeadings, ok: translateOk } = await translateHeadingsToEnglish(data.headings, env);
+  data.headings = translatedHeadings;
+  if (env.COMMENTARY_KV && translateOk) {
+    await env.COMMENTARY_KV.put(verseKey, JSON.stringify(data));
+  }
+  return { ok: true, cached: false, data };
+}
+
 // Strip (KN:NN) markers from a verse for clean search display.
 function cleanForSearch(text) {
   return text.replace(/\(KN:\d+\)/g, '').replace(/\s+/g, ' ').trim();
@@ -587,22 +692,17 @@ async function handleBuildIndex(env, url, cors) {
     const batch = ordinals.slice(i, i + concurrency);
     const results = await Promise.all(batch.map(async (ord) => {
       const [bookIdx, chapter] = ordinalToBookChapter(ord);
-      const key = `nkrv_v2_${bookIdx + 1}_${chapter}`;
       try {
-        let data = null;
-        if (!refetch && env.COMMENTARY_KV) {
-          const cached = await env.COMMENTARY_KV.get(key);
-          if (cached) {
-            data = JSON.parse(cached);
-            fromCache++;
-          }
+        // refetch=1 means "ignore cache", which fetchAndCacheNkrv can't
+        // do internally — bust the entry first so its own cache check
+        // is a genuine miss.
+        if (refetch && env.COMMENTARY_KV) {
+          await env.COMMENTARY_KV.delete(`nkrv_v3_${bookIdx + 1}_${chapter}`);
         }
-        if (!data) {
-          data = await fetchChapterFromBskorea(bookIdx + 1, chapter);
-          if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(key, JSON.stringify(data));
-          fetched++;
-        }
-        const verses = Array.isArray(data) ? data : (data.verses || []);
+        const result = await fetchAndCacheNkrv(bookIdx + 1, chapter, env);
+        if (!result.ok) throw new Error(result.error || 'nkrv_fetch_failed');
+        if (result.cached) fromCache++; else fetched++;
+        const verses = result.data.verses || [];
         return chapterToTuples(bookIdx, chapter, verses);
       } catch (e) {
         errored++;
@@ -1845,18 +1945,11 @@ Only output valid JSON, no markdown, no preamble.`;
 
       // Reuse the same per-chapter Korean cache /nkrv/ uses, so this
       // doesn't double-fetch bskorea for a chapter already cached.
-      const qtNkrvKey = `nkrv_v2_${qtBookNum}_${qtChapter}`;
-      let qtNkrvData = null;
-      const qtNkrvCached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(qtNkrvKey) : null;
-      if (qtNkrvCached) {
-        try { qtNkrvData = JSON.parse(qtNkrvCached); } catch (e) { qtNkrvData = null; }
+      const qtNkrvResult = await fetchAndCacheNkrv(qtBookNum, qtChapter, env);
+      if (!qtNkrvResult.ok) {
+        return new Response(JSON.stringify({error: qtNkrvResult.error || 'nkrv_fetch_failed'}), {status:502, headers:{...cors,'Content-Type':'application/json'}});
       }
-      if (!qtNkrvData) {
-        qtNkrvData = await fetchChapterFromBskorea(qtBookNum, qtChapter);
-        if (env.COMMENTARY_KV && qtNkrvData.verses.length > 0) {
-          await env.COMMENTARY_KV.put(qtNkrvKey, JSON.stringify(qtNkrvData));
-        }
-      }
+      const qtNkrvData = qtNkrvResult.data;
 
       const qtVersesInRange = (qtNkrvData.verses || []).filter(v => {
         const n = typeof v.verse === 'string' ? parseInt(v.verse, 10) : v.verse;
@@ -2077,25 +2170,12 @@ Respond in this exact JSON format, no markdown, no preamble. Each paragraph is i
     else if (m2) { bookNum = +m2[1]; chapter = +m2[2]; }
     else return new Response(JSON.stringify({error:"Use /nkrv/{book}/{chapter}"}), {status:400, headers:{...cors,"Content-Type":"application/json"}});
 
-    // v2: response gained `headings`.  Versioned so every previously
-    // cached chapter (this cache has no TTL) picks up the new field
-    // instead of silently serving the old shape forever.
-    const verseKey = `nkrv_v2_${bookNum}_${chapter}`;
-    if (env.COMMENTARY_KV) {
-      const cachedVerses = await env.COMMENTARY_KV.get(verseKey);
-      if (cachedVerses) {
-        return new Response(cachedVerses, {headers:{...cors,"Content-Type":"application/json","Cache-Control":"public, max-age=2592000, stale-while-revalidate=86400"}});
-      }
-    }
-
     try {
-      const data = await fetchChapterFromBskorea(bookNum, chapter);
-      if (data.verses.length === 0) {
-        return new Response(JSON.stringify({error:"parse_failed"}), {headers:{...cors,"Content-Type":"application/json"}});
+      const nkrvResult = await fetchAndCacheNkrv(bookNum, chapter, env);
+      if (!nkrvResult.ok) {
+        return new Response(JSON.stringify({error: nkrvResult.error || 'nkrv_fetch_failed'}), {headers:{...cors,"Content-Type":"application/json"}});
       }
-      const result = JSON.stringify(data);
-      if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(verseKey, result);
-      return new Response(result, {headers:{...cors,"Content-Type":"application/json","Cache-Control":"public, max-age=2592000, stale-while-revalidate=86400"}});
+      return new Response(JSON.stringify(nkrvResult.data), {headers:{...cors,"Content-Type":"application/json","Cache-Control":"public, max-age=2592000, stale-while-revalidate=86400"}});
     } catch (e) {
       return new Response(JSON.stringify({error: e.message}), {status:500, headers:{...cors,"Content-Type":"application/json"}});
     }
