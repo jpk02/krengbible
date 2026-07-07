@@ -10,6 +10,10 @@
 //   /search/en?q=...&page=...             -> English full-text search (FAST: uses pre-built index)
 //   /votd                                 -> Verse of the day + photo
 //   /nkrv/{book}/{chapter}                -> Korean Bible (NKRV), cached per chapter
+//   /admin/warm-esv?from=N&size=M&concurrency=N (X-Admin-Secret header, not ?secret= — keeps it out of URL logs)
+//                                                   -> Pre-fetch every ESV chapter into KV (live /esv/
+//                                                      cache, not the search index) so no request has
+//                                                      to call Crossway live.  Chunked, run repeatedly.
 //   /admin/build-index?secret=...&from=N&size=M     -> (re)build the Korean search index.  Chunked.
 //   /admin/merge-index?secret=...                   -> Merge KO chunks -> nkrv_search_index.
 //   /admin/build-en-index?secret=...&from=N&size=M  -> (re)build the ESV English search index.  Chunked.
@@ -402,6 +406,77 @@ async function parseEsvHtmlForHeadingsAndCrossrefs(htmlStr) {
   return { headings, crossrefs: [] };
 }
 
+// ---- ESV fetch + cache, shared by the live /esv/ route and the
+// /admin/warm-esv batch job.  Cache-hit short-circuits before any
+// network call — the admin warmer relies on this to skip chapters
+// that are already warm without burning a request on them. ----
+async function fetchAndCacheEsv(q, wantsExtras, env) {
+  // Cache forever per query — ESV text is static.  Key is versioned so
+  // response-shape changes (e.g. adding headings) bust every
+  // previously-cached chapter automatically instead of silently
+  // serving the old shape forever with no invalidation path.  Bump
+  // this version string whenever the /esv/ response shape changes.
+  // extras is part of the key too — an extras=0 (lite) and extras=1
+  // (full) response for the same query are genuinely different
+  // shapes, and sharing one cache slot would mean whichever fetched
+  // first "poisons" the other with a response missing fields it
+  // expects.
+  const cacheKey = 'esv_raw_v4_' + (wantsExtras ? 'x1_' : 'x0_') + q;
+  if (env.COMMENTARY_KV) {
+    const cached = await env.COMMENTARY_KV.get(cacheKey);
+    if (cached) return { ok: true, cached: true, body: cached };
+  }
+
+  const esvUrl = 'https://api.esv.org/v3/passage/text/?q=' + encodeURIComponent(q)
+    + '&include-headings=false&include-footnotes=true&include-verse-numbers=true'
+    + '&include-short-copyright=false&include-passage-references=false'
+    + '&indent-paragraphs=0&indent-poetry=false&include-chapter-numbers=false'
+    + '&indent-psalm-doxology=false&line-length=0';
+
+  // Retry on 429 with exponential backoff.  ESV sometimes returns 200 OK
+  // with a {"detail":"Request was throttled..."} body — treat that as a
+  // throttle too and retry, so a soft-throttle doesn't leak to the client.
+  let data = null, lastStatus = 0;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const esvResp = await fetch(esvUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
+    lastStatus = esvResp.status;
+    if (esvResp.ok) {
+      const parsed = await esvResp.json();
+      if (!parsed.passages || !parsed.passages[0]) {
+        if (parsed.detail || parsed.error || parsed.message) {
+          const wait = 500 * Math.pow(2, attempt);
+          await new Promise(r => setTimeout(r, wait));
+          continue;
+        }
+      }
+      data = parsed;
+      break;
+    }
+    if (esvResp.status === 429) {
+      const wait = 500 * Math.pow(2, attempt); // 500ms, 1s, 2s, 4s, 8s
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    const body = await esvResp.text();
+    return { ok: false, error: 'esv_status_' + esvResp.status, status: 502, detail: body };
+  }
+  if (!data || !data.passages || !data.passages[0]) {
+    return { ok: false, error: 'esv_throttled', status: 503, lastStatus };
+  }
+
+  const extra = wantsExtras
+    ? await fetchEsvHeadingsAndCrossrefs(q, env)
+    : { headings: [], crossrefs: [] };
+  data.headings = extra.headings;
+  data.crossrefs = extra.crossrefs;
+
+  const body = JSON.stringify(data);
+  if (env.COMMENTARY_KV) {
+    await env.COMMENTARY_KV.put(cacheKey, body);
+  }
+  return { ok: true, cached: false, body };
+}
+
 async function fetchChapterFromBskorea(bookNum, chapter) {
   const book = NKRV_CODES[bookNum - 1];
   const url = `https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE&book=${book}&chap=${chapter}`;
@@ -527,6 +602,64 @@ async function handleBuildIndex(env, url, cors) {
     nextUrl: done ? null : `/admin/build-index?secret=...&from=${nextFrom}&size=${size}`,
     totalChapters: TOTAL_CHAPTERS,
     done
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+// ---- /admin/warm-esv — pre-fetch every ESV chapter into KV so the
+// live /esv/ route and bulk offline-download both hit cache instead
+// of calling Crossway's API on every request.  Chunked like
+// build-index; run repeatedly with an advancing `from` until `done`.
+// Low default concurrency (2) — this is a one-time background job,
+// not latency-sensitive, so there's no reason to hammer ESV's rate
+// limit; fetchAndCacheEsv's own retry-with-backoff absorbs 429s.
+async function handleWarmEsv(env, url, cors, request) {
+  // Header-preferred (X-Admin-Secret) so the secret doesn't land in
+  // Cloudflare's URL-based access logs the way the other /admin/*
+  // endpoints' ?secret= query param does; query param still accepted
+  // for parity with those.
+  const secret = request.headers.get('X-Admin-Secret') || url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  const from = Math.max(0, parseInt(url.searchParams.get('from') || '0'));
+  const size = Math.min(200, Math.max(1, parseInt(url.searchParams.get('size') || '50')));
+  const concurrency = Math.min(4, Math.max(1, parseInt(url.searchParams.get('concurrency') || '2')));
+
+  const ordinals = [];
+  for (let o = from; o < Math.min(from + size, TOTAL_CHAPTERS); o++) ordinals.push(o);
+
+  let warmed = 0, alreadyCached = 0, errored = 0;
+  const errors = [];
+
+  for (let i = 0; i < ordinals.length; i += concurrency) {
+    const batch = ordinals.slice(i, i + concurrency);
+    await Promise.all(batch.map(async (ord) => {
+      const [bookIdx, chapter] = ordinalToBookChapter(ord);
+      const book = BOOK_NAMES_EN[bookIdx];
+      const q = book + ' ' + chapter;
+      try {
+        const result = await fetchAndCacheEsv(q, true, env);
+        if (!result.ok) {
+          errored++;
+          errors.push({ q, error: result.error });
+          return;
+        }
+        if (result.cached) alreadyCached++; else warmed++;
+      } catch (e) {
+        errored++;
+        errors.push({ q, error: e.message });
+      }
+    }));
+  }
+
+  const nextFrom = from + size < TOTAL_CHAPTERS ? from + size : null;
+  return new Response(JSON.stringify({
+    from, size, warmed, alreadyCached, errored,
+    errors: errors.slice(0, 20),
+    totalChapters: TOTAL_CHAPTERS,
+    nextFrom,
+    nextUrl: nextFrom === null ? null : `/admin/warm-esv?from=${nextFrom}&size=${size} (with X-Admin-Secret header)`,
+    done: nextFrom === null
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
@@ -1503,97 +1636,19 @@ export default {
       const q = url.searchParams.get('q');
       if (!q) return new Response(JSON.stringify({error:'missing q'}), {status:400, headers:{...cors,"Content-Type":"application/json"}});
 
-      // Headers used on every /esv/ response.  no-store keeps browsers (and
-      // Cloudflare edge) from caching, because our KV layer is the canonical
-      // cache and any previously-cached error responses must NOT linger.
       const respHeaders = {
         ...cors,
         "Content-Type": "application/json",
         "Cache-Control": "no-store, must-revalidate"
       };
-
-      // Cache forever per query — ESV text is static.  Key is versioned so
-      // response-shape changes (e.g. adding headings/crossrefs) bust every
-      // previously-cached chapter automatically instead of silently
-      // serving the old shape forever with no invalidation path.  Bump
-      // this version string whenever the /esv/ response shape changes.
-      // extras is part of the key too — an extras=0 (bulk download) and
-      // extras=1 (live read) response for the same query are genuinely
-      // different shapes, and sharing one cache slot would mean whichever
-      // fetched first "poisons" the other with a response missing fields
-      // it expects.
-      // v4: crossrefs removed (always empty array now) — previously
-      // cached responses have the old populated set.
       const wantsExtras = url.searchParams.get('extras') !== '0';
-      const cacheKey = 'esv_raw_v4_' + (wantsExtras ? 'x1_' : 'x0_') + q;
-      if (env.COMMENTARY_KV) {
-        const cached = await env.COMMENTARY_KV.get(cacheKey);
-        if (cached) return new Response(cached, { headers: respHeaders });
-      }
-
-      const esvUrl = 'https://api.esv.org/v3/passage/text/?q=' + encodeURIComponent(q)
-        + '&include-headings=false&include-footnotes=true&include-verse-numbers=true'
-        + '&include-short-copyright=false&include-passage-references=false'
-        + '&indent-paragraphs=0&indent-poetry=false&include-chapter-numbers=false'
-        + '&indent-psalm-doxology=false&line-length=0';
-
-      // Retry on 429 with exponential backoff.  ESV sometimes returns 200 OK
-      // with a {"detail":"Request was throttled..."} body — treat that as a
-      // throttle too and retry, so a soft-throttle doesn't leak to the client.
-      let data = null, lastStatus = 0;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const esvResp = await fetch(esvUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
-        lastStatus = esvResp.status;
-        if (esvResp.ok) {
-          const parsed = await esvResp.json();
-          // Soft-throttle detection: 200 OK but no passages, has detail/error.
-          if (!parsed.passages || !parsed.passages[0]) {
-            if (parsed.detail || parsed.error || parsed.message) {
-              const wait = 500 * Math.pow(2, attempt);
-              await new Promise(r => setTimeout(r, wait));
-              continue;
-            }
-          }
-          data = parsed;
-          break;
-        }
-        if (esvResp.status === 429) {
-          const wait = 500 * Math.pow(2, attempt); // 500ms, 1s, 2s, 4s, 8s
-          await new Promise(r => setTimeout(r, wait));
-          continue;
-        }
-        // Non-429 error — surface it.
-        const body = await esvResp.text();
-        return new Response(JSON.stringify({error: 'esv_status_' + esvResp.status, body}), {
-          status: 502, headers: respHeaders
+      const result = await fetchAndCacheEsv(q, wantsExtras, env);
+      if (!result.ok) {
+        return new Response(JSON.stringify({error: result.error, lastStatus: result.lastStatus, q}), {
+          status: result.status || 503, headers: respHeaders
         });
       }
-      if (!data || !data.passages || !data.passages[0]) {
-        return new Response(JSON.stringify({error: 'esv_throttled', lastStatus, q}), {
-          status: 503, headers: respHeaders
-        });
-      }
-
-      // Headings + crossrefs are a separate, best-effort fetch from the
-      // HTML endpoint — failures there fall back to empty arrays and
-      // never affect the verse/footnote data above.  Skippable via
-      // extras=0: this DOUBLES the ESV API calls per chapter (one for
-      // text, one for HTML), which is fine for a single live chapter
-      // but was making bulk "download whole Bible for offline" sync
-      // take much longer and hit ESV's rate limit harder — the bulk
-      // downloader passes extras=0 to skip it.
-      const extra = wantsExtras
-        ? await fetchEsvHeadingsAndCrossrefs(q, env)
-        : { headings: [], crossrefs: [] };
-      data.headings = extra.headings;
-      data.crossrefs = extra.crossrefs;
-
-      // Only cache real passage data (not error responses leaking through).
-      const body = JSON.stringify(data);
-      if (env.COMMENTARY_KV) {
-        await env.COMMENTARY_KV.put(cacheKey, body);
-      }
-      return new Response(body, { headers: respHeaders });
+      return new Response(result.body, { headers: respHeaders });
     }
 
     // ---- /intro/{bookNum} ----
@@ -1842,6 +1897,7 @@ Respond in this exact JSON format, no markdown, no preamble. Each paragraph is i
 
     // ---- Admin endpoints (must precede /search) ----
     if (path === '/admin/build-index') return handleBuildIndex(env, url, cors);
+    if (path === '/admin/warm-esv') return handleWarmEsv(env, url, cors, request);
     if (path === '/admin/merge-index') return handleMergeIndex(env, url, cors);
     if (path === '/admin/build-en-index') return handleBuildEnIndex(env, url, cors);
     if (path === '/admin/merge-en-index') return handleMergeEnIndex(env, url, cors);
