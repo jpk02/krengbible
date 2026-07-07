@@ -347,13 +347,18 @@ async function fetchEsvHeadingsAndCrossrefs(q, env) {
   }
 }
 
+// Cross-references were tried and removed — ESV's include-crossrefs
+// pulls their full Cross-reference System (40-50+ per chapter is
+// common; their API has no lighter option, checked the docs), and
+// there's no principled cap to apply that isn't arbitrary.  Keeping
+// this fetch for headings only; `crossrefs` stays in the response
+// shape as an always-empty array rather than removing the field, so
+// this is a one-line revert if it comes back later.
 async function parseEsvHtmlForHeadingsAndCrossrefs(htmlStr) {
   const headings = [];
-  const crossrefs = [];
   let pendingHeading = null;
   let headingBuf = '';
   let inHeading = false;
-  let currentVerse = null;
 
   const rewriter = new HTMLRewriter()
     .on('h2, h3, h4', {
@@ -385,27 +390,16 @@ async function parseEsvHtmlForHeadingsAndCrossrefs(htmlStr) {
         // OSIS-style code before the dash.
         const m = /^v\d{2}\d{3}(\d{3})-\d+$/.exec(id);
         if (!m) return;
-        currentVerse = parseInt(m[1], 10);
+        const verse = parseInt(m[1], 10);
         if (pendingHeading) {
-          headings.push({ verse: currentVerse, title: pendingHeading });
+          headings.push({ verse, title: pendingHeading });
           pendingHeading = null;
         }
-      }
-    })
-    .on('a.cf', {
-      // Inline cross-ref markers look like
-      // <sup><a class="cf" href="Jeremiah 6:17; Ezekiel 33:2/" title="Jer. 6:17; Ezek. 33:2">i</a></sup>
-      // — the full reference is right in href, no endnote-list
-      // correlation needed.  Strip the trailing "/" ESV appends.
-      element(el) {
-        const href = el.getAttribute('href') || '';
-        const label = href.replace(/\/$/, '').trim();
-        if (label && currentVerse) crossrefs.push({ verse: currentVerse, label });
       }
     });
 
   await rewriter.transform(new Response(htmlStr)).text();
-  return { headings, crossrefs };
+  return { headings, crossrefs: [] };
 }
 
 async function fetchChapterFromBskorea(bookNum, chapter) {
@@ -1528,8 +1522,10 @@ export default {
       // different shapes, and sharing one cache slot would mean whichever
       // fetched first "poisons" the other with a response missing fields
       // it expects.
+      // v4: crossrefs removed (always empty array now) — previously
+      // cached responses have the old populated set.
       const wantsExtras = url.searchParams.get('extras') !== '0';
-      const cacheKey = 'esv_raw_v3_' + (wantsExtras ? 'x1_' : 'x0_') + q;
+      const cacheKey = 'esv_raw_v4_' + (wantsExtras ? 'x1_' : 'x0_') + q;
       if (env.COMMENTARY_KV) {
         const cached = await env.COMMENTARY_KV.get(cacheKey);
         if (cached) return new Response(cached, { headers: respHeaders });
