@@ -332,23 +332,43 @@ function parseNkrvHtml(html) {
 // (h2/h3/h4) and crossref container class are reasonable but
 // UNVERIFIED guesses — check real output after deploying and refine
 // the selectors below if headings/crossrefs come back empty.
+// `ok: false` tells the caller the fetch didn't actually succeed (still
+// throttled after retries, or a network error) — as opposed to `ok: true`
+// with an empty headings array, which means ESV genuinely has no heading
+// there.  That distinction matters because fetchAndCacheEsv writes this
+// into a no-TTL forever cache: silently treating "throttled" the same as
+// "no headings" would permanently bake a false-empty result into the
+// cache the moment ESV rate-limits a request — which is exactly what
+// happened (Romans 11 cached with an empty English headings array while
+// the Korean side, fetched separately, kept its real ones).
 async function fetchEsvHeadingsAndCrossrefs(q, env) {
-  try {
-    const htmlUrl = 'https://api.esv.org/v3/passage/html/?q=' + encodeURIComponent(q)
-      + '&include-headings=true&include-subheadings=true&include-crossrefs=true'
-      + '&include-footnotes=false&include-verse-numbers=true'
-      + '&include-passage-references=false&include-audio-link=false'
-      + '&include-css-link=false&include-copyright=false&include-short-copyright=false'
-      + '&include-chapter-numbers=false&include-book-titles=false';
-    const resp = await fetch(htmlUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
-    if (!resp.ok) return { headings: [], crossrefs: [] };
-    const data = await resp.json();
-    const htmlStr = data.passages && data.passages[0];
-    if (!htmlStr) return { headings: [], crossrefs: [] };
-    return await parseEsvHtmlForHeadingsAndCrossrefs(htmlStr);
-  } catch (e) {
-    return { headings: [], crossrefs: [] };
+  const htmlUrl = 'https://api.esv.org/v3/passage/html/?q=' + encodeURIComponent(q)
+    + '&include-headings=true&include-subheadings=true&include-crossrefs=true'
+    + '&include-footnotes=false&include-verse-numbers=true'
+    + '&include-passage-references=false&include-audio-link=false'
+    + '&include-css-link=false&include-copyright=false&include-short-copyright=false'
+    + '&include-chapter-numbers=false&include-book-titles=false';
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const resp = await fetch(htmlUrl, { headers: { Authorization: 'Token ' + env.ESV_TOKEN } });
+      if (resp.status === 429) {
+        const wait = 500 * Math.pow(2, attempt);
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+      if (!resp.ok) return { headings: [], crossrefs: [], ok: false };
+      const data = await resp.json();
+      const htmlStr = data.passages && data.passages[0];
+      if (!htmlStr) return { headings: [], crossrefs: [], ok: false };
+      const parsed = await parseEsvHtmlForHeadingsAndCrossrefs(htmlStr);
+      return { ...parsed, ok: true };
+    } catch (e) {
+      const wait = 500 * Math.pow(2, attempt);
+      await new Promise(r => setTimeout(r, wait));
+    }
   }
+  return { headings: [], crossrefs: [], ok: false };
 }
 
 // Cross-references were tried and removed — ESV's include-crossrefs
@@ -421,7 +441,13 @@ async function fetchAndCacheEsv(q, wantsExtras, env) {
   // shapes, and sharing one cache slot would mean whichever fetched
   // first "poisons" the other with a response missing fields it
   // expects.
-  const cacheKey = 'esv_raw_v4_' + (wantsExtras ? 'x1_' : 'x0_') + q;
+  // v5: the headings/crossrefs fetch now retries on 429 instead of
+  // silently returning empty on the first throttle — v4 entries may have
+  // been cached with a false-empty headings array if that fetch got
+  // throttled while the main text fetch happened to succeed (confirmed:
+  // Romans 11's English headings went missing this way).  Bumping so
+  // every chapter gets one more chance at a real fetch.
+  const cacheKey = 'esv_raw_v5_' + (wantsExtras ? 'x1_' : 'x0_') + q;
   if (env.COMMENTARY_KV) {
     const cached = await env.COMMENTARY_KV.get(cacheKey);
     if (cached) return { ok: true, cached: true, body: cached };
@@ -466,12 +492,18 @@ async function fetchAndCacheEsv(q, wantsExtras, env) {
 
   const extra = wantsExtras
     ? await fetchEsvHeadingsAndCrossrefs(q, env)
-    : { headings: [], crossrefs: [] };
+    : { headings: [], crossrefs: [], ok: true };
   data.headings = extra.headings;
   data.crossrefs = extra.crossrefs;
 
   const body = JSON.stringify(data);
-  if (env.COMMENTARY_KV) {
+  // Only commit to the forever cache once the headings fetch actually
+  // succeeded (or wasn't requested) — see fetchEsvHeadingsAndCrossrefs's
+  // comment.  If it's still throttled after retries, return the text to
+  // this caller anyway (better than erroring out over a missing extra)
+  // but leave the cache slot empty so the next request tries again
+  // instead of being stuck with a false-empty result forever.
+  if (env.COMMENTARY_KV && (!wantsExtras || extra.ok)) {
     await env.COMMENTARY_KV.put(cacheKey, body);
   }
   return { ok: true, cached: false, body };
