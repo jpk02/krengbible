@@ -1523,7 +1523,13 @@ export default {
       // previously-cached chapter automatically instead of silently
       // serving the old shape forever with no invalidation path.  Bump
       // this version string whenever the /esv/ response shape changes.
-      const cacheKey = 'esv_raw_v3_' + q;
+      // extras is part of the key too — an extras=0 (bulk download) and
+      // extras=1 (live read) response for the same query are genuinely
+      // different shapes, and sharing one cache slot would mean whichever
+      // fetched first "poisons" the other with a response missing fields
+      // it expects.
+      const wantsExtras = url.searchParams.get('extras') !== '0';
+      const cacheKey = 'esv_raw_v3_' + (wantsExtras ? 'x1_' : 'x0_') + q;
       if (env.COMMENTARY_KV) {
         const cached = await env.COMMENTARY_KV.get(cacheKey);
         if (cached) return new Response(cached, { headers: respHeaders });
@@ -1574,8 +1580,15 @@ export default {
 
       // Headings + crossrefs are a separate, best-effort fetch from the
       // HTML endpoint — failures there fall back to empty arrays and
-      // never affect the verse/footnote data above.
-      const extra = await fetchEsvHeadingsAndCrossrefs(q, env);
+      // never affect the verse/footnote data above.  Skippable via
+      // extras=0: this DOUBLES the ESV API calls per chapter (one for
+      // text, one for HTML), which is fine for a single live chapter
+      // but was making bulk "download whole Bible for offline" sync
+      // take much longer and hit ESV's rate limit harder — the bulk
+      // downloader passes extras=0 to skip it.
+      const extra = wantsExtras
+        ? await fetchEsvHeadingsAndCrossrefs(q, env)
+        : { headings: [], crossrefs: [] };
       data.headings = extra.headings;
       data.crossrefs = extra.crossrefs;
 
@@ -1739,7 +1752,10 @@ Only output valid JSON, no markdown, no preamble.`;
       const qtParts = path.match(/\/qt-reflection\/(\d+)\/(\d+)\/(\d+)\/(\d+)/);
       if (!qtParts) return new Response(JSON.stringify({error:'bad path'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
       const qtBookNum = +qtParts[1], qtChapter = +qtParts[2], qtVerseStart = +qtParts[3], qtVerseEnd = +qtParts[4];
-      const qtCacheKey = `qt_reflection_v1_${qtBookNum}_${qtChapter}_${qtVerseStart}_${qtVerseEnd}`;
+      // v2: reflection_en/reflection_ko changed from a single string to
+      // a paragraph array — versioned so old cached single-string
+      // entries don't get served to app code expecting an array.
+      const qtCacheKey = `qt_reflection_v2_${qtBookNum}_${qtChapter}_${qtVerseStart}_${qtVerseEnd}`;
 
       const qtCached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(qtCacheKey) : null;
       if (qtCached) return new Response(qtCached, {headers:{...cors,'Content-Type':'application/json'}});
@@ -1782,12 +1798,12 @@ Passage text (Korean, for your reference, use it to ground the reflection in wha
 ${qtPassageKo}
 """
 
-Write a devotional reflection (3-5 sentences) on THIS PASSAGE SPECIFICALLY. Then provide a Korean translation using 존댓말 (formal polite -습니다/-ㅂ니다 speech level).
+Write a devotional reflection on THIS PASSAGE SPECIFICALLY, broken into 2-3 short paragraphs — a natural split is observation/context in the first paragraph, then application or a closing thought in the next. Then provide a Korean translation using 존댓말 (formal polite -습니다/-ㅂ니다 speech level), with the same paragraph breaks.
 
-Respond in this exact JSON format, no markdown, no preamble:
+Respond in this exact JSON format, no markdown, no preamble. Each paragraph is its OWN array element — do not put multiple paragraphs in one string, and do not include newline characters inside a string:
 {
-  "reflection_en": "...",
-  "reflection_ko": "..."
+  "reflection_en": ["paragraph 1", "paragraph 2"],
+  "reflection_ko": ["문단 1", "문단 2"]
 }`;
 
       const qtAiResp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1799,7 +1815,7 @@ Respond in this exact JSON format, no markdown, no preamble:
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1000,
+          max_tokens: 2000,
           messages: [{role:'user', content: qtPrompt}]
         })
       });
