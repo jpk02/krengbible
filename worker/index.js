@@ -4,6 +4,8 @@
 //   /esv/?q=...                           -> ESV API passage lookup (passthrough)
 //   /intro/{bookNum}                      -> AI-generated book intro (cached in COMMENTARY_KV)
 //   /commentary/{bookNum}/{chapter}       -> AI-generated chapter commentary (cached)
+//   /qt-reflection/{bookNum}/{chapter}/{verseStart}/{verseEnd}
+//                                          -> AI-generated QT reflection scoped to a verse range (cached)
 //   /search/ko?q=...&offset=...           -> Korean full-text search (FAST: uses pre-built index)
 //   /search/en?q=...&page=...             -> English full-text search (FAST: uses pre-built index)
 //   /votd                                 -> Verse of the day + photo
@@ -1724,6 +1726,106 @@ Only output valid JSON, no markdown, no preamble.`;
       const result = JSON.stringify(commentary);
       if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(cacheKey, result);
       return new Response(result, {headers:{...cors,'Content-Type':'application/json'}});
+    }
+
+    // ---- /qt-reflection/{bookNum}/{chapter}/{verseStart}/{verseEnd} ----
+    // Same idea as /commentary but scoped to a specific verse range —
+    // /commentary is chapter-level, so the Daily QT feature (which
+    // reads a few verses at a time, not a whole chapter per day) was
+    // showing the same reflection on every QT day that landed in the
+    // same chapter.  This generates and caches one reflection per
+    // (book, chapter, verseStart, verseEnd) tuple instead.
+    if (path.startsWith('/qt-reflection/')) {
+      const qtParts = path.match(/\/qt-reflection\/(\d+)\/(\d+)\/(\d+)\/(\d+)/);
+      if (!qtParts) return new Response(JSON.stringify({error:'bad path'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
+      const qtBookNum = +qtParts[1], qtChapter = +qtParts[2], qtVerseStart = +qtParts[3], qtVerseEnd = +qtParts[4];
+      const qtCacheKey = `qt_reflection_v1_${qtBookNum}_${qtChapter}_${qtVerseStart}_${qtVerseEnd}`;
+
+      const qtCached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(qtCacheKey) : null;
+      if (qtCached) return new Response(qtCached, {headers:{...cors,'Content-Type':'application/json'}});
+
+      // Reuse the same per-chapter Korean cache /nkrv/ uses, so this
+      // doesn't double-fetch bskorea for a chapter already cached.
+      const qtNkrvKey = `nkrv_v2_${qtBookNum}_${qtChapter}`;
+      let qtNkrvData = null;
+      const qtNkrvCached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(qtNkrvKey) : null;
+      if (qtNkrvCached) {
+        try { qtNkrvData = JSON.parse(qtNkrvCached); } catch (e) { qtNkrvData = null; }
+      }
+      if (!qtNkrvData) {
+        qtNkrvData = await fetchChapterFromBskorea(qtBookNum, qtChapter);
+        if (env.COMMENTARY_KV && qtNkrvData.verses.length > 0) {
+          await env.COMMENTARY_KV.put(qtNkrvKey, JSON.stringify(qtNkrvData));
+        }
+      }
+
+      const qtVersesInRange = (qtNkrvData.verses || []).filter(v => {
+        const n = typeof v.verse === 'string' ? parseInt(v.verse, 10) : v.verse;
+        return n >= qtVerseStart && n <= qtVerseEnd;
+      });
+      const qtPassageKo = qtVersesInRange
+        .map(v => `${v.verse}. ${v.text.replace(/\(KN:\d+\)/g, '')}`)
+        .join(' ');
+
+      const qtBookName = BOOK_NAMES_EN[qtBookNum-1];
+      const qtBookNameKo = BOOK_NAMES_KO[qtBookNum-1];
+      const qtRefLabel = qtVerseStart === qtVerseEnd
+        ? `${qtBookName} ${qtChapter}:${qtVerseStart}`
+        : `${qtBookName} ${qtChapter}:${qtVerseStart}-${qtVerseEnd}`;
+
+      const qtPrompt = `You are writing a short daily Quiet Time (QT) devotional reflection in the Reformed/evangelical tradition (Calvin, Sproul, Keller, Piper) — warm, pastoral, Christ-centered, practically applicable.
+
+Write a reflection specifically on ${qtRefLabel} — these exact verses only, not the surrounding chapter.
+
+Passage text (Korean, for your reference, use it to ground the reflection in what these specific verses actually say):
+"""
+${qtPassageKo}
+"""
+
+Write a devotional reflection (3-5 sentences) on THIS PASSAGE SPECIFICALLY. Then provide a Korean translation using 존댓말 (formal polite -습니다/-ㅂ니다 speech level).
+
+Respond in this exact JSON format, no markdown, no preamble:
+{
+  "reflection_en": "...",
+  "reflection_ko": "..."
+}`;
+
+      const qtAiResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': env.ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1000,
+          messages: [{role:'user', content: qtPrompt}]
+        })
+      });
+
+      if (!qtAiResp.ok) {
+        const qtErr = await qtAiResp.text();
+        return new Response(JSON.stringify({error:'ai_failed', detail: qtErr}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
+      }
+
+      const qtAiData = await qtAiResp.json();
+      const qtText = qtAiData.content?.[0]?.text || '{}';
+      const qtCleanText = qtText.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+
+      let qtReflection;
+      try { qtReflection = JSON.parse(qtCleanText); }
+      catch (e) { return new Response(JSON.stringify({error:'parse_failed', raw: qtText}), {status:500, headers:{...cors,'Content-Type':'application/json'}}); }
+
+      qtReflection.book_en = qtBookName;
+      qtReflection.book_ko = qtBookNameKo;
+      qtReflection.chapter = qtChapter;
+      qtReflection.verseStart = qtVerseStart;
+      qtReflection.verseEnd = qtVerseEnd;
+
+      const qtResult = JSON.stringify(qtReflection);
+      if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(qtCacheKey, qtResult);
+      return new Response(qtResult, {headers:{...cors,'Content-Type':'application/json'}});
     }
 
     // ---- Admin endpoints (must precede /search) ----
