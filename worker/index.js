@@ -1752,10 +1752,10 @@ Only output valid JSON, no markdown, no preamble.`;
       const qtParts = path.match(/\/qt-reflection\/(\d+)\/(\d+)\/(\d+)\/(\d+)/);
       if (!qtParts) return new Response(JSON.stringify({error:'bad path'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
       const qtBookNum = +qtParts[1], qtChapter = +qtParts[2], qtVerseStart = +qtParts[3], qtVerseEnd = +qtParts[4];
-      // v2: reflection_en/reflection_ko changed from a single string to
-      // a paragraph array — versioned so old cached single-string
-      // entries don't get served to app code expecting an array.
-      const qtCacheKey = `qt_reflection_v2_${qtBookNum}_${qtChapter}_${qtVerseStart}_${qtVerseEnd}`;
+      // v3: asks for 4-6 short paragraphs instead of 2-3 — versioned
+      // so already-cached, coarser-grained reflections regenerate
+      // instead of sticking around indefinitely (this cache has no TTL).
+      const qtCacheKey = `qt_reflection_v3_${qtBookNum}_${qtChapter}_${qtVerseStart}_${qtVerseEnd}`;
 
       const qtCached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(qtCacheKey) : null;
       if (qtCached) return new Response(qtCached, {headers:{...cors,'Content-Type':'application/json'}});
@@ -1798,12 +1798,12 @@ Passage text (Korean, for your reference, use it to ground the reflection in wha
 ${qtPassageKo}
 """
 
-Write a devotional reflection on THIS PASSAGE SPECIFICALLY, broken into 2-3 short paragraphs — a natural split is observation/context in the first paragraph, then application or a closing thought in the next. Then provide a Korean translation using 존댓말 (formal polite -습니다/-ㅂ니다 speech level), with the same paragraph breaks.
+Write a devotional reflection on THIS PASSAGE SPECIFICALLY, broken into 4-6 SHORT paragraphs — each paragraph just 1-2 sentences, one idea per paragraph (e.g. observation, the text's context, a theological point, a practical application, a closing thought — as separate paragraphs, not combined). Favor more, shorter paragraphs over fewer, longer ones; this is read on a phone screen where dense blocks are hard to read. Then provide a Korean translation using 존댓말 (formal polite -습니다/-ㅂ니다 speech level), with the same paragraph breaks.
 
 Respond in this exact JSON format, no markdown, no preamble. Each paragraph is its OWN array element — do not put multiple paragraphs in one string, and do not include newline characters inside a string:
 {
-  "reflection_en": ["paragraph 1", "paragraph 2"],
-  "reflection_ko": ["문단 1", "문단 2"]
+  "reflection_en": ["paragraph 1", "paragraph 2", "paragraph 3", "paragraph 4"],
+  "reflection_ko": ["문단 1", "문단 2", "문단 3", "문단 4"]
 }`;
 
       const qtAiResp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1815,7 +1815,7 @@ Respond in this exact JSON format, no markdown, no preamble. Each paragraph is i
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 2000,
+          max_tokens: 2500,
           messages: [{role:'user', content: qtPrompt}]
         })
       });
