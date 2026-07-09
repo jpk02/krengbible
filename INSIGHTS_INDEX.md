@@ -486,6 +486,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Sparrows/numbered hairs (10:26-33) — comfort that follows realistic threat, not softens it; least-to-greatest argument (cheapest bird → disciple's worth); promise is of the Father's attention through death, not exemption from it; confession/denial reciprocity (10:32-33) rests on this
 - Not peace but a sword (10:34-42) — division as side effect of the claim, not the goal; "take his cross" as literal pre-crucifixion image, not yet metaphor; loyalty-to-Christ vs. loyalty-to-family collision (contrast Matt 15:4-6, not anti-family); closes by equating receiving a disciple with receiving Christ and the Father (10:40)
 
+**Matt 11 — John's doubt, this generation, the gentle yoke**
+- John's prison question (11:1-15) — doubt from unmet expectations (fire/judgment vs. mercy-first), not unbelief; Jesus answers with Isa 35:5-6/61:1 evidence, doesn't rebuke; "blessed is the one not offended by me"; corrects expectations without diminishing John ("none greater... yet least in kingdom greater than he")
+- Children's-game image + woes on Chorazin/Bethsaida/Capernaum (11:16-24) — rejection regardless of messenger's style (John ascetic, Jesus not); "wisdom justified by her deeds"; proportional-accountability principle (greater revelation → greater responsibility); Tyre/Sidon/Sodom would have repented — privilege witnessed and refused worse than ignorance
+- Father-Son mutual exclusive knowledge (11:25-27, high Christology) sets up the yoke invitation (11:28-30) as credible not just comforting; Jer 6:16 echo (Israel refused the ancient paths); yoke ≠ removal of labor, shared burden; rabbinic "yoke of Torah" contrast — "easy" = well-fitting, not effortless
+
 ---
 
 ### Colossians
