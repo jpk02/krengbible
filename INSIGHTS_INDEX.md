@@ -465,6 +465,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Ask/seek/knock (7:7-11) grounds prayer in God's character (lesser-to-greater: flawed human parents → perfect Father), not technique; Golden Rule (7:12) placed right after as the same posture extended outward — receive freely, then give freely
 - Four-part closing warning as one argument (7:13-27): narrow/wide gate, good/bad tree, "I never knew you" (impressive religious activity ≠ being known), wise/foolish builder (hearing vs. doing, same storm/different foundation); 7:28-29 crowd's astonishment at authority — "I say to you" vs. citing prior authorities, closing frame for the whole sermon
 
+**Matt 8 — Leper and centurion, cost of discipleship, storm and demoniacs**
+- Leper (ritual boundary) + centurion (ethnic boundary), 8:1-13 — touch precedes healing word (cleanness flows out, not uncleanness in); centurion's chain-of-command logic recognizes Jesus' authority; Jesus "marvels" only at faith (one of two Gospel instances); 8:11-12 east/west banquet warning — pedigree never saved anyone even under the old covenant
+- "Let the dead bury their own dead" (8:18-22) — foxes/nests/nowhere-to-lay-head as cost warning to the eager volunteer; burial of a parent as a genuinely weighty, legitimate duty (not a strawman); the call does not wait its turn when it collides with even the most honorable obligation; contrast Matt 15:4-6 (Jesus upholds the 5th commandment) — not a low view of family
+- Calming the storm + Gadarene demoniacs (8:23-34) — disciples' fear shifts register after the calm (Ps 89:9, 107:29, sea-rule reserved for YHWH); demons recognize Jesus instantly ("Son of God") and beg for the pigs; town begs Jesus to leave after healing — uncontrollable power (even healing power) as more unsettling than the chaos it displaced; both halves = authentic encounter with Jesus' authority never leaves people neutral
+
 ---
 
 ### Colossians
