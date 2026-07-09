@@ -480,6 +480,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Jairus's daughter interrupted by hemorrhaging woman (9:18-26) — twelve years of illness vs. a twelve-year-old's death as same span, different speed; same reversal as ch. 8 leper (power flows out, contamination doesn't flow in); "daughter" — only Gospel instance Jesus addresses a woman this way; touching a corpse's uncleanness reversed same as touching a bleeding woman's
 - Two blind men + mute demoniac + harvest (9:27-38) — "Son of David" first used by name, spoken by men who can't see him; identical evidence (exorcism), opposite verdicts (crowd marvels / Pharisees accuse) left unresolved on purpose; Ezek 34 shepherd-without-shepherd language; ends with prayer for laborers, not more miracles — sets up ch. 10's sending of the Twelve
 
+**Matt 10 — Mission Discourse: sending, persecution, sparrows, sword**
+- Lost sheep of Israel first + no provisions (10:1-15) — strategic sequencing not permanent exclusion (Rom 1:16, contrast 28:19 later); empty-handed as forced dependence/training, not a universal poverty rule (contrast Luke 22:35-36); dust-shaking testimony, Sodom/Gomorrah comparison
+- Sheep among wolves (10:16-25) — persecution promised up front as the honest headline, not fine print; wise-as-serpents + innocent-as-doves as a paired posture (wisdom without innocence = manipulation, innocence without wisdom = pointless martyrdom); "disciple not above teacher" as advance inoculation against faith-crisis when suffering comes
+- Sparrows/numbered hairs (10:26-33) — comfort that follows realistic threat, not softens it; least-to-greatest argument (cheapest bird → disciple's worth); promise is of the Father's attention through death, not exemption from it; confession/denial reciprocity (10:32-33) rests on this
+- Not peace but a sword (10:34-42) — division as side effect of the claim, not the goal; "take his cross" as literal pre-crucifixion image, not yet metaphor; loyalty-to-Christ vs. loyalty-to-family collision (contrast Matt 15:4-6, not anti-family); closes by equating receiving a disciple with receiving Christ and the Father (10:40)
+
 ---
 
 ### Colossians
