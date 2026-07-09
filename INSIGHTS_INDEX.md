@@ -472,6 +472,16 @@ Local working file (not committed to public site if you'd prefer — let me know
 
 ---
 
+### Matthew (cont'd)
+
+**Matt 9 — Paralytic's forgiveness, Matthew's call, Jairus/hemorrhaging woman, harvest**
+- Paralytic (9:1-8) — "which is easier to say" as deliberate choice of the verifiable claim (healing) as evidence for the unverifiable one (forgiveness); healing as enacted argument for authority over the deeper problem, not a bonus; crowd's "authority given to men" as a category confusion the text leaves uncorrected
+- Matthew's call + eating with sinners + new wine/wineskins (9:9-17) — Hos 6:6 "mercy not sacrifice" aimed at ritual-correctness-without-compassion; wineskins as structural argument (not a patch on the old system but new capacity for what's arriving); table fellowship as public statement of association in that culture
+- Jairus's daughter interrupted by hemorrhaging woman (9:18-26) — twelve years of illness vs. a twelve-year-old's death as same span, different speed; same reversal as ch. 8 leper (power flows out, contamination doesn't flow in); "daughter" — only Gospel instance Jesus addresses a woman this way; touching a corpse's uncleanness reversed same as touching a bleeding woman's
+- Two blind men + mute demoniac + harvest (9:27-38) — "Son of David" first used by name, spoken by men who can't see him; identical evidence (exorcism), opposite verdicts (crowd marvels / Pharisees accuse) left unresolved on purpose; Ezek 34 shepherd-without-shepherd language; ends with prayer for laborers, not more miracles — sets up ch. 10's sending of the Twelve
+
+---
+
 ### Colossians
 
 **Col 1 — Christ hymn, reconciliation, indwelling**
