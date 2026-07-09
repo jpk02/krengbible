@@ -455,6 +455,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - "Not abolish but fulfill" — *plērōsai* = bringing to intended completion via obedience + embodiment + deepening; three-fold moral/ceremonial/civil distinction (moral binding, ceremonial finished in Christ per Heb 10, civil expired with Israel as theocracy); Jesus relaxes nothing, deepens everything
 - Six antitheses ("but I say to you") — Pharisaic narrowing to behavior, Jesus pushes to heart-root (anger → murder, lust → adultery); Sermon designed to crush self-righteousness AND reveal the holiness gospel produces (Rom 8:15, Jer 31:33); 5:48 as goal of grace not threshold of merit
 
+**Matt 6 — Secret righteousness, the Lord's Prayer, two masters**
+- Threefold giving/praying/fasting pattern (6:1-4, 5-15, 16-18) — *hypokritēs* as stage actor; reward language as relational (Father's pleasure) not transactional (wage); "secret" as motive-diagnosis not a no-visibility rule (contrast 5:16)
+- Lord's Prayer structure — God-ward petitions (name/kingdom/will) before need-ward (bread/forgiveness/deliverance); "daily bread" ties to manna (Exod 16:19-20); forgiveness clause (6:14-15) as the one line Jesus re-explains — diagnostic of received grace, not a formula
+- Treasure → eye/lamp → two masters → anxiety (6:19-34) as one argument, not four — *mammōnas* as rival master; "bad eye" as Jewish idiom for stinginess/divided focus; birds/lilies as lesser-to-greater argument; "do not worry" targets anxious hoarding, not foresight; 6:33 reorders the whole chapter's question (whom is it all serving)
+
 ---
 
 ### Colossians
