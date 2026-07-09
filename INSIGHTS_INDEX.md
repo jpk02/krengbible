@@ -460,6 +460,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Lord's Prayer structure — God-ward petitions (name/kingdom/will) before need-ward (bread/forgiveness/deliverance); "daily bread" ties to manna (Exod 16:19-20); forgiveness clause (6:14-15) as the one line Jesus re-explains — diagnostic of received grace, not a formula
 - Treasure → eye/lamp → two masters → anxiety (6:19-34) as one argument, not four — *mammōnas* as rival master; "bad eye" as Jewish idiom for stinginess/divided focus; birds/lilies as lesser-to-greater argument; "do not worry" targets anxious hoarding, not foresight; 6:33 reorders the whole chapter's question (whom is it all serving)
 
+**Matt 7 — Judging, ask/seek/knock, the sermon's closing warnings**
+- "Do not judge" vs. fruit-inspection (7:1-6 vs 7:15-20) — plank/speck names hypocritical self-exempting judgment, not correction itself; fruit-inspection is outward-facing discernment of teachers, not scanning private faults; v6 (pearls before swine) itself presupposes judgment
+- Ask/seek/knock (7:7-11) grounds prayer in God's character (lesser-to-greater: flawed human parents → perfect Father), not technique; Golden Rule (7:12) placed right after as the same posture extended outward — receive freely, then give freely
+- Four-part closing warning as one argument (7:13-27): narrow/wide gate, good/bad tree, "I never knew you" (impressive religious activity ≠ being known), wise/foolish builder (hearing vs. doing, same storm/different foundation); 7:28-29 crowd's astonishment at authority — "I say to you" vs. citing prior authorities, closing frame for the whole sermon
+
 ---
 
 ### Colossians
