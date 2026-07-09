@@ -41,6 +41,8 @@
 // During build we write partial chunks to KV keys (nkrv_search_chunk_N / esv_search_chunk_N), then
 // the matching /admin/merge-* endpoint reads them all and writes the final index blob.
 
+import { getReadingForDate } from './dailyPlan.js';
+
 const BOOK_NAMES_EN = [
   'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
   '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra','Nehemiah',
@@ -156,12 +158,23 @@ async function getEnSearchIndex(env) {
 
 // ---- HTML -> verses parser for bskorea.or.kr (extracted so /admin/build-index can reuse it) ----
 // Korean consonant footnote markers (ㄱ ㄴ ㄷ ㄹ ㅁ ㅂ ㅅ ㅇ ㅈ ㅊ ㅋ ㅌ ㅍ ㅎ)
-// map to position numbers 1..14.  bskorea uses these as visual inline
-// markers but the corresponding popup footnotes are keyed by digit, so
-// we normalize both forms to the same numeric key.
+// are bskorea's SECOND, independent marker alphabet — used for cross-
+// references (관주), kept visually distinct from the digit markers
+// (1) 2) 3)...) used for translation notes, specifically so the two
+// don't collide within the same chapter.  Offset by +100 (rather than
+// reusing 1..14 directly) so the two alphabets land in disjoint key
+// ranges once normalized to numbers — confirmed via 1 Corinthians 1,
+// which has BOTH a digit-1 translation note (v13, "Greek: or
+// 'immersion'") and a consonant-ㄱ cross-reference (v19, Isaiah
+// 29:14) in the same chapter.  Mapping both to bare "1" clobbered the
+// v13 note with the v19 cross-ref everywhere key "1" was used — every
+// occurrence of "baptism" in 13-17 showed the Isaiah reference instead
+// of its own footnote.  The offset is internal-only (a lookup key, not
+// displayed — see ChapterPane's renderSegs, which renders a generic
+// marker icon regardless of the key's value), so it's safe.
 const KO_FN_LETTER_TO_NUM = {
-  'ㄱ': 1, 'ㄴ': 2, 'ㄷ': 3, 'ㄹ': 4, 'ㅁ': 5, 'ㅂ': 6, 'ㅅ': 7,
-  'ㅇ': 8, 'ㅈ': 9, 'ㅊ': 10, 'ㅋ': 11, 'ㅌ': 12, 'ㅍ': 13, 'ㅎ': 14
+  'ㄱ': 101, 'ㄴ': 102, 'ㄷ': 103, 'ㄹ': 104, 'ㅁ': 105, 'ㅂ': 106, 'ㅅ': 107,
+  'ㅇ': 108, 'ㅈ': 109, 'ㅊ': 110, 'ㅋ': 111, 'ㅌ': 112, 'ㅍ': 113, 'ㅎ': 114
 };
 
 // bskorea's cross-reference anchors encode a target verse as
@@ -298,12 +311,19 @@ function parseNkrvHtml(html) {
     // Defensive cleanup for any markers that escaped the <a class=comment>
     // pre-processing above (rare, but possible if bskorea ever renders
     // markers as plain text).  Negative lookbehind on the digit regex
-    // prevents re-matching the "1)" inside already-emitted "(KN:1)".
+    // prevents re-matching digits already inside an emitted "(KN:N)" —
+    // `\d*` (variable-length, V8 supports this) rather than a fixed
+    // "(KN:" is required once N can be 2-3 digits (consonant-derived
+    // keys are now offset by +100, see KO_FN_LETTER_TO_NUM): a fixed
+    // 4-char lookbehind only blocks a match starting immediately after
+    // "(KN:", so for "(KN:101)" the engine could still start a fresh
+    // \d+ match one character later at "01)" (preceded by "KN:1", not
+    // "(KN:") and mangle it into "(KN:1(KN:01)".
     text = text.replace(/([ㄱ-ㅎ])\)\s*/g, (_, ch) => {
       const n = KO_FN_LETTER_TO_NUM[ch];
       return n ? `(KN:${n})` : '';
     });
-    text = text.replace(/(?<!\(KN:)(\d+)\)\s*/g, '(KN:$1)');
+    text = text.replace(/(?<!\(KN:\d*)(\d+)\)\s*/g, '(KN:$1)');
     // bskorea places footnote anchors BEFORE the annotated word; the marker
     // belongs AFTER the word per Korean Bible convention.  Swap each
     // "(KN:N)WORD" → "WORD(KN:N)" so consumers can render markers inline
@@ -609,10 +629,18 @@ ${toTranslate.map((idx, k) => `${k + 1}. ${headings[idx].title}`).join('\n')}`;
 // unnoticed.  One shared path now, so heading translation can't be
 // skipped by whichever caller happens to populate the cache first. ----
 async function fetchAndCacheNkrv(bookNum, chapter, env) {
-  // v3: headings gained `titleEn` (see translateHeadingsToEnglish).
-  // Bumped so every already-cached chapter (no TTL) gets a real
-  // translation pass instead of serving the old shape forever.
-  const verseKey = `nkrv_v3_${bookNum}_${chapter}`;
+  // v4: fixed a footnote-key collision in parseNkrvHtml — digit
+  // markers (1) 2) 3)...) and Korean-consonant markers (ㄱ) ㄴ)...)
+  // are bskorea's two independent marker alphabets, but both used to
+  // normalize into the same numeric key space, so a chapter using both
+  // (e.g. 1 Corinthians 1: v13's digit-1 "Greek: or 'immersion'" note
+  // vs. v19's consonant-ㄱ Isaiah 29:14 cross-reference) had the later
+  // one silently clobber the earlier one everywhere that key appeared.
+  // Consonant keys are now offset by +100 so the two never collide.
+  // Bumped so every already-cached chapter (no TTL) gets re-parsed
+  // instead of serving the old, possibly-clobbered footnote text
+  // forever.
+  const verseKey = `nkrv_v4_${bookNum}_${chapter}`;
   if (env.COMMENTARY_KV) {
     const cached = await env.COMMENTARY_KV.get(verseKey);
     if (cached) return { ok: true, cached: true, data: JSON.parse(cached) };
@@ -627,6 +655,96 @@ async function fetchAndCacheNkrv(bookNum, chapter, env) {
     await env.COMMENTARY_KV.put(verseKey, JSON.stringify(data));
   }
   return { ok: true, cached: false, data };
+}
+
+// Generates (or returns the cached) QT reflection for one (book,
+// chapter, verseStart, verseEnd) tuple.  Extracted from the
+// /qt-reflection HTTP handler so the scheduled() cron trigger below
+// can pre-warm today's/tomorrow's reading without going through an
+// HTTP round-trip.  Returns { ok, status?, json } — json is always the
+// stringified body to send/cache, status is only set on failure.
+async function getOrCreateQtReflection(bookNum, chapter, verseStart, verseEnd, env) {
+  // v3: asks for 4-6 short paragraphs instead of 2-3 — versioned so
+  // already-cached, coarser-grained reflections regenerate instead of
+  // sticking around indefinitely (this cache has no TTL).
+  const cacheKey = `qt_reflection_v3_${bookNum}_${chapter}_${verseStart}_${verseEnd}`;
+
+  const cached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(cacheKey) : null;
+  if (cached) return { ok: true, json: cached, cached: true };
+
+  const nkrvResult = await fetchAndCacheNkrv(bookNum, chapter, env);
+  if (!nkrvResult.ok) {
+    return { ok: false, status: 502, json: JSON.stringify({ error: nkrvResult.error || 'nkrv_fetch_failed' }) };
+  }
+  const nkrvData = nkrvResult.data;
+
+  const versesInRange = (nkrvData.verses || []).filter(v => {
+    const n = typeof v.verse === 'string' ? parseInt(v.verse, 10) : v.verse;
+    return n >= verseStart && n <= verseEnd;
+  });
+  const passageKo = versesInRange
+    .map(v => `${v.verse}. ${v.text.replace(/\(KN:\d+\)/g, '')}`)
+    .join(' ');
+
+  const bookName = BOOK_NAMES_EN[bookNum-1];
+  const bookNameKo = BOOK_NAMES_KO[bookNum-1];
+  const refLabel = verseStart === verseEnd
+    ? `${bookName} ${chapter}:${verseStart}`
+    : `${bookName} ${chapter}:${verseStart}-${verseEnd}`;
+
+  const prompt = `You are writing a short daily Quiet Time (QT) devotional reflection in the Reformed/evangelical tradition (Calvin, Sproul, Keller, Piper) — warm, pastoral, Christ-centered, practically applicable.
+
+Write a reflection specifically on ${refLabel} — these exact verses only, not the surrounding chapter.
+
+Passage text (Korean, for your reference, use it to ground the reflection in what these specific verses actually say):
+"""
+${passageKo}
+"""
+
+Write a devotional reflection on THIS PASSAGE SPECIFICALLY, broken into 4-6 SHORT paragraphs — each paragraph just 1-2 sentences, one idea per paragraph (e.g. observation, the text's context, a theological point, a practical application, a closing thought — as separate paragraphs, not combined). Favor more, shorter paragraphs over fewer, longer ones; this is read on a phone screen where dense blocks are hard to read. Then provide a Korean translation using 존댓말 (formal polite -습니다/-ㅂ니다 speech level), with the same paragraph breaks.
+
+Respond in this exact JSON format, no markdown, no preamble. Each paragraph is its OWN array element — do not put multiple paragraphs in one string, and do not include newline characters inside a string:
+{
+  "reflection_en": ["paragraph 1", "paragraph 2", "paragraph 3", "paragraph 4"],
+  "reflection_ko": ["문단 1", "문단 2", "문단 3", "문단 4"]
+}`;
+
+  const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': env.ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2500,
+      messages: [{role:'user', content: prompt}]
+    })
+  });
+
+  if (!aiResp.ok) {
+    const err = await aiResp.text();
+    return { ok: false, status: 500, json: JSON.stringify({ error: 'ai_failed', detail: err }) };
+  }
+
+  const aiData = await aiResp.json();
+  const text = aiData.content?.[0]?.text || '{}';
+  const cleanText = text.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+
+  let reflection;
+  try { reflection = JSON.parse(cleanText); }
+  catch (e) { return { ok: false, status: 500, json: JSON.stringify({ error: 'parse_failed', raw: text }) }; }
+
+  reflection.book_en = bookName;
+  reflection.book_ko = bookNameKo;
+  reflection.chapter = chapter;
+  reflection.verseStart = verseStart;
+  reflection.verseEnd = verseEnd;
+
+  const result = JSON.stringify(reflection);
+  if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(cacheKey, result);
+  return { ok: true, json: result, cached: false };
 }
 
 // Strip (KN:NN) markers from a verse for clean search display.
@@ -697,7 +815,7 @@ async function handleBuildIndex(env, url, cors) {
         // do internally — bust the entry first so its own cache check
         // is a genuine miss.
         if (refetch && env.COMMENTARY_KV) {
-          await env.COMMENTARY_KV.delete(`nkrv_v3_${bookIdx + 1}_${chapter}`);
+          await env.COMMENTARY_KV.delete(`nkrv_v4_${bookIdx + 1}_${chapter}`);
         }
         const result = await fetchAndCacheNkrv(bookIdx + 1, chapter, env);
         if (!result.ok) throw new Error(result.error || 'nkrv_fetch_failed');
@@ -1934,90 +2052,8 @@ Only output valid JSON, no markdown, no preamble.`;
     if (path.startsWith('/qt-reflection/')) {
       const qtParts = path.match(/\/qt-reflection\/(\d+)\/(\d+)\/(\d+)\/(\d+)/);
       if (!qtParts) return new Response(JSON.stringify({error:'bad path'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
-      const qtBookNum = +qtParts[1], qtChapter = +qtParts[2], qtVerseStart = +qtParts[3], qtVerseEnd = +qtParts[4];
-      // v3: asks for 4-6 short paragraphs instead of 2-3 — versioned
-      // so already-cached, coarser-grained reflections regenerate
-      // instead of sticking around indefinitely (this cache has no TTL).
-      const qtCacheKey = `qt_reflection_v3_${qtBookNum}_${qtChapter}_${qtVerseStart}_${qtVerseEnd}`;
-
-      const qtCached = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(qtCacheKey) : null;
-      if (qtCached) return new Response(qtCached, {headers:{...cors,'Content-Type':'application/json'}});
-
-      // Reuse the same per-chapter Korean cache /nkrv/ uses, so this
-      // doesn't double-fetch bskorea for a chapter already cached.
-      const qtNkrvResult = await fetchAndCacheNkrv(qtBookNum, qtChapter, env);
-      if (!qtNkrvResult.ok) {
-        return new Response(JSON.stringify({error: qtNkrvResult.error || 'nkrv_fetch_failed'}), {status:502, headers:{...cors,'Content-Type':'application/json'}});
-      }
-      const qtNkrvData = qtNkrvResult.data;
-
-      const qtVersesInRange = (qtNkrvData.verses || []).filter(v => {
-        const n = typeof v.verse === 'string' ? parseInt(v.verse, 10) : v.verse;
-        return n >= qtVerseStart && n <= qtVerseEnd;
-      });
-      const qtPassageKo = qtVersesInRange
-        .map(v => `${v.verse}. ${v.text.replace(/\(KN:\d+\)/g, '')}`)
-        .join(' ');
-
-      const qtBookName = BOOK_NAMES_EN[qtBookNum-1];
-      const qtBookNameKo = BOOK_NAMES_KO[qtBookNum-1];
-      const qtRefLabel = qtVerseStart === qtVerseEnd
-        ? `${qtBookName} ${qtChapter}:${qtVerseStart}`
-        : `${qtBookName} ${qtChapter}:${qtVerseStart}-${qtVerseEnd}`;
-
-      const qtPrompt = `You are writing a short daily Quiet Time (QT) devotional reflection in the Reformed/evangelical tradition (Calvin, Sproul, Keller, Piper) — warm, pastoral, Christ-centered, practically applicable.
-
-Write a reflection specifically on ${qtRefLabel} — these exact verses only, not the surrounding chapter.
-
-Passage text (Korean, for your reference, use it to ground the reflection in what these specific verses actually say):
-"""
-${qtPassageKo}
-"""
-
-Write a devotional reflection on THIS PASSAGE SPECIFICALLY, broken into 4-6 SHORT paragraphs — each paragraph just 1-2 sentences, one idea per paragraph (e.g. observation, the text's context, a theological point, a practical application, a closing thought — as separate paragraphs, not combined). Favor more, shorter paragraphs over fewer, longer ones; this is read on a phone screen where dense blocks are hard to read. Then provide a Korean translation using 존댓말 (formal polite -습니다/-ㅂ니다 speech level), with the same paragraph breaks.
-
-Respond in this exact JSON format, no markdown, no preamble. Each paragraph is its OWN array element — do not put multiple paragraphs in one string, and do not include newline characters inside a string:
-{
-  "reflection_en": ["paragraph 1", "paragraph 2", "paragraph 3", "paragraph 4"],
-  "reflection_ko": ["문단 1", "문단 2", "문단 3", "문단 4"]
-}`;
-
-      const qtAiResp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': env.ANTHROPIC_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 2500,
-          messages: [{role:'user', content: qtPrompt}]
-        })
-      });
-
-      if (!qtAiResp.ok) {
-        const qtErr = await qtAiResp.text();
-        return new Response(JSON.stringify({error:'ai_failed', detail: qtErr}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
-      }
-
-      const qtAiData = await qtAiResp.json();
-      const qtText = qtAiData.content?.[0]?.text || '{}';
-      const qtCleanText = qtText.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
-
-      let qtReflection;
-      try { qtReflection = JSON.parse(qtCleanText); }
-      catch (e) { return new Response(JSON.stringify({error:'parse_failed', raw: qtText}), {status:500, headers:{...cors,'Content-Type':'application/json'}}); }
-
-      qtReflection.book_en = qtBookName;
-      qtReflection.book_ko = qtBookNameKo;
-      qtReflection.chapter = qtChapter;
-      qtReflection.verseStart = qtVerseStart;
-      qtReflection.verseEnd = qtVerseEnd;
-
-      const qtResult = JSON.stringify(qtReflection);
-      if (env.COMMENTARY_KV) await env.COMMENTARY_KV.put(qtCacheKey, qtResult);
-      return new Response(qtResult, {headers:{...cors,'Content-Type':'application/json'}});
+      const qtResult = await getOrCreateQtReflection(+qtParts[1], +qtParts[2], +qtParts[3], +qtParts[4], env);
+      return new Response(qtResult.json, {status: qtResult.status || 200, headers:{...cors,'Content-Type':'application/json'}});
     }
 
     // ---- Admin endpoints (must precede /search) ----
@@ -2179,5 +2215,23 @@ Respond in this exact JSON format, no markdown, no preamble. Each paragraph is i
     } catch (e) {
       return new Response(JSON.stringify({error: e.message}), {status:500, headers:{...cors,"Content-Type":"application/json"}});
     }
+  },
+
+  // Cron trigger (see wrangler.toml's [triggers] — runs 08:00 UTC daily).
+  // Pre-warms the QT reflection cache for TOMORROW's reading (by UTC
+  // date) so the first person to open the app on any given calendar
+  // day, in any timezone, hits a warm cache instead of triggering a
+  // live AI generation.  08:00 UTC gives >=2h lead time even for the
+  // earliest timezone (UTC+14) to reach that date's local midnight —
+  // see dailyPlan.js's own comment for the full timezone-coverage math.
+  // getReadingForDate's bookIdx is 0-indexed; the /qt-reflection route
+  // (and getOrCreateQtReflection) wants a 1-indexed book number.
+  async scheduled(event, env, ctx) {
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const reading = getReadingForDate(tomorrow);
+    ctx.waitUntil(
+      getOrCreateQtReflection(reading.bookIdx + 1, reading.chapter, reading.verseStart, reading.verseEnd, env)
+    );
   }
 };
