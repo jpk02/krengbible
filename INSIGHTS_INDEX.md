@@ -513,6 +513,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Canaanite woman (15:21-28) — "dogs" exchange as escalating test, not contempt; second Gentile-faith-exceeds-Israel's episode (cf. centurion, 8:10); narrative hinge between ch. 15's opening critique of external religion and the woman's humble persistent faith; previews 28:19
 - Feeding of the 4,000 (15:29-39) — deliberately distinct numbers (7/7 vs 5/12) from ch. 14; disciples' forgetfulness is the story's real point, later rebuked explicitly at 16:9-10; likely Gentile-territory setting (paired with ch. 14's Jewish-Galilee feeding) enacts in narrative what 15:24-28 argued in words
 
+**Matt 16 — Sign-seeking again, Peter's confession, first passion prediction, cross-bearing**
+- Leaven of Pharisees/Sadducees (16:1-12) — continues 12:38-42's sign-seeking-as-willful-blindness; leaven imagery reused from 13:33 (same mechanism, opposite direction — quiet pervasive spread); disciples' literal-mindedness about bread as small demonstration of the dullness warned against
+- Peter's confession + "on this rock" (16:13-20) — fullest disciple confession yet (Christ + Son of the living God); Petros/petra wordplay, rock as Peter-in-his-confession not separable into either reading alone; keys + binding/loosing; silence command explained by what follows (premature announcement would collide with the cross-path)
+- First passion prediction + "Get behind me, Satan" (16:21-23) — structural turning point ("from that time"); confession must precede explanation; Peter's rebuke echoes wilderness temptation (4:1-11, crown without cross); sincerity as no protection against being used as a tempting instrument
+- Cross-bearing + losing/finding life (16:24-28) — "anyone/whoever" scope, not apostolic-exclusive; self-preservation as what forfeits, self-denial as what secures; v.28 "some standing here" read as the transfiguration (17:1-8) fulfilling it within days, not delayed parousia
+
 ---
 
 ### Colossians
