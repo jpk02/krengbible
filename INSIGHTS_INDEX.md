@@ -491,6 +491,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Children's-game image + woes on Chorazin/Bethsaida/Capernaum (11:16-24) — rejection regardless of messenger's style (John ascetic, Jesus not); "wisdom justified by her deeds"; proportional-accountability principle (greater revelation → greater responsibility); Tyre/Sidon/Sodom would have repented — privilege witnessed and refused worse than ignorance
 - Father-Son mutual exclusive knowledge (11:25-27, high Christology) sets up the yoke invitation (11:28-30) as credible not just comforting; Jer 6:16 echo (Israel refused the ancient paths); yoke ≠ removal of labor, shared burden; rabbinic "yoke of Torah" contrast — "easy" = well-fitting, not effortless
 
+**Matt 12 — Sabbath controversies, unforgivable sin, sign of Jonah, true family**
+- Grain-picking + withered-hand healing (12:1-14) — "Lord of the Sabbath" as a lordship claim (Sabbath belongs to YHWH, Exod 20:10); Hos 6:6 mercy-not-sacrifice reused with chapter-specific angle (sheep-in-a-pit argument); Sabbath as gift not fence (Gen 2:2-3)
+- Beelzebul controversy + unforgivable sin (12:22-32) — blasphemy against the Spirit defined precisely as settled, willful relabeling of good as evil (Isa 5:20), not a doubt or angry word (contrast Peter's restored denial, John 21); pastoral reassurance that worrying about it is itself evidence against having committed it
+- Sign of Jonah (12:38-42) — first explicit death/resurrection prediction via OT type; sign deliberately unfalsifiable in the present; Ninevites + Queen of the South as Gentile witnesses against "this generation" (continues Matt 11:20-24's proportional-accountability principle)
+- Return of unclean spirit + true family redefined (12:43-50) — swept-empty-house warning (reformation without indwelling invites worse); family redefined around obedience to the Father, not blood (sets up church-as-new-family trajectory to 28:19); does not diminish Mary (contrast 15:4-6)
+
 ---
 
 ### Colossians
