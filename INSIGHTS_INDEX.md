@@ -497,6 +497,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Sign of Jonah (12:38-42) — first explicit death/resurrection prediction via OT type; sign deliberately unfalsifiable in the present; Ninevites + Queen of the South as Gentile witnesses against "this generation" (continues Matt 11:20-24's proportional-accountability principle)
 - Return of unclean spirit + true family redefined (12:43-50) — swept-empty-house warning (reformation without indwelling invites worse); family redefined around obedience to the Father, not blood (sets up church-as-new-family trajectory to 28:19); does not diminish Mary (contrast 15:4-6)
 
+**Matt 13 — Kingdom parables: sower, weeds, mustard/leaven, treasure/pearl, net**
+- Why parables at all (13:10-17) — Isa 6:9-10 judicial-hardening quotation; parables as double-duty revelation-and-concealment, judgment falling on unbelief already chosen (continues ch. 12's escalating hostility), not the cause of it
+- Sower explained (13:3-9, 18-23) — same seed, different soils; reframes "did the gospel work" into "what soil have I been"; rocky ground = real joyful response without root (cf. 7:21-23); thorny ground = slow suffocation by competing loves, not rejection
+- Wheat and weeds (13:24-30, 36-43) — patience preserving wheat from premature/collateral judgment; mixed condition of the world (and visible church) between the two comings; final separation reserved for angels, not servants; 2 Pet 3:9 patience-not-indifference framing
+- Mustard seed/leaven + treasure/pearl + net (13:31-50, grouped as one card) — small-hidden-beginnings (kingdom's present smallness not evidence against it) + total-worth response (Phil 3:8) + net returns to weeds' mixed-catch/final-sorting theme
+
 ---
 
 ### Colossians
