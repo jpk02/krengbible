@@ -503,6 +503,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Wheat and weeds (13:24-30, 36-43) — patience preserving wheat from premature/collateral judgment; mixed condition of the world (and visible church) between the two comings; final separation reserved for angels, not servants; 2 Pet 3:9 patience-not-indifference framing
 - Mustard seed/leaven + treasure/pearl + net (13:31-50, grouped as one card) — small-hidden-beginnings (kingdom's present smallness not evidence against it) + total-worth response (Phil 3:8) + net returns to weeds' mixed-catch/final-sorting theme
 
+**Matt 14 — John's execution, feeding the 5,000, walking on water**
+- John's beheading (14:1-12) — Herod's guilty-conscience resurrection assumption; regret ≠ repentance (grieved yet commanded it done); first literal enactment of ch. 10's persecution warning within the narrative; foreshadows Pilate's same fear-driven capitulation (27:24)
+- Feeding of the 5,000 (14:13-21) — compassion overriding Jesus's own sought solitude/grief, not competing with it; "you give them something to eat" reframing; four verbs (took/blessed/broke/gave) anticipate Last Supper (26:26); twelve baskets = abundance not bare sufficiency; Exod 16 manna + Isa 25:6 messianic banquet echoes
+- Walking on water + Peter's sinking (14:22-33) — Job 9:8 (only YHWH tramples the sea) as backdrop to disciples' "ghost" fear; sinking begins the instant attention shifts from Jesus to the storm; "little faith" as real faith, not its absence (Peter is the only one who got out of the boat); first fully explicit disciple confession of deity ("Son of God," 14:33), following ch. 8:23-27's storm-calming but heightened
+
 ---
 
 ### Colossians
