@@ -508,6 +508,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Feeding of the 5,000 (14:13-21) — compassion overriding Jesus's own sought solitude/grief, not competing with it; "you give them something to eat" reframing; four verbs (took/blessed/broke/gave) anticipate Last Supper (26:26); twelve baskets = abundance not bare sufficiency; Exod 16 manna + Isa 25:6 messianic banquet echoes
 - Walking on water + Peter's sinking (14:22-33) — Job 9:8 (only YHWH tramples the sea) as backdrop to disciples' "ghost" fear; sinking begins the instant attention shifts from Jesus to the storm; "little faith" as real faith, not its absence (Peter is the only one who got out of the boat); first fully explicit disciple confession of deity ("Son of God," 14:33), following ch. 8:23-27's storm-calming but heightened
 
+**Matt 15 — Tradition vs commandment, the Canaanite woman, feeding the 4,000**
+- Hand-washing controversy + Corban (15:1-20) — "tradition of the elders" vs God's word; Corban as technically-religious 5th-commandment evasion (cf. 12:46-50 family redefined-not-devalued); Isa 29:13 lips/heart quotation; defilement relocated to the heart's actual output, not external contact — intensifies moral seriousness rather than relaxing it
+- Canaanite woman (15:21-28) — "dogs" exchange as escalating test, not contempt; second Gentile-faith-exceeds-Israel's episode (cf. centurion, 8:10); narrative hinge between ch. 15's opening critique of external religion and the woman's humble persistent faith; previews 28:19
+- Feeding of the 4,000 (15:29-39) — deliberately distinct numbers (7/7 vs 5/12) from ch. 14; disciples' forgetfulness is the story's real point, later rebuked explicitly at 16:9-10; likely Gentile-territory setting (paired with ch. 14's Jewish-Galilee feeding) enacts in narrative what 15:24-28 argued in words
+
 ---
 
 ### Colossians
