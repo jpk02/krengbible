@@ -541,6 +541,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Cup and ransom (20:20-28) — third passion prediction immediately ignored, again; "cup" anchored here as the specific Gethsemane cup (26:39), not hardship-in-general; James/John's status request corrected by cost not outright denial; "ransom for many" (20:28, *lytron*) as clearest Gospel statement of substitutionary atonement; ten disciples' indignation reveals shared ambition, not just two brothers' failure
 - Two blind men, "Son of David" (20:29-34) — crowd's rebuke intensifies rather than silences the cry; "Son of David" messianic title thread (15:22 Canaanite woman, 21:9 Triumphal Entry); Jesus's identical question to both this and 20:21 (James/John) deliberately contrasts ambition-corrected-by-cost with mercy-granted-immediately; healing ends in discipleship, not just restored sight
 
+**Matt 21 — Triumphal entry/temple cleansing, fig tree, authority question/two sons, wicked tenants**
+- Triumphal entry + temple cleansing as one act (21:1-17) — Zech 9:9 deliberately staged, not incidental; "Hosanna Son of David" continues 20:30's thread; temple cleansing targets LOCATION not commerce itself (Court of the Gentiles colonized); Isa 56:7 vs Jer 7:11 pairs promise with indictment; Ps 8:2 (children's praise) closes scene naming who does/doesn't recognize him
+- Fig tree cursed (21:18-22) — enacted prophetic sign-act (category: Jer 19 pot, Ezek 4 lying on side), not literal horticulture lesson; full leaf/no fruit = all-show-no-substance, direct commentary on the temple just cleansed; anticipates 23:23's justice/mercy/faithfulness diagnosis; mountain-moving faith saying immediately follows, same authority extended to disciples
+- By what authority? + two sons (21:23-32) — leaders' counter-question about John's baptism is a mirror trap exposing political calculation not honest uncertainty; "we do not know" as convenience-lie; parable's two sons map directly onto leaders (says yes, doesn't obey) vs tax collectors/prostitutes (initially refuse, then repent and obey)
+- Wicked tenants (21:33-46) — Isa 5:1-7 vineyard-song imagery deliberately invoked (vineyard = house of Israel); escalating servants = rejected/killed prophets; son sent last and killed BECAUSE recognized as heir, cast out of vineyard anticipating crucifixion outside the walls; Ps 118:22 rejected-stone applied with surgical precision (cross-reference the fuller Ps 118 entry); crowd unwittingly pronounces its own verdict
+
 ---
 
 ### Colossians
