@@ -529,9 +529,19 @@ async function fetchAndCacheEsv(q, wantsExtras, env) {
   return { ok: true, cached: false, body };
 }
 
-async function fetchChapterFromBskorea(bookNum, chapter) {
+// version defaults to 'GAE' (개역개정/NKRV) — bskorea.or.kr's own
+// korbibReadpage.php serves several Korean translations off the same
+// script via this query param (found via the site's own 역본 선택
+// dropdown): GAE=개역개정, HAN=개역한글, SAE=표준새번역 (an older,
+// different edition — do not confuse with SAENEW), SAENEW=새번역,
+// COG=공동번역, COGNEW=공동번역 개정판.  Book codes (NKRV_CODES) are
+// shared across every version — confirmed by loading the same
+// book=mat URL under both GAE and SAENEW and getting matching content
+// in each version's own wording, so no separate code table is needed
+// per translation.
+async function fetchChapterFromBskorea(bookNum, chapter, version = 'GAE') {
   const book = NKRV_CODES[bookNum - 1];
-  const url = `https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE&book=${book}&chap=${chapter}`;
+  const url = `https://www.bskorea.or.kr/bible/korbibReadpage.php?version=${version}&book=${book}&chap=${chapter}`;
   const resp = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
@@ -539,7 +549,7 @@ async function fetchChapterFromBskorea(bookNum, chapter) {
       "Referer": "https://www.bskorea.or.kr/"
     }
   });
-  if (!resp.ok) throw new Error(`bskorea ${resp.status} for ${book} ${chapter}`);
+  if (!resp.ok) throw new Error(`bskorea ${resp.status} for ${book} ${chapter} (${version})`);
   const html = await resp.text();
   return parseNkrvHtml(html);
 }
@@ -646,6 +656,31 @@ async function fetchAndCacheNkrv(bookNum, chapter, env) {
     if (cached) return { ok: true, cached: true, data: JSON.parse(cached) };
   }
   const data = await fetchChapterFromBskorea(bookNum, chapter);
+  if (data.verses.length === 0) {
+    return { ok: false, error: 'parse_failed' };
+  }
+  const { headings: translatedHeadings, ok: translateOk } = await translateHeadingsToEnglish(data.headings, env);
+  data.headings = translatedHeadings;
+  if (env.COMMENTARY_KV && translateOk) {
+    await env.COMMENTARY_KV.put(verseKey, JSON.stringify(data));
+  }
+  return { ok: true, cached: false, data };
+}
+
+// ---- 새번역 (Saebeonyeok / RNKSV) fetch + cache -- second Korean
+// translation, same bskorea.or.kr source and parser as NKRV above,
+// just version=SAENEW instead of GAE (see fetchChapterFromBskorea's
+// comment).  Not wired into the search index or /qt-reflection yet —
+// those stay NKRV-only until/unless this translation needs them too;
+// this is just the live per-chapter fetch, same scope as /nkrv/ alone
+// before search+reflection were added on top of it. ----
+async function fetchAndCacheSaebeon(bookNum, chapter, env) {
+  const verseKey = `saebeon_v1_${bookNum}_${chapter}`;
+  if (env.COMMENTARY_KV) {
+    const cached = await env.COMMENTARY_KV.get(verseKey);
+    if (cached) return { ok: true, cached: true, data: JSON.parse(cached) };
+  }
+  const data = await fetchChapterFromBskorea(bookNum, chapter, 'SAENEW');
   if (data.verses.length === 0) {
     return { ok: false, error: 'parse_failed' };
   }
@@ -2196,6 +2231,24 @@ Only output valid JSON, no markdown, no preamble.`;
       }
 
       return new Response(result, { headers: votdHeaders });
+    }
+
+    // ---- 새번역 (Saebeonyeok) chapter fetch -- checked before the NKRV
+    // block below since that block's fallback bare /{book}/{chapter}
+    // pattern doesn't match a /saebeon/ prefix, but needs to run first
+    // so /saebeon/... doesn't fall through to the "Use /nkrv/..." error. ----
+    const saebeonMatch = path.match(/\/saebeon\/(\d+)\/(\d+)/);
+    if (saebeonMatch) {
+      const bookNum = +saebeonMatch[1], chapter = +saebeonMatch[2];
+      try {
+        const result = await fetchAndCacheSaebeon(bookNum, chapter, env);
+        if (!result.ok) {
+          return new Response(JSON.stringify({error: result.error || 'saebeon_fetch_failed'}), {headers:{...cors,"Content-Type":"application/json"}});
+        }
+        return new Response(JSON.stringify(result.data), {headers:{...cors,"Content-Type":"application/json","Cache-Control":"public, max-age=2592000, stale-while-revalidate=86400"}});
+      } catch (e) {
+        return new Response(JSON.stringify({error: e.message}), {status:500, headers:{...cors,"Content-Type":"application/json"}});
+      }
     }
 
     // ---- Korean Bible (nkrv) chapter fetch ----
