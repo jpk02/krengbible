@@ -664,6 +664,11 @@ Synoptic overlap with Matthew: for pericopes Matthew already anchors in full (Jo
 - Naked young man fleeing (14:43-52) — ENTIRELY UNIQUE TO MARK, no parallel anywhere; narratively pointless detail (doesn't advance any theological point) arguing for genuine remembered incident over invention; traditional (unprovable) guess identifies him as Mark himself, cf. Acts 12:12's Jerusalem house-church connection; fits the same eyewitness-texture pattern as Bartimaeus's name, green grass, nard's cost
 - Trial, "I am" (14:53-72) — core content (contradictory witnesses, silence, Peter's denial, Ps 110/Dan 7 blasphemy charge) anchored at Matt 26:57-75, not repeated; Mark's "I am" (*egō eimi*, 14:62) vs Matthew's more indirect "you have said so" — echoes LXX's divine self-identification language (Ex 3:14, Isa 41:4/43:10/46:4), removing even the small interpretive space Matthew's phrasing leaves open
 
+**Mark 15 — Precise hour-timestamps, centurion's "in this way"+Salome named, Pilate's death verification**
+- Trial/mockery/crucifixion (15:1-32) — core content anchored at Matt 27:11-44, not repeated; Mark tracks the day with specific hour-timestamps (third hour crucified, 15:25) Matthew doesn't supply, fitting the Roman-audience/concrete-detail pattern already noted (13:35's four watches, Bartimaeus's name)
+- Darkness/death/centurion (15:33-41) — core theology (Ps 22 cry, torn veil) anchored at Matt 27:45-56, not repeated; Mark's centurion is triggered by "in this way he breathed his last" (15:39, *houtos* — the manner of death itself) vs Matthew's tying the confession to the earthquake and signs; Salome named as a third woman at the cross, absent from Matthew's list at this point
+- Pilate verifies death, burial (15:42-47) — Joseph's costly request/Isa 53:9 fulfillment anchored at Matt 27:57-61, not repeated; Mark adds Joseph "looking for the kingdom of God" as motivation; Pilate's surprise at the quick death + centurion confirmation (15:44-45) has NO Matthew parallel — ordinary administrative procedure that incidentally forecloses later "swoon theory" objections to the resurrection
+
 ---
 
 ### Colossians
