@@ -14,6 +14,11 @@
 //                                                   -> Pre-fetch every ESV chapter into KV (live /esv/
 //                                                      cache, not the search index) so no request has
 //                                                      to call Crossway live.  Chunked, run repeatedly.
+//   /admin/warm-saebeon?from=N&size=M&concurrency=N (X-Admin-Secret header) -> same, for 새번역 (live /saebeon/
+//                                                      cache).  Each chapter here is a bskorea.or.kr scrape
+//                                                      PLUS an Anthropic call to translate headings, so it's
+//                                                      slower per-chapter than warm-esv — lower default
+//                                                      concurrency.  Chunked, run repeatedly.
 //   /admin/build-index?secret=...&from=N&size=M     -> (re)build the Korean search index.  Chunked.
 //   /admin/merge-index?secret=...                   -> Merge KO chunks -> nkrv_search_index.
 //   /admin/build-en-index?secret=...&from=N&size=M  -> (re)build the ESV English search index.  Chunked.
@@ -944,6 +949,61 @@ async function handleWarmEsv(env, url, cors, request) {
     totalChapters: TOTAL_CHAPTERS,
     nextFrom,
     nextUrl: nextFrom === null ? null : `/admin/warm-esv?from=${nextFrom}&size=${size} (with X-Admin-Secret header)`,
+    done: nextFrom === null
+  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
+}
+
+// ---- /admin/warm-saebeon — same job as /admin/warm-esv, but for
+// 새번역.  Each uncached chapter here is TWO slow calls in sequence
+// (a live bskorea.or.kr scrape, then an Anthropic call to translate
+// headings — see fetchAndCacheSaebeon/translateHeadingsToEnglish),
+// so leaving this to the app's own client-side bulk-download loop
+// means every one of 1189 chapters pays that full cold-path cost on
+// whichever device downloads first.  Concurrency defaults lower than
+// warm-esv's (1 vs 2) since each unit of work here is itself two
+// sequential network calls rather than one.
+async function handleWarmSaebeon(env, url, cors, request) {
+  const secret = request.headers.get('X-Admin-Secret') || url.searchParams.get('secret');
+  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
+  }
+  const from = Math.max(0, parseInt(url.searchParams.get('from') || '0'));
+  const size = Math.min(100, Math.max(1, parseInt(url.searchParams.get('size') || '25')));
+  const concurrency = Math.min(3, Math.max(1, parseInt(url.searchParams.get('concurrency') || '1')));
+
+  const ordinals = [];
+  for (let o = from; o < Math.min(from + size, TOTAL_CHAPTERS); o++) ordinals.push(o);
+
+  let warmed = 0, alreadyCached = 0, errored = 0;
+  const errors = [];
+
+  for (let i = 0; i < ordinals.length; i += concurrency) {
+    const batch = ordinals.slice(i, i + concurrency);
+    await Promise.all(batch.map(async (ord) => {
+      const [bookIdx, chapter] = ordinalToBookChapter(ord);
+      const bookNum = bookIdx + 1;
+      try {
+        const result = await fetchAndCacheSaebeon(bookNum, chapter, env);
+        if (!result.ok) {
+          errored++;
+          errors.push({ bookNum, chapter, error: result.error });
+          return;
+        }
+        if (result.cached) alreadyCached++; else warmed++;
+      } catch (e) {
+        errored++;
+        errors.push({ bookNum, chapter, error: e.message });
+      }
+    }));
+  }
+
+  const nextFrom = from + size < TOTAL_CHAPTERS ? from + size : null;
+  return new Response(JSON.stringify({
+    from, size, warmed, alreadyCached, errored,
+    errors: errors.slice(0, 20),
+    totalChapters: TOTAL_CHAPTERS,
+    nextFrom,
+    nextUrl: nextFrom === null ? null : `/admin/warm-saebeon?from=${nextFrom}&size=${size} (with X-Admin-Secret header)`,
     done: nextFrom === null
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
 }
@@ -2094,6 +2154,7 @@ Only output valid JSON, no markdown, no preamble.`;
     // ---- Admin endpoints (must precede /search) ----
     if (path === '/admin/build-index') return handleBuildIndex(env, url, cors);
     if (path === '/admin/warm-esv') return handleWarmEsv(env, url, cors, request);
+    if (path === '/admin/warm-saebeon') return handleWarmSaebeon(env, url, cors, request);
     if (path === '/admin/merge-index') return handleMergeIndex(env, url, cors);
     if (path === '/admin/build-en-index') return handleBuildEnIndex(env, url, cors);
     if (path === '/admin/merge-en-index') return handleMergeEnIndex(env, url, cors);
