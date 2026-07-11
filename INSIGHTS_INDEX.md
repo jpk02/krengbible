@@ -530,6 +530,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Church discipline stages (18:15-20) — private-then-escalating, "gained your brother" as success condition not confrontation itself; binding/loosing repeated from 16:19 but now given to gathered church (plural) not Peter alone; "two or three gathered" in original context is about discipline, not general fellowship
 - Unforgiving servant (18:21-35) — 10,000 talents (unpayable) vs 100 denarii (manageable) as deliberate mismatch; mercy received as transaction closed vs posture adopted; not transactional-forgiveness-earns-salvation but diagnostic of whether forgiveness was ever truly received
 
+**Matt 19 — Divorce/eunuchs, let the children come, rich young ruler**
+- Divorce, creation vs Mosaic concession (19:1-9) — Jesus appeals past Deut 24:1-4 to Gen 1:27/2:24; "hardness of heart" as regulating fallenness not endorsing it; exception clause noted but weight rests on creational one-flesh reality, not exception-cataloguing; principle generalizes beyond marriage (not every accommodation = God's ideal)
+- Eunuchs for the kingdom (19:10-12) — disciples' "better not to marry" reaction reframed as real calling not fallback; three categories (born/made/chosen); voluntary singleness for kingdom purposes ≠ incapacity settling for less; 1 Cor 7:7,32-38 parallel (neither state superior)
+- Let the children come (19:13-15) — distinct angle from 18:1-4 (there: disciple's own posture/imitation; here: who has access); disciples' gatekeeping instinct; deliberately sandwiched between costly-fidelity divorce teaching and rich-young-ruler's inability to let go
+- Rich young ruler, camel/needle (19:16-30) — "what do I still lack" as the tell; commandment-keeping genuine but possessions were his actual god; not a universal liquidate-everything command, a specific diagnosis; camel/needle deliberate impossible hyperbole (not a literal small gate legend); "first will be last" aimed at Peter's own bookkeeping too
+
 ---
 
 ### Colossians
