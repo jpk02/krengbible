@@ -565,6 +565,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Coming of the Son of Man + fig tree + "this generation" (24:29-31, 32-35) — cosmic imagery draws on OT apocalyptic vocabulary (Isa 13:10/34:4, Joel 2, Dan 7:13-14) also used for political-order collapse, not only literal astronomy; near/far double reference; "this generation" (genea) most naturally = Jesus's contemporaries (cross-ref 23:36 same word, unambiguous), fitting AD 70 fulfillment without straining the Greek
 - No one knows the day, days of Noah, faithful/wicked servant (24:36-51) — Son's stated ignorance of timing as incarnate/human-nature limitation (cf. Luke 2:52, Matt 4:2), not deity limitation; direct rebuke of date-setting; readiness as standing posture not signal-triggered response; wicked servant's failure begins with "my master is delayed" — timing-uncertainty exploited as license; sets up ch.25's three parables directly
 
+**Matt 25 — Olivet Discourse pt.2: ten virgins, talents, sheep and goats**
+- Ten virgins, oil that can't be borrowed (25:1-13) — ALL ten sleep (sleeping isn't the failure); oil = internal readiness that can't be transferred at the moment needed, not stinginess; closed door + "I do not know you" echoes 7:23 false-disciple warning; returns directly to 24:36's refrain, dramatizing rather than adding new timing info
+- Talents, buried not squandered (25:14-30) — differing amounts by ability = proportional faithfulness not absolute output measured; third servant's fear-driven distorted theology of the master as the real diagnosis, not the buried talent itself; "to everyone who has, more will be given" repeats 13:12's principle; no morally neutral option once entrusted with something real
+- Sheep and goats (25:31-46) — both groups' genuine surprise ("when did we see you...") rules out works-as-earned-credit reading; "least of these my brothers" most naturally = Christ's followers specifically (cross-ref 12:48-50 discipleship-family, 10:40-42 receiving messengers=receiving Christ), though broader mercy application traditionally read alongside without collapsing the specific point; verdict exposes existing character, doesn't create it
+
 ---
 
 ### Colossians
