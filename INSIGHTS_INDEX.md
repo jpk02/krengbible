@@ -590,6 +590,18 @@ Local working file (not committed to public site if you'd prefer — let me know
 
 ---
 
+### Mark
+
+Synoptic overlap with Matthew: for pericopes Matthew already anchors in full (John the Baptist, the Sermon on the Mount material, most parables, most miracles, the passion narrative's core theology), Mark's cards deliberately take MARK's own distinctive angle — compression, the *euthys* ("immediately") pace, the messianic secret, Peter-eyewitness texture, Mark's own unique details/omissions — rather than re-explaining ground Matthew's entries already cover.  Cross-reference back to Matthew's anchors rather than duplicating.
+
+**Mark 1 — Compressed prologue/temptation, immediately+messianic secret, healing wave/prayer, leper/failed concealment**
+- No genealogy/birth narrative, "beginning of the gospel" (1:1-13) — action-first genre choice vs Matthew's 2-ch preamble; *schizomenous* ("torn/split") heavens, violent verb anticipating 15:38 torn veil; temptation compressed to 2 verses with no dialogue (contrast Matt 4's full Deuteronomy-typology treatment, anchored there); *ekballei* ("drives out," same verb used for demons) applied to the Spirit's action on Jesus; "with the wild animals" unique to Mark
+- *Euthys* pace + messianic secret begins (1:14-28) — word appears ~40x across the Gospel, this chapter alone uses it repeatedly; authority demonstrated through action before content is shown; demons correctly/unwillingly name Jesus while humans stay uncertain — ironic gap Mark's readers are positioned to notice from the first exorcism onward since 1:1 already told them the answer
+- Healing wave + withdrawal to pray (1:29-39) — Simon's mother-in-law detail as Peter-eyewitness texture (Papias tradition); sundown timing = Sabbath ending, burden-carrying now lawful; deliberate withdrawal from success/demand to pray, redirecting mission to breadth of preaching not fixed healing-station; pattern recurs 6:31, 46
+- Leper healed, secret fails immediately (1:40-45) — "compassion" vs "anger" textual variant (splagchnistheis/orgistheis) noted evenhandedly; touching a leper as boundary-crossing reversal of expected contagion direction; silencing command violated within the same pericope, chapter closes with ironic role-reversal of its own opening image (Jesus driven INTO desolate places by fame, not withdrawing there by choice)
+
+---
+
 ### Colossians
 
 **Col 1 — Christ hymn, reconciliation, indwelling**
