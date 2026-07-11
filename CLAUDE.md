@@ -39,7 +39,7 @@ Insights tab on each chapter renders Q&A-style cards.  Data lives in the `INSIGH
 
 - Complete: Genesis (1-50), Exodus (1-40), Leviticus (1-27), Numbers (1-36), Psalms (1-150), Galatians (1-6), Colossians (1-4)
 - Matthew: **complete (1-28)**.
-- Mark: 1-4 complete, **5-16 remaining — 12 chapters**.  Heavy synoptic overlap with Matthew — Mark's cards take Mark's OWN distinctive angle (compression, *euthys* pace, messianic secret, Peter-eyewitness texture, Mark-unique details/sayings absent from Matthew's parallels) rather than re-explaining content Matthew's entries already anchor.  Cross-reference back to Matthew instead of duplicating.
+- Mark: 1-5 complete, **6-16 remaining — 11 chapters**.  Heavy synoptic overlap with Matthew — Mark's cards take Mark's OWN distinctive angle (compression, *euthys* pace, messianic secret, Peter-eyewitness texture, Mark-unique details/sayings absent from Matthew's parallels) rather than re-explaining content Matthew's entries already anchor.  Cross-reference back to Matthew instead of duplicating.
 - Luke, John remain after Mark.
 - `INSIGHTS_INDEX.md` tracks all anchored concepts.  **Read it before drafting any new chapter** to avoid duplicating questions already covered.
 - When injecting a new chapter, always check `grep -c '"BOOK_CH":' index.html` afterward to confirm exactly one occurrence — a stale/forgotten prior pass can silently duplicate a key (JS lets the later one win, but the dead first copy bloats the file unnoticed).  This exact bug was found and fixed for Exodus 33-40 in this session.
