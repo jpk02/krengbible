@@ -547,6 +547,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - By what authority? + two sons (21:23-32) — leaders' counter-question about John's baptism is a mirror trap exposing political calculation not honest uncertainty; "we do not know" as convenience-lie; parable's two sons map directly onto leaders (says yes, doesn't obey) vs tax collectors/prostitutes (initially refuse, then repent and obey)
 - Wicked tenants (21:33-46) — Isa 5:1-7 vineyard-song imagery deliberately invoked (vineyard = house of Israel); escalating servants = rejected/killed prophets; son sent last and killed BECAUSE recognized as heir, cast out of vineyard anticipating crucifixion outside the walls; Ps 118:22 rejected-stone applied with surgical precision (cross-reference the fuller Ps 118 entry); crowd unwittingly pronounces its own verdict
 
+**Matt 22 — Wedding feast, render to Caesar, Sadducees/resurrection, greatest commandment + David's Lord**
+- Wedding feast parable (22:1-14) — continues 21:33-46's rejected-invitation theme; king's judgment (22:7) anticipates AD 70; two DISTINCT failures (refuse invitation outright vs. accept entry but reject provided garment) cover two ways of rejecting the kingdom; wedding-garment-provided custom → clothed-in-Christ's-righteousness imagery (Isa 61:10, Gal 3:27, Rev 19:8)
+- Render to Caesar (22:15-22) — Pharisees+Herodians alliance only exists because the trap requires it; coin bearing Caesar's image belongs to Caesar → person bearing God's image (Gen 1:26-27) belongs entirely to God; not a 50/50 compromise, a category distinction that dwarfs the tax question
+- Sadducees, seven brothers, resurrection (22:23-33) — levirate marriage (Deut 25:5-6) weaponized into a category error (resurrected life ≠ marriage-as-usual scaled up); Ex 3:6 "I AM the God of Abraham" present-tense grammar as the argument (cross-ref Exodus anchor); a text Sadducees themselves accepted already assumes resurrection
+- Greatest commandment + David's Lord (22:34-46) — genuine question (not hostile despite "to test him") answered straight: Shema (Deut 6:5) + Lev 19:18 as organizing axis, not abolishing the other 611; Jesus's counter-question exposes "Son of David" as inadequate via Ps 110:1 grammar (David calls Messiah "my Lord") — fully-God-fully-man claim building since ch.1; silences every interrogator for the rest of the Gospel's confrontations
+
 ---
 
 ### Colossians
