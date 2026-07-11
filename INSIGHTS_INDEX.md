@@ -669,6 +669,10 @@ Synoptic overlap with Matthew: for pericopes Matthew already anchors in full (Jo
 - Darkness/death/centurion (15:33-41) — core theology (Ps 22 cry, torn veil) anchored at Matt 27:45-56, not repeated; Mark's centurion is triggered by "in this way he breathed his last" (15:39, *houtos* — the manner of death itself) vs Matthew's tying the confession to the earthquake and signs; Salome named as a third woman at the cross, absent from Matthew's list at this point
 - Pilate verifies death, burial (15:42-47) — Joseph's costly request/Isa 53:9 fulfillment anchored at Matt 27:57-61, not repeated; Mark adds Joseph "looking for the kingdom of God" as motivation; Pilate's surprise at the quick death + centurion confirmation (15:44-45) has NO Matthew parallel — ordinary administrative procedure that incidentally forecloses later "swoon theory" objections to the resurrection
 
+**Mark 16 — Original abrupt ending, Longer Ending textual crux (Mark complete)**
+- Empty tomb, original ending (16:1-8) — same women as 15:40 (minus one substitution) return; young man's message singles out "and Peter" by name (16:7), quiet restoration after 14:66-72's denial; earliest/best manuscripts (Sinaiticus, Vaticanus) end at 16:8, on the conjunction *gar* — grammatically unusual, long-debated whether deliberate; fear-and-incomplete-understanding closing fits the Gospel's consistent pattern (6:52, 8:17-21, 3:21, messianic secret throughout)
+- The Longer Ending, 16:9-20 (textual crux) — handled with the same honesty as 1:41 and 2:26's variants but far more consequential (12 verses, not a word); absent from the two oldest complete NT manuscripts, noted as missing by Eusebius and Jerome, later manuscripts disagree with each other on alternate endings, vocabulary/style differs from the rest of Mark; most content independently attested elsewhere (Matt 28, Luke 24, Acts 1) rests on solid ground regardless; explicitly flags that snake-handling/poison-drinking practices drawn SOLELY from this disputed passage have caused real documented deaths — most responsible use is as later church tradition, not load-bearing text for teaching found nowhere else
+
 ---
 
 ### Colossians
