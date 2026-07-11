@@ -519,6 +519,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - First passion prediction + "Get behind me, Satan" (16:21-23) — structural turning point ("from that time"); confession must precede explanation; Peter's rebuke echoes wilderness temptation (4:1-11, crown without cross); sincerity as no protection against being used as a tempting instrument
 - Cross-bearing + losing/finding life (16:24-28) — "anyone/whoever" scope, not apostolic-exclusive; self-preservation as what forfeits, self-denial as what secures; v.28 "some standing here" read as the transfiguration (17:1-8) fulfilling it within days, not delayed parousia
 
+**Matt 17 — Transfiguration, disciples' failed exorcism, temple tax**
+- Transfiguration (17:1-8) — Moses/Elijah as Law+Prophets attendant not peer; Peter's three-tents instinct corrected by "listen to him" singular; 2 Pet 1:16-18 eyewitness anchor; "Jesus only" as fulfillment not replacement
+- Failed exorcism, "little faith" (17:14-20) — same disciples already given authority (10:1); mustard-seed as object/genuineness not quantity; "little faith" recurring diagnosis (6:30, 14:31, 16:8) — delegated power drifting toward self-reliance
+- Temple tax, coin in fish's mouth (17:24-27) — "then the sons are free" as messianic self-identification; rightful freedom voluntarily surrendered "lest we offend"; Rom 14 / 1 Cor 8-9 Christian-liberty precedent
+
 ---
 
 ### Colossians
