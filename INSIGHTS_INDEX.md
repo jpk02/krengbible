@@ -600,6 +600,11 @@ Synoptic overlap with Matthew: for pericopes Matthew already anchors in full (Jo
 - Healing wave + withdrawal to pray (1:29-39) — Simon's mother-in-law detail as Peter-eyewitness texture (Papias tradition); sundown timing = Sabbath ending, burden-carrying now lawful; deliberate withdrawal from success/demand to pray, redirecting mission to breadth of preaching not fixed healing-station; pattern recurs 6:31, 46
 - Leper healed, secret fails immediately (1:40-45) — "compassion" vs "anger" textual variant (splagchnistheis/orgistheis) noted evenhandedly; touching a leper as boundary-crossing reversal of expected contagion direction; silencing command violated within the same pericope, chapter closes with ironic role-reversal of its own opening image (Jesus driven INTO desolate places by fame, not withdrawing there by choice)
 
+**Mark 2 — Paralytic through the roof, Levi's call/fast question, Sabbath grain-picking + Abiathar crux**
+- Paralytic (2:1-12) — roof-digging detail absent from Matthew's parallel (cross-ref Matt 9:1-8 for the "which is easier" argument, already anchored); "THEIR faith" (plural, the four friends') as embodied intercessory faith made visible through costly effort, not the paralytic's own faith specified
+- Levi's call + fast question (2:13-22) — euthys-speed call matches ch.1 fishermen pattern; wineskins/Hos 6:6/table-fellowship content already fully anchored at Matt 9:9-17, deliberately not repeated; Mark's own texture (reclining posture, "many followed him," complaint routed through disciples not Jesus directly); notes the chapter's accumulating four-controversy rhythm building toward 3:6's kill-plot
+- Sabbath grain-picking (2:23-28) — "Lord of the Sabbath"/mercy-not-sacrifice content anchored at Matt 12:1-14, not repeated; Abiathar/Ahimelech historical crux (2:26) noted honestly with proposed explanations, no forced resolution; 2:27 "Sabbath made for man" is UNIQUE TO MARK, absent from Matthew's parallel — reframes controversy at the level of purpose not rule-application
+
 ---
 
 ### Colossians
