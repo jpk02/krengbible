@@ -524,6 +524,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Failed exorcism, "little faith" (17:14-20) — same disciples already given authority (10:1); mustard-seed as object/genuineness not quantity; "little faith" recurring diagnosis (6:30, 14:31, 16:8) — delegated power drifting toward self-reliance
 - Temple tax, coin in fish's mouth (17:24-27) — "then the sons are free" as messianic self-identification; rightful freedom voluntarily surrendered "lest we offend"; Rom 14 / 1 Cor 8-9 Christian-liberty precedent
 
+**Matt 18 — Greatest in the kingdom, lost sheep, church discipline, unforgiving servant**
+- Child as model + millstone warning (18:1-9) — humility as low-status/dependence not innocence; "little ones" extended to vulnerable/low-status believers; hand/foot/eye repeated from 5:29-30 but angle shifts outward (community responsibility) not inward (personal lust)
+- Lost sheep, Matthean version (18:10-14) — deliberately distinct from Luke 15's outsider-outreach angle; here the sheep is a wandering church member, "little one" from 18:6-9; governs the discipline process that follows
+- Church discipline stages (18:15-20) — private-then-escalating, "gained your brother" as success condition not confrontation itself; binding/loosing repeated from 16:19 but now given to gathered church (plural) not Peter alone; "two or three gathered" in original context is about discipline, not general fellowship
+- Unforgiving servant (18:21-35) — 10,000 talents (unpayable) vs 100 denarii (manageable) as deliberate mismatch; mercy received as transaction closed vs posture adopted; not transactional-forgiveness-earns-salvation but diagnostic of whether forgiveness was ever truly received
+
 ---
 
 ### Colossians
