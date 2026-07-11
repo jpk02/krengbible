@@ -536,6 +536,11 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Let the children come (19:13-15) — distinct angle from 18:1-4 (there: disciple's own posture/imitation; here: who has access); disciples' gatekeeping instinct; deliberately sandwiched between costly-fidelity divorce teaching and rich-young-ruler's inability to let go
 - Rich young ruler, camel/needle (19:16-30) — "what do I still lack" as the tell; commandment-keeping genuine but possessions were his actual god; not a universal liquidate-everything command, a specific diagnosis; camel/needle deliberate impossible hyperbole (not a literal small gate legend); "first will be last" aimed at Peter's own bookkeeping too
 
+**Matt 20 — Workers in the vineyard, sons of Zebedee, blind men at Jericho**
+- Workers in the vineyard (20:1-16) — direct answer to Peter's 19:27 bookkeeping question, framed by 19:30/20:16's matching "first/last" bookend; landowner is generous not unjust (everyone gets exactly what was promised); "evil eye" (20:15) as envy-diagnosed-as-blindness; kingdom reward as gift not proportional wage; Luke 15's older brother as narrative version of the same diagnosis; Rom 9:14 same defense against the same objection
+- Cup and ransom (20:20-28) — third passion prediction immediately ignored, again; "cup" anchored here as the specific Gethsemane cup (26:39), not hardship-in-general; James/John's status request corrected by cost not outright denial; "ransom for many" (20:28, *lytron*) as clearest Gospel statement of substitutionary atonement; ten disciples' indignation reveals shared ambition, not just two brothers' failure
+- Two blind men, "Son of David" (20:29-34) — crowd's rebuke intensifies rather than silences the cry; "Son of David" messianic title thread (15:22 Canaanite woman, 21:9 Triumphal Entry); Jesus's identical question to both this and 20:21 (James/John) deliberately contrasts ambition-corrected-by-cost with mercy-granted-immediately; healing ends in discipleship, not just restored sight
+
 ---
 
 ### Colossians
