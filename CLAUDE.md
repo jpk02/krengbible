@@ -38,7 +38,7 @@ Insights tab on each chapter renders Q&A-style cards.  Data lives in the `INSIGH
 ### Status as of this writing
 
 - Complete: Genesis (1-50), Exodus (1-40), Leviticus (1-27), Numbers (1-36), Psalms (1-150), Galatians (1-6), Colossians (1-4)
-- Matthew: 1-23 complete, **24-28 remaining — 5 chapters**
+- Matthew: 1-24 complete, **25-28 remaining — 4 chapters**
 - `INSIGHTS_INDEX.md` tracks all anchored concepts.  **Read it before drafting any new chapter** to avoid duplicating questions already covered.
 - When injecting a new chapter, always check `grep -c '"BOOK_CH":' index.html` afterward to confirm exactly one occurrence — a stale/forgotten prior pass can silently duplicate a key (JS lets the later one win, but the dead first copy bloats the file unnoticed).  This exact bug was found and fixed for Exodus 33-40 in this session.
 

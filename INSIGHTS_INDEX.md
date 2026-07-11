@@ -559,6 +559,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Cup and whitewashed tombs (23:25-28) — external purity concealing rather than merely missing internal corruption; tomb whitewashing's practical purpose (Num 19:16 defilement-avoidance) makes the image precise not generic; same inversion warned against in 6:1-18's "to be seen by others"
 - Brood of vipers + lament over Jerusalem (23:29-39) — self-deception of honoring dead prophets while rejecting a living one; righteous-blood roll call spans Hebrew canon Genesis-to-Chronicles; hen-gathering-chicks maternal image as the grief underneath the woes, not a tonal shift; "your house left desolate" anticipates AD 70 and ch.24; Ps 118:26 quote closes with hope not foreclosed (cross-ref Triumphal Entry anchor)
 
+**Matt 24 — Olivet Discourse pt.1: temple prediction, abomination of desolation, this generation, no one knows the day**
+- Temple destruction + birth pains (24:1-14) — disciples bundle temple-destruction and end-of-age into one question; prophetic telescoping (near/far horizons together, cf. Isaiah's Babylon oracles) introduced here as the interpretive key for the rest of the discourse; wars/famines/persecution as ongoing age-long pattern not isolated future crisis
+- Abomination of desolation + flee to mountains (24:15-28) — Dan 9:27/11:31/12:11 pattern applied forward to imminent AD 70 fulfillment (Antiochus Epiphanes as partial historical precedent); "let the reader understand" as coded urgency; concrete triage-instruction tone (flee, don't return for belongings) argues against purely symbolic/distant reading; lightning/corpse-vultures images rule out localized false-messiah claims
+- Coming of the Son of Man + fig tree + "this generation" (24:29-31, 32-35) — cosmic imagery draws on OT apocalyptic vocabulary (Isa 13:10/34:4, Joel 2, Dan 7:13-14) also used for political-order collapse, not only literal astronomy; near/far double reference; "this generation" (genea) most naturally = Jesus's contemporaries (cross-ref 23:36 same word, unambiguous), fitting AD 70 fulfillment without straining the Greek
+- No one knows the day, days of Noah, faithful/wicked servant (24:36-51) — Son's stated ignorance of timing as incarnate/human-nature limitation (cf. Luke 2:52, Matt 4:2), not deity limitation; direct rebuke of date-setting; readiness as standing posture not signal-triggered response; wicked servant's failure begins with "my master is delayed" — timing-uncertainty exploited as license; sets up ch.25's three parables directly
+
 ---
 
 ### Colossians
