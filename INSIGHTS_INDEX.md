@@ -570,6 +570,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Talents, buried not squandered (25:14-30) — differing amounts by ability = proportional faithfulness not absolute output measured; third servant's fear-driven distorted theology of the master as the real diagnosis, not the buried talent itself; "to everyone who has, more will be given" repeats 13:12's principle; no morally neutral option once entrusted with something real
 - Sheep and goats (25:31-46) — both groups' genuine surprise ("when did we see you...") rules out works-as-earned-credit reading; "least of these my brothers" most naturally = Christ's followers specifically (cross-ref 12:48-50 discipleship-family, 10:40-42 receiving messengers=receiving Christ), though broader mercy application traditionally read alongside without collapsing the specific point; verdict exposes existing character, doesn't create it
 
+**Matt 26 — Anointing/Judas's bargain, Last Supper, Gethsemane/arrest, trial/Peter's denial**
+- Anointing at Bethany + Judas's deal (26:6-16) — deliberately bracketed by hostility on both sides (narrative sandwich); Mary's "waste" vs Judas's precise calculation as mirror-image responses; thirty pieces = Zech 11:12-13 rejected-shepherd price, deliberately insulting (cf. Ex 21:32 gored-slave price)
+- Last Supper (26:17-30) — Passover date deliberately chosen, not incidental (1 Cor 5:7); four verbs (took/blessed/broke/gave) fulfill what 14:19 feeding-of-5000 anticipated; "blood of the covenant" = Ex 24:8 Sinai ratification language, fulfilling Jer 31:31-34 new covenant (cross-ref Matt 2 Rachel-weeping anchor); Passover lamb's blood (Ex 12) pattern reaches intended fulfillment
+- Gethsemane + arrest (26:36-56) — cup = the specific cup already named at 20:22 (James/John), now faced directly; three-fold prayer shifts from requesting alternative to accepting necessity, not resolve changing but deepening; deliberate contrast with Peter's coming three-fold denial (same number, opposite trajectory); "all who take the sword will perish by the sword"; voluntary submission to fulfill Scripture, not merely endured
+- Trial before Caiaphas + Peter's denial (26:57-75) — silent under false charges, speaks immediately under formal oath (Ps 110:1 + Dan 7:13 combined, cross-ref Matt 22 David's-Lord); Peter's three denials escalate under FAR less pressure than Jesus's oath, deliberate parallel-inversion; Peter's weeping bitterly = grief not despair (contrast Judas, 27:5), raw material for later restoration not the end of the story
+
 ---
 
 ### Colossians
