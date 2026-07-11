@@ -655,6 +655,10 @@ Synoptic overlap with Matthew: for pericopes Matthew already anchors in full (Jo
 - Five temple controversies (12:1-37) — wicked tenants/Caesar/Sadducees/greatest-commandment/David's-Lord content all anchored across Matt 21-22, not repeated; Mark's OWN distinctive is structural — compressing into one chapter what Matthew spreads across two, reading as a single relentless siege rather than separate debates; scribe's "not far from the kingdom" and crowd's glad reception of the David's-Lord question bookend the sequence with openness amid hostility
 - Widow's mite (12:41-44) — NO parallel in Matthew at all (only Mark and Luke 21:1-4), joining 4:26-29 and 7:31-37 as Mark-preserved-only material; deliberately placed right after the widow-devouring-scribes warning (cross-ref Matt 23 Moses'-seat anchor); treasury's trumpet-shaped collection boxes made large gifts audible — built-in public display; measure is proportion retained afterward, not absolute amount — genuine wholehearted trust, not a universal give-everything-away rule
 
+**Mark 13 — Four named disciples asking privately, doorkeeper parable foreshadowing Gethsemane**
+- Olivet Discourse core (13:1-31) — full theology (birth pains, abomination of desolation, prophetic telescoping, "this generation") anchored at Matt 24:1-35, not repeated; Mark specifies four NAMED disciples (Peter/James/John/Andrew, 13:3) asking privately vs Matthew's generic "the disciples" — same inner-circle three as the transfiguration (9:2) and Gethsemane (14:33); fits Mark's broader specific-detail-preserving pattern (Bartimaeus named 10:46, green grass 6:39)
+- Doorkeeper parable, stay awake (13:32-37) — no-one-knows-the-day content anchored at Matt 24:36-44, not repeated; Roman four-watch night structure (evening/midnight/cockcrow/morning, 13:35) fits Mark's likely Roman audience (cross-ref 7:3-4 Gentile-explanatory pattern); "stay awake" (*grēgoreō*) repeated 3x directly foreshadows 14:34-37's Gethsemane scene where the same three disciples fail this exact test within hours, same verb, same mountain
+
 ---
 
 ### Colossians
