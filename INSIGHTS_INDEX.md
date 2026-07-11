@@ -553,6 +553,12 @@ Local working file (not committed to public site if you'd prefer — let me know
 - Sadducees, seven brothers, resurrection (22:23-33) — levirate marriage (Deut 25:5-6) weaponized into a category error (resurrected life ≠ marriage-as-usual scaled up); Ex 3:6 "I AM the God of Abraham" present-tense grammar as the argument (cross-ref Exodus anchor); a text Sadducees themselves accepted already assumes resurrection
 - Greatest commandment + David's Lord (22:34-46) — genuine question (not hostile despite "to test him") answered straight: Shema (Deut 6:5) + Lev 19:18 as organizing axis, not abolishing the other 611; Jesus's counter-question exposes "Son of David" as inadequate via Ps 110:1 grammar (David calls Messiah "my Lord") — fully-God-fully-man claim building since ch.1; silences every interrogator for the rest of the Gospel's confrontations
 
+**Matt 23 — Moses' seat/titles, tithing vs justice, cup/tombs, lament over Jerusalem**
+- Moses' seat, do as they say not as they do, flattened titles (23:1-12) — authority of office separated from character of officeholder; broadened phylacteries/lengthened tassels (cross-ref Num 15 tzitzit anchor, here enlarged for show) as religion calibrated for an audience; servant-leadership thesis (23:11-12) repeats 20:26-28 as diagnosis against religious establishment
+- Tithing vs justice, oath loopholes (23:13-24) — v.14 (widows' houses) noted as later-manuscript addition, omitted; graded self-serving oath hierarchy exposed as convenience not logic; mint/dill/cumin vs justice/mercy/faithfulness as precision-substituting-for-substance, not precision itself being wrong; gnat/camel both ritually unclean (Lev 11) — small visible sin filtered, large one swallowed
+- Cup and whitewashed tombs (23:25-28) — external purity concealing rather than merely missing internal corruption; tomb whitewashing's practical purpose (Num 19:16 defilement-avoidance) makes the image precise not generic; same inversion warned against in 6:1-18's "to be seen by others"
+- Brood of vipers + lament over Jerusalem (23:29-39) — self-deception of honoring dead prophets while rejecting a living one; righteous-blood roll call spans Hebrew canon Genesis-to-Chronicles; hen-gathering-chicks maternal image as the grief underneath the woes, not a tonal shift; "your house left desolate" anticipates AD 70 and ch.24; Ps 118:26 quote closes with hope not foreclosed (cross-ref Triumphal Entry anchor)
+
 ---
 
 ### Colossians

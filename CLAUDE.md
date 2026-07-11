@@ -38,7 +38,7 @@ Insights tab on each chapter renders Q&A-style cards.  Data lives in the `INSIGH
 ### Status as of this writing
 
 - Complete: Genesis (1-50), Exodus (1-40), Leviticus (1-27), Numbers (1-36), Psalms (1-150), Galatians (1-6), Colossians (1-4)
-- Matthew: 1-22 complete, **23-28 remaining — 6 chapters**
+- Matthew: 1-23 complete, **24-28 remaining — 5 chapters**
 - `INSIGHTS_INDEX.md` tracks all anchored concepts.  **Read it before drafting any new chapter** to avoid duplicating questions already covered.
 - When injecting a new chapter, always check `grep -c '"BOOK_CH":' index.html` afterward to confirm exactly one occurrence — a stale/forgotten prior pass can silently duplicate a key (JS lets the later one win, but the dead first copy bloats the file unnoticed).  This exact bug was found and fixed for Exodus 33-40 in this session.
 
@@ -88,29 +88,38 @@ If a concept appears in a later chapter where it's already been anchored, either
 
 ### Injection pattern
 
-New chapter data is injected into `INSIGHTS_SAMPLE` via a temporary Node script.  File uses CRLF line endings — important for the regex anchor to match.  Pattern:
+New chapter data is injected into `INSIGHTS_SAMPLE` via a temporary Node script.  File uses plain LF line endings (an earlier version of this doc claimed CRLF — wrong, confirmed by direct inspection).
+
+**Don't hand-escape the card prose into a template literal.**  A card's `body_en`/`body_ko` is a long string full of `"..."` quotes for scripture citations — manually typing `\"` throughout is exactly the kind of repetitive escaping that silently drops a backslash somewhere in a few hundred lines of prose, corrupting the file in a way that only surfaces later (this happened once, mid-session, on Matt 23's card 2).  Instead, write the cards as a **separate module exporting real JS values** (plain template literals, real quote characters, no manual escaping at all), then have the injector `JSON.stringify()` each field when assembling the insertion — this makes correct escaping mechanical instead of manual, for any content the cards happen to contain.
 
 ```js
+// cards.js — real JS strings, no manual escaping
+module.exports = [
+  { kicker_en: "...", kicker_ko: "...", title_en: "...", title_ko: "...",
+    body_en: \`... "quoted scripture" is just a literal quote here ...\`,
+    body_ko: \`... 마찬가지로 그냥 그대로 쓰면 된다 ...\` },
+];
+
+// inject.js
 const fs = require('fs');
-const path = require('path');
-const file = path.join(__dirname, 'index.html');
+const cards = require('./cards.js');
+const file = '/Users/pauljuhyenkim/krengbible/index.html';
 let src = fs.readFileSync(file, 'utf8');
 
-const data = `,
-  "2_NN": {
-    cards: [
-      { kicker_en: "...", kicker_ko: "...", title_en: "...", title_ko: "...", body_en: "...", body_ko: "..." }
-    ]
-  }`;
+const cardsText = cards.map((c) => {
+  const fields = Object.entries(c).map(([k, v]) => \`        \${k}: \${JSON.stringify(v)}\`).join(',\\n');
+  return \`      {\\n\${fields}\\n      }\`;
+}).join(',\\n');
+const data = \`,\\n  "40_NN": {\\n    cards: [\\n\${cardsText}\\n    ]\\n  }\`;
 
-const pat = /(\r\n  \}\r\n)\};\r\n/;
+const pat = /(\\n  \\}\\n)\\};\\n/;
 if (!pat.test(src)) { console.error('anchor not found'); process.exit(1); }
-src = src.replace(pat, `$1${data.replace(/\r?\n/g, '\r\n')}\r\n};\r\n`);
+src = src.replace(pat, \`$1\${data}\\n};\\n\`);
 fs.writeFileSync(file, src, 'utf8');
 console.log('OK');
 ```
 
-Save as `_add_exNN.js`, run with `node`, then delete with `rm _add_exNN.js`.  Commit with descriptive message listing chapter cards.  Push to `origin main`.
+Save both as `_cards.js`/`_inject.js`, run the injector with `node`, then delete both.  Always run the verification script (below) before committing — it's what catches an escaping mistake or a missing-comma corruption before it ships.  Commit with a descriptive message listing chapter cards.  Push to `origin main`.
 
 ### Verification after injection
 
