@@ -675,6 +675,18 @@ Synoptic overlap with Matthew: for pericopes Matthew already anchors in full (Jo
 
 ---
 
+### Luke
+
+Synoptic overlap with Matthew and Mark: for pericopes either has already anchored in full, Luke's cards take Luke's own distinctive angle — the formal historian's preface, the Gospel's sustained attention to women/the poor/social outsiders, the Magnificat/Benedictus's revolutionary poetry, material unique to Luke's infancy narrative and travel narrative — rather than re-explaining ground already covered.  Cross-reference back to Matthew's/Mark's anchors rather than duplicating.
+
+**Luke 1 — Historian's preface + Zechariah struck mute, Annunciation's contrasting "how can this be", Magnificat's social reversal, Benedictus (Luke's infancy narrative begins)**
+- Preface + Zechariah (1:1-25) — Luke's four-verse formal historical preface (1:1-4) is UNIQUE among the Gospels, explicitly naming eyewitness sources and a stated purpose of certainty for Theophilus; Zechariah and Elizabeth's righteousness stated up front, closing off any "childlessness as punishment" reading; Zechariah's doubting question draws silence as consequence, deliberately set up to contrast with Mary's very similar-sounding question one scene later
+- Annunciation to Mary (1:26-38) — "how shall I know this" (Zechariah, doubt seeking proof) vs "how will this be" (Mary, asking mechanism while already consenting, "let it be to me according to your word") — the distinction is submission, not question-content; Gabriel's answer invokes the Spirit "overshadowing" (same verb as the Shekinah cloud over the tabernacle, Ex 40:35, already anchored there)
+- Magnificat (1:39-56) — Elizabeth's Spirit-filled greeting recognizes what Mary hasn't announced; Mary's song draws structurally on Hannah's song (1 Sam 2:1-10) but sharpens the social-reversal theme (proud scattered, rulers brought down, hungry filled, rich sent away empty) into Luke's programmatic keynote for the whole Gospel's concern for the lowly
+- Benedictus (1:57-80) — Zechariah's speech restored produces prophecy, not relief-talk first; hymn names John's forerunner role in Malachi/Elijah terms (already anchored at Matthew's John the Baptist material) while turning to address his infant son directly; "sunrise from on high" imagery closes the chapter on the same light-breaking-into-darkness note Luke will develop through Simeon's song in ch.2
+
+---
+
 ### Colossians
 
 **Col 1 — Christ hymn, reconciliation, indwelling**
