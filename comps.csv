@@ -1,0 +1,6 @@
+date,target,acquirer_sponsor,type,ev_or_value_usd,multiple,tenor_structure,offtake_credit,capacity,status,source
+2026-07,AES Corp,GIP (BlackRock) / EQT + CalPERS + QIA,Take-private,33400000000,n/d,Cash ($15.00/share; ~$10.7B equity),~11.8 GW contracted to tech customers,11800 MW,Approved,megaproject.com
+2026-07,Momentum Midstream,Williams (from EnCap Flatrock),Strategic M&A,5500000000,22-25x EBITDA,Cash (financing TBD),Contracted midstream (10 LNG + 26 power plants),4000 mi pipeline,Reported,tradingview.com
+2026-03,Intersect Power (dev pipeline),Alphabet,Vertical integration,4750000000,n/d,Cash + debt assumption,~8 GW dev pipeline captive to Google,8000 MW dev,Closed,clearygottlieb.com
+2026-06,Project Kilby (2.67 GW gas plant),Chevron (developer) / Microsoft (offtaker),Greenfield PPA,7000000000,n/d,20-year PPA,Microsoft (investment grade),2670 MW,FID by YE2026,datacentremagazine.com
+2026-06,20 MW AI compute MSA (Michigan),Hyperscale Data / undisclosed CA neocloud,Capacity contract,1200000000,n/d,Phased; $5M upfront + $5.6M deposit,Unrated neocloud (single tenant),20 MW (option to 52 MW),Confirmed,investing.com
