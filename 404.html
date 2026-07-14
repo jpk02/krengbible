@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Krengbible</title>
+<style>
+  :root { --bg:#f4f1eb; --card:#fffdf8; --text:#2a2722; --muted:#8a8578; --line:#e6e1d6; --green:#1a7a3a; --greenbg:#e7f3ea; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17150f; --card:#211e17; --text:#efece3; --muted:#9c968a; --line:#332f26; --green:#4ade80; --greenbg:#17301f; }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif;
+    display:flex; align-items:center; justify-content:center; padding:24px; line-height:1.5; }
+  .card { width:100%; max-width:400px; background:var(--card); border:1px solid var(--line); border-radius:22px;
+    padding:32px 26px; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.06); }
+  h1 { font-size:22px; font-weight:800; letter-spacing:-0.4px; margin:0 0 8px; }
+  p { color:var(--muted); font-size:15px; margin:0 0 22px; }
+  .btn { display:block; width:100%; padding:15px; border-radius:999px; background:var(--green); color:#fff;
+    font-size:16px; font-weight:700; text-decoration:none; border:none; }
+  .codewrap { margin-top:22px; }
+  .codelabel { font-size:13px; font-weight:600; color:var(--muted); margin-bottom:8px; }
+  .code { font-size:26px; font-weight:800; letter-spacing:5px; color:var(--text);
+    background:var(--greenbg); border-radius:14px; padding:14px; display:inline-block; min-width:180px; }
+  .hint { font-size:13px; color:var(--muted); margin-top:20px; }
+  .generic a { color:var(--green); font-weight:700; text-decoration:none; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="generic">
+      <h1>Page not found</h1>
+      <p>That link doesn’t point anywhere.</p>
+      <p><a href="https://krengbible.com">Go to krengbible.com &rsaquo;</a></p>
+    </div>
+  </div>
+<script>
+  (function () {
+    // GitHub Pages serves this file for any unknown path.  Catch group
+    // invite links (/invite/<code>) and turn them into a join page.
+    var m = location.pathname.match(/^\/invite\/([^\/?#]+)/i);
+    if (!m) return;
+    var code = decodeURIComponent(m[1]).toUpperCase();
+    var appLink = 'krengbible://invite/' + encodeURIComponent(code);
+    document.getElementById('card').innerHTML =
+      '<h1>You’re invited</h1>' +
+      '<p>Join this reading group on Krengbible.</p>' +
+      '<a class="btn" href="' + appLink + '">Open in Krengbible</a>' +
+      '<div class="codewrap"><div class="codelabel">Or enter this code in the app</div>' +
+      '<div class="code">' + code.replace(/[<>&]/g, '') + '</div></div>' +
+      '<p class="hint">Don’t have the app yet? Ask whoever invited you to add you as a tester.</p>';
+    // If the app is installed, nudge it to open automatically.
+    setTimeout(function () { location.href = appLink; }, 350);
+  })();
+</script>
+</body>
+</html>
