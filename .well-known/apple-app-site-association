@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "MTVYWJQL2Z.com.krengbible.app",
+          "MTVYWJQL2Z.com.krengbible.app.dev"
+        ],
+        "components": [
+          { "/": "/invite/*", "comment": "Group invite deep links open the app" }
+        ]
+      }
+    ]
+  }
+}
