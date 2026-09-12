@@ -4101,13 +4101,23 @@ async function votdSendPreviewEmail(dateET, photo, env) {
 // load, and the app needs no code for it at all.  A filtered record keeps
 // its slug (the photo's identity, for the used and blocked lists) and gains
 // `filter`, so the choice is visible and can be changed.
+// Every filter here LIFTS the photo.  The first set carried warm, muted, mono
+// and dark, and those are the ones nobody reached for:  the verse card wants a
+// photograph that feels like morning, not a muted or darkened one, and a
+// darkened photo fights the white text it sits under rather than helping it.
+// So the set is bright-leaning by design — five ways to open a photo up, and
+// the original when it needs nothing.
+//
+// `vib` (vibrance) lifts the muted colours and leaves the already-saturated
+// ones alone, which is why Pop can go much further than Vivid without the
+// greens going electric.
 const VOTD_FILTERS = {
   original: '',
   vivid: 'sat=30&con=8',
-  warm: 'sepia=30',
-  muted: 'sat=-35&con=-8&bri=4',
-  mono: 'sat=-100',
-  dark: 'bri=-18&con=6',
+  bright: 'bri=14&con=4',
+  pop: 'vib=45&sat=12&con=10',
+  airy: 'bri=18&con=-6&sat=10',
+  sunny: 'exp=12&sat=18&bri=6',
 };
 const VOTD_FILTER_PARAMS = /[?&](sat|con|bri|sepia|exp|hue|vib)=[^&]*/g;
 

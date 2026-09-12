@@ -336,13 +336,17 @@ function verseFor(body){
  * will load, and the app needs no code for it.  The same table lives in the
  * worker (VOTD_FILTERS), which is what actually writes the queued and staged
  * URLs;  this copy is for previewing before a choice is sent. */
+/* Bright-leaning by design — see VOTD_FILTERS in worker/index.js.  Kept in
+   step with it by hand;  the worker is the one that validates a name, so an
+   extra chip here would simply be refused. */
 const FILTERS = [
-  ['original', '원본'], ['vivid', 'Vivid'], ['warm', 'Warm'],
-  ['muted', 'Muted'], ['mono', 'Mono'], ['dark', 'Dark'],
+  ['original', '원본'], ['vivid', 'Vivid'], ['bright', 'Bright'],
+  ['pop', 'Pop'], ['airy', 'Airy'], ['sunny', 'Sunny'],
 ];
 const FILTER_PARAMS = {
-  original: '', vivid: 'sat=30&con=8', warm: 'sepia=30',
-  muted: 'sat=-35&con=-8&bri=4', mono: 'sat=-100', dark: 'bri=-18&con=6',
+  original: '', vivid: 'sat=30&con=8', bright: 'bri=14&con=4',
+  pop: 'vib=45&sat=12&con=10', airy: 'bri=18&con=-6&sat=10',
+  sunny: 'exp=12&sat=18&bri=6',
 };
 function filterUrl(url, name){
   const params = FILTER_PARAMS[name];
