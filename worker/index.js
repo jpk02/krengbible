@@ -5713,33 +5713,51 @@ Only output valid JSON, no markdown, no preamble.`;
       // 08:00 UTC is two hours before the earliest local midnight anywhere
       // (UTC+14), the same margin the QT warm-up below relies on.
       //
-      // Staged two picker-days out, not one.  The picker's calendar turns over
-      // at 10:00 UTC — the moment UTC+14 reaches the date — so the tile that
-      // becomes "tomorrow" two hours from now is votdDateEarliest(2), and
-      // staging it here keeps that tile populated the instant it appears
-      // rather than leaving it empty for the next twenty-two hours.  The date
-      // going LIVE at 10:00 UTC was staged by this same cron yesterday, so
-      // nothing is staged late;  everything simply moved one slot earlier.
+      // Fill every date in the picker's window that has no photo, rather than
+      // one fixed offset.  Two hours from now the calendar turns over: the
+      // date at votdDateEarliest(1) goes LIVE, and votdDateEarliest(2) becomes
+      // the tile that can still be changed.  Both need a photo by then.
       //
-      // Exactly one date per run, and never a date already staged:
-      // votdStagePhoto pops the head of the queue and overwrites, so staging
-      // the same date twice would spend an approved photo and replace one that
-      // had been chosen.
-      const date = votdDateEarliest(2);
-      ctx.waitUntil(
-        // Stage tomorrow, from the queue if anything is waiting.
+      // Asking "which dates are empty" instead of "which date is my turn to
+      // stage" is what makes this self-healing, and it is not hypothetical.
+      // Pinning it to a single offset dropped a date on the day the offset
+      // itself changed — the old rule staged one day, the new rule staged the
+      // day after, and the one in between was staged by nobody.  It would have
+      // gone live with no photo, and the live route rolls a random one for an
+      // empty date, which is the exact failure staging exists to prevent.  A
+      // cron that simply misses a run does the same thing.
+      //
+      // Never a date that already has one:  votdStagePhoto pops the head of
+      // the queue and overwrites, so re-staging would spend an approved photo
+      // and replace one that had been chosen.  The existence check is what
+      // makes the loop safe to widen.
+      const wanted = [votdDateEarliest(1), votdDateEarliest(2)];
+      ctx.waitUntil((async () => {
+        // Stage from the queue if anything is waiting.
         //
         // The daily email is OFF: the picker page at krengbible.com/votd.html
         // does the same job better — full-resolution photos, backfill as you
         // act, and a reorderable queue — so a ten-photo email every day is
         // just noise.  Nothing about the email path was deleted: re-enable by
-        // chaining .then((photo) => votdSendChooserEmail(date, photo, env))
-        // here, and /admin/votd-chooser still sends one on demand.
-        //
+        // chaining votdSendChooserEmail(d, photo, env) in the loop below, and
+        // /admin/votd-chooser still sends one on demand.
+        let lastDate = wanted[wanted.length - 1];
+        let lastPhoto = null;
+        for (const d of wanted) {
+          const existing = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(`votdphoto2_${d}`) : null;
+          if (existing !== null) {
+            if (d === lastDate) { try { lastPhoto = JSON.parse(existing); } catch { lastPhoto = null; } }
+            continue;
+          }
+          const photo = await votdStagePhoto(d, env);
+          if (d === lastDate) lastPhoto = photo;
+        }
         // The one mail that DOES go out is the low-queue nudge, which stays
-        // silent unless the queue has fallen below VOTD_LOW_QUEUE.
-        votdStagePhoto(date, env).then((photo) => votdWarnLowQueue(date, photo, env))
-      );
+        // silent unless the queue has fallen below VOTD_LOW_QUEUE.  Sent once
+        // per run, against the furthest date, whether or not anything needed
+        // staging — a queue running dry must be reported on a quiet day too.
+        await votdWarnLowQueue(lastDate, lastPhoto, env);
+      })());
       // And today's VERSE, which nothing wrote on purpose before — see
       // votdEnsureVerse.  Separate from the photo above and on a different
       // date deliberately: the photo is staged a day ahead, the verse can only
