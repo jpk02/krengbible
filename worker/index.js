@@ -5198,9 +5198,19 @@ Only output valid JSON, no markdown, no preamble.`;
      * on confidently pointing at the wrong day.  The worker owns the calendar;
      * the page asks.
      *
-     * `today` is the date the earliest timezone is already on — live, not
-     * editable.  `tomorrow` is the next one, which nobody has reached yet and
-     * is therefore the one safe to change.  Both flip at 10:00 UTC.
+     * THREE dates, because two are always live at once.  A date is current
+     * from UTC+14's midnight until UTC-12 finishes it — about 50 hours, which
+     * is why the photo keys are kept for two days past their own end.  So at
+     * every moment the east is on one date and the Americas are still on the
+     * one before, and a picker showing only the newer one hides a photo that
+     * is on screen for half the readers.
+     *
+     * `yesterday` is still current in the Americas.  `today` is the date the
+     * east has reached.  `tomorrow` is the first date nobody is on, and so the
+     * only one that can be changed without taking a photo off someone.  All
+     * three turn over together at 10:00 UTC;  nothing else moves them, and the
+     * 08:00 staging cron deliberately does not — it fills the record two hours
+     * before any tile points at it.
      */
     if (path === '/admin/votd-dates') {
       const secret = request.headers.get('X-Admin-Secret') || url.searchParams.get('secret');
@@ -5209,6 +5219,7 @@ Only output valid JSON, no markdown, no preamble.`;
       });
       if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) return json({ error: 'forbidden' }, 403);
       return json({
+        yesterday: votdDateEarliest(-1),
         today: votdDateEarliest(0),
         tomorrow: votdDateEarliest(1),
         // What the reader-facing routes still call today and tomorrow, so the

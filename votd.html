@@ -146,6 +146,8 @@
   .live button{width:100%}
   .live button.undo{margin-top:6px;color:var(--dim)}
   aside h2 + h2, .live + h2{margin-top:18px}
+  /* The hint belongs to the heading above it, not to the tile below. */
+  aside h2 + .hint{margin-top:-6px}
   /* Why the board is short.  The worker has always returned `short`
      and `error` for exactly this, but the page used to drop them, so a
      spent Unsplash quota was indistinguishable from a thin harvest —
@@ -212,16 +214,24 @@
 <div id="lb"><button class="x" type="button" aria-label="Close">✕</button><img alt=""><div class="cap"></div></div>
 <nav class="tabs" id="tabs" hidden>
   <button type="button" data-tab="pick">Pick photos</button>
-  <button type="button" data-tab="review">Today · Tomorrow · Queue <span id="qtab"></span></button>
+  <button type="button" data-tab="review">On screen · Tomorrow · Queue <span id="qtab"></span></button>
 </nav>
 <div class="wrap" id="wrap" hidden>
   <main id="tab-pick"><div class="grid" id="grid"></div></main>
   <aside id="tab-review">
-    <!-- The photo readers are looking at RIGHT NOW, and the button to replace
-         it.  The queue below decides FUTURE days;  until this existed there
-         was no way to change the one already on screen, which is the only one
-         you ever see and therefore the only one you ever want to change. -->
-    <h2>On screen now</h2>
+    <!-- The photos readers are looking at RIGHT NOW — two of them, always.
+         A date is current from UTC+14's midnight until UTC-12 finishes it, so
+         the east and the Americas are never on the same one.  Showing only the
+         newer hid whatever half the readers were actually looking at.
+
+         The queue below decides FUTURE days;  until these existed there was no
+         way to change one already on screen, which is the only kind you ever
+         see and therefore the only kind you ever want to change. -->
+    <h2>Yesterday</h2>
+    <p class="hint">Still on screen in the Americas, until their own midnight.</p>
+    <div id="prev" class="live"><div class="empty">Loading…</div></div>
+    <h2>Today</h2>
+    <p class="hint">On screen across Asia and the Pacific since 10:00 UTC (06:00 ET).</p>
     <div id="live" class="live"><div class="empty">Loading…</div></div>
     <!-- Where the top of the queue WENT.  Staging takes the head of the queue
          at 08:00 UTC and writes it under the next unreached date, and until
@@ -233,6 +243,7 @@
          tomorrow.  Both tiles turn over at 10:00 UTC, when UTC+14 reaches the
          new date;  see /admin/votd-dates in the worker. -->
     <h2>Tomorrow</h2>
+    <p class="hint">Nobody has reached this date — the only one safe to change.</p>
     <div id="next" class="live"><div class="empty">Loading…</div></div>
     <h2>Queue — <span id="qn">0</span></h2>
     <div id="queue"></div>
@@ -607,7 +618,7 @@ const localDayIso = (d = new Date()) =>
  */
 async function pickerDates(){
   const d = await call('/admin/votd-dates');
-  return { today: d.today, tomorrow: d.tomorrow, todayET: d.todayET };
+  return { yesterday: d.yesterday, today: d.today, tomorrow: d.tomorrow, todayET: d.todayET };
 }
 
 /**
@@ -624,30 +635,28 @@ async function pickerDates(){
  * cache at all.  Unknown query params are ignored by the route, which reads
  * only `date`.
  */
-async function renderLive(dates){
-  // The date the earliest timezone is already on — what we ASK for.  What we
-  // were SERVED comes back in the response, and the two can differ, so the
-  // caption and the re-roll both use the answer rather than the question.
-  const el = document.getElementById('live');
-  let asked;
-  try{ asked = (dates || await pickerDates()).today; }
-  catch(e){ el.innerHTML = '<div class="empty">Could not read the worker\'s calendar.</div>'; return; }
-  let photo = null, date = asked, verse = null;
+async function renderDay(elId, date, when){
+  const el = document.getElementById(elId);
+  // What we ASK for is `date`;  what we were SERVED comes back in the
+  // response, and the two can differ — the worker's clamp can refuse a date,
+  // and a date whose verse is missing falls back to the current ET one.  Both
+  // the caption and the re-roll use the ANSWER, so neither can point at a day
+  // nobody is looking at.
+  let photo = null, served = date, verse = null;
   try{
     const r = await fetch(
-      WORKER + '/votd?date=' + encodeURIComponent(asked) + '&_=' + Date.now(),
+      WORKER + '/votd?date=' + encodeURIComponent(date) + '&_=' + Date.now(),
       { cache: 'no-store' }
     );
     if(r.ok){
       const body = await r.json();
       photo = body.photo;
       verse = verseFor(body);
-      // Older workers do not send it;  falling back to what we asked for is
-      // what this page did before, so an un-deployed worker is no worse.
-      if(body.date) date = body.date;
+      if(body.date) served = body.date;
     }
   }catch(e){ /* falls through to the no-photo caption below */ }
 
+  const again = () => renderDay(elId, date, when);
   el.textContent = '';
   if(photo && photo.url){
     el.insertAdjacentHTML('beforeend', photoTile(big(photo.url, 640), verse));
@@ -656,19 +665,35 @@ async function renderLive(dates){
   const cap = document.createElement('p');
   cap.className = 'cap';
   cap.textContent = photo
-    ? (photo.credit || 'Unknown') + ' · live on ' + date + ', from 10:00 UTC'
-    : 'No photo stored for ' + date + ' — readers see a tinted card.';
+    ? (photo.credit || 'Unknown') + ' · ' + served + ' · ' + when
+    : 'No photo stored for ' + served + ' — readers see a tinted card.';
   el.appendChild(cap);
-  // No filter chips here:  phones store today's photo at first open and
-  // the edge caches /votd until midnight, so a change now reaches almost
+  // No filter chips on a day that is already live:  phones store the photo at
+  // first open and the edge caches /votd, so a change now reaches almost
   // nobody.  Tomorrow's tile is where a filter belongs.
 
   const btn = document.createElement('button');
   btn.className = 'add';
   btn.textContent = photo ? 'Change this photo' : 'Roll a photo';
-  btn.onclick = () => reroll(btn, date);
+  btn.onclick = () => reroll(btn, served, [again]);
   el.appendChild(btn);
-  await undoButton(el, date, [renderLive]);
+  await undoButton(el, served, [again]);
+}
+
+/* The two dates that are live right now.  Separate calls rather than a loop so
+ * each tile fails on its own — a worker hiccup on one must not blank both. */
+async function renderPrev(dates){
+  let d;
+  try{ d = (dates || await pickerDates()).yesterday; }
+  catch(e){ document.getElementById('prev').innerHTML = '<div class="empty">Could not read the worker\'s calendar.</div>'; return; }
+  await renderDay('prev', d, 'still live in the Americas');
+}
+
+async function renderLive(dates){
+  let d;
+  try{ d = (dates || await pickerDates()).today; }
+  catch(e){ document.getElementById('live').innerHTML = '<div class="empty">Could not read the worker\'s calendar.</div>'; return; }
+  await renderDay('live', d, 'live in the east');
 }
 
 /**
@@ -885,6 +910,7 @@ document.getElementById('reportBtn').addEventListener('click', (e) => showReport
     // otherwise straddle 10:00 UTC on exactly the load where it matters, and
     // show the same date twice or skip one.
     const dates = await pickerDates();
+    renderPrev(dates);
     renderLive(dates);
     renderNext(dates);
   }
