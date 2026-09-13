@@ -224,11 +224,14 @@
     <h2>On screen now</h2>
     <div id="live" class="live"><div class="empty">Loading…</div></div>
     <!-- Where the top of the queue WENT.  Staging takes the head of the queue
-         at 08:00 UTC and writes it under tomorrow's date, and until this tile
-         existed the picker showed neither the taking nor the result — the
-         queue just lost its first row overnight, which read as the app
-         skipping photos rather than using them.  This is /votd/next, the
-         same read the app's warm-up does. -->
+         at 08:00 UTC and writes it under the next unreached date, and until
+         this tile existed the picker showed neither the taking nor the result
+         — the queue just lost its first row overnight, which read as the app
+         skipping photos rather than using them.
+
+         "Tomorrow" here means the first date NOBODY is on yet, not ET's
+         tomorrow.  Both tiles turn over at 10:00 UTC, when UTC+14 reaches the
+         new date;  see /admin/votd-dates in the worker. -->
     <h2>Tomorrow</h2>
     <div id="next" class="live"><div class="empty">Loading…</div></div>
     <h2>Queue — <span id="qn">0</span></h2>
@@ -589,6 +592,25 @@ const localDayIso = (d = new Date()) =>
   String(d.getDate()).padStart(2, '0');
 
 /**
+ * The two dates this page is editing, from the worker.
+ *
+ * Not this browser's dates, and deliberately not derived here at all — the
+ * same reason localDayIso above stopped deciding what "today" meant.  A date
+ * is live from the moment the earliest timezone reaches it (UTC+14, so 10:00
+ * UTC), which is hours before this machine's midnight and hours before ET's.
+ * Editing on the browser's calendar meant offering a re-roll on a photo
+ * readers in the far east had already been shown.
+ *
+ * Re-read on every refresh rather than cached for the session, because the
+ * page is left open across the 10:00 UTC turnover and a stale pair would
+ * caption and aim at yesterday.
+ */
+async function pickerDates(){
+  const d = await call('/admin/votd-dates');
+  return { today: d.today, tomorrow: d.tomorrow, todayET: d.todayET };
+}
+
+/**
  * /votd is public, so this needs no secret — only the re-roll does.
  *
  * It does need to defeat caching, though, and belt-and-braces because this is
@@ -602,11 +624,14 @@ const localDayIso = (d = new Date()) =>
  * cache at all.  Unknown query params are ignored by the route, which reads
  * only `date`.
  */
-async function renderLive(){
-  // What we ASK for.  What we were SERVED comes back in the response, and the
-  // two can differ — see the comment above localDayIso.
-  const asked = localDayIso();
+async function renderLive(dates){
+  // The date the earliest timezone is already on — what we ASK for.  What we
+  // were SERVED comes back in the response, and the two can differ, so the
+  // caption and the re-roll both use the answer rather than the question.
   const el = document.getElementById('live');
+  let asked;
+  try{ asked = (dates || await pickerDates()).today; }
+  catch(e){ el.innerHTML = '<div class="empty">Could not read the worker\'s calendar.</div>'; return; }
   let photo = null, date = asked, verse = null;
   try{
     const r = await fetch(
@@ -631,7 +656,7 @@ async function renderLive(){
   const cap = document.createElement('p');
   cap.className = 'cap';
   cap.textContent = photo
-    ? (photo.credit || 'Unknown') + ' · this device is being served ' + date
+    ? (photo.credit || 'Unknown') + ' · live on ' + date + ', from 10:00 UTC'
     : 'No photo stored for ' + date + ' — readers see a tinted card.';
   el.appendChild(cap);
   // No filter chips here:  phones store today's photo at first open and
@@ -647,29 +672,35 @@ async function renderLive(){
 }
 
 /**
- * What is staged for TOMORROW — the ET date the 08:00 UTC cron writes, which
- * is also the date the worker's /votd/next reports.  Public read, no secret.
+ * What is staged for the first date NOBODY has reached yet — the tile that is
+ * actually safe to change.
  *
- * `staged:false` before 08:00 UTC is normal: the cron has not run yet and
- * the top of the queue is still in the queue.  After 08:00 UTC it means
- * every roll failed and midnight will roll on first request instead.
+ * Read through /admin/votd-staged, not /votd/next.  /votd/next answers the
+ * APP's question ("the photo to pre-download for my next day") and is pinned
+ * to ET+1 for exactly that reason;  this tile asks the picker's question,
+ * which after 10:00 UTC is a different date.  They were the same read until
+ * the two calendars diverged, and pointing this at /votd/next now would show
+ * the day already on screen in the far east and invite a re-roll of it.
  *
- * Same no-store belt-and-braces as renderLive, for the same reason: this
- * runs straight after a re-roll and must show what the re-roll produced.
+ * `staged:false` before 08:00 UTC on the day this date first appears is
+ * normal: the cron has not run yet and the top of the queue is still in the
+ * queue.  After that it means every roll failed, and the button below stages
+ * one on demand.
+ *
+ * A verse only exists for dates the reader-facing clamp will answer for, so
+ * this tile often has none and shows the sample card instead — which is what
+ * it has always done before the 09:00 UTC verse write.
  */
-async function renderNext(){
+async function renderNext(dates){
   const el = document.getElementById('next');
   let photo = null, date = null, staged = false, verse = null;
   try{
-    const r = await fetch(WORKER + '/votd/next?_=' + Date.now(), { cache: 'no-store' });
-    if(r.ok){
-      const body = await r.json();
-      photo = body.photo; date = body.date; staged = !!body.staged;
-    }
-    // Tomorrow's VERSE, by the date /votd/next names.  Written at 09:00 UTC;
-    // before that the worker answers for today instead, which the echoed
-    // date reveals, and the tile keeps the sample rather than showing
-    // today's verse as tomorrow's.
+    date = (dates || await pickerDates()).tomorrow;
+    const body = await call('/admin/votd-staged?date=' + encodeURIComponent(date) + '&_=' + Date.now());
+    if(body){ photo = body.photo; staged = !!body.staged; }
+    // The verse for this date, if the worker will answer for it yet.  It
+    // refuses anything past ET+1, and the picker's tomorrow can be ET+2, so
+    // a refusal is expected rather than a fault;  the tile keeps the sample.
     if(date){
       const rv = await fetch(WORKER + '/votd?date=' + encodeURIComponent(date) + '&_=' + Date.now(), { cache: 'no-store' });
       if(rv.ok){
@@ -681,7 +712,7 @@ async function renderNext(){
 
   el.textContent = '';
   if(!date){
-    el.innerHTML = '<div class="empty">Could not read /votd/next.</div>';
+    el.innerHTML = '<div class="empty">Could not read the staged photo.</div>';
     return;
   }
   if(photo && photo.url){
@@ -848,8 +879,14 @@ document.getElementById('reportBtn').addEventListener('click', (e) => showReport
 (async () => {
   try{
     render(await call('/admin/votd-board'));
-    renderLive();
-    renderNext();
+    // One read of the worker's calendar for both tiles, so they can never
+    // disagree about where the boundary is — which is the whole point of the
+    // pair.  Read once here rather than once per tile: the two fetches would
+    // otherwise straddle 10:00 UTC on exactly the load where it matters, and
+    // show the same date twice or skip one.
+    const dates = await pickerDates();
+    renderLive(dates);
+    renderNext(dates);
   }
   catch(e){ document.getElementById('boot').innerHTML = '<span class="err">' + e.message + '</span>'; }
 })();

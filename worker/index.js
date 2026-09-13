@@ -3551,6 +3551,31 @@ function votdDateET(offsetDays = 0) {
 }
 
 /**
+ * The date in the EARLIEST timezone on earth, `YYYY-MM-DD`, `offsetDays` from
+ * now.  This is the picker's calendar, and it is not the same calendar the
+ * reader-facing routes keep.
+ *
+ * A date goes live the moment ANYONE is on it, and the first anyone is UTC+14
+ * (Kiritimati, which has no DST) — 10:00 UTC, i.e. 06:00 ET in summer and
+ * 05:00 in winter.  From that instant the app serves that date's photo to real
+ * readers, because /votd honours the reader's OWN local date up to ET+1.
+ *
+ * The picker used to call that date "tomorrow" until ET midnight, so for the
+ * eighteen hours in between it offered a re-roll on a photo people had already
+ * been shown, and undo could not take it back from them.  Anchoring the picker
+ * here means the tile flips to "on screen now" at the same moment the first
+ * reader sees it, and "tomorrow" is always a day nobody has reached.
+ *
+ * Deliberately NOT used by /votd, /votd/next, or the TTL and clamp helpers.
+ * Those answer to readers, whose day is their own local one, and the reader
+ * contract is unchanged by any of this — see /admin/votd-dates.
+ */
+function votdDateEarliest(offsetDays = 0) {
+  return new Date(Date.now() + offsetDays * 86400000)
+    .toLocaleDateString('en-CA', { timeZone: 'Pacific/Kiritimati' });
+}
+
+/**
  * Attach the verse's own text in the app's default translations — NKRV and
  * ESV — to a /votd payload, from the chapters already in KV.
  *
@@ -5040,7 +5065,7 @@ Only output valid JSON, no markdown, no preamble.`;
       });
       if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) return json({ error: 'forbidden' }, 403);
 
-      const date = votdDateET(1);
+      const date = votdDateEarliest(1);
       const queue = await votdReadJson(env, 'votd_queue', []);
       const n = (queue || []).length;
       const raw = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(`votdphoto2_${date}`) : null;
@@ -5076,7 +5101,7 @@ Only output valid JSON, no markdown, no preamble.`;
           status: 403, headers: { ...cors, 'Content-Type': 'application/json' },
         });
       }
-      const date = url.searchParams.get('date') || votdDateET(1);
+      const date = url.searchParams.get('date') || votdDateEarliest(1);
       const key = `votdphoto2_${date}`;
       const raw = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(key) : null;
       if (!raw) {
@@ -5143,7 +5168,7 @@ Only output valid JSON, no markdown, no preamble.`;
           status: 403, headers: { ...cors, 'Content-Type': 'application/json' }
         });
       }
-      const date = url.searchParams.get('date') || votdDateET(1);
+      const date = url.searchParams.get('date') || votdDateEarliest(1);
       const raw = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(`votdphoto2_${date}`) : null;
       let staged = null;
       try { staged = raw ? JSON.parse(raw) : null; } catch { staged = null; }
@@ -5166,6 +5191,56 @@ Only output valid JSON, no markdown, no preamble.`;
     // has.  Deliberately unauthenticated: reading which photo is queued is
     // harmless, while ROLLING costs an Unsplash call and is what /admin
     // protects.
+    /* ---- /admin/votd-dates — the two dates the PICKER is editing ----
+     *
+     * The picker must not restate this arithmetic itself.  It did once, for
+     * captions and to aim its re-roll, and when the rule changed the page went
+     * on confidently pointing at the wrong day.  The worker owns the calendar;
+     * the page asks.
+     *
+     * `today` is the date the earliest timezone is already on — live, not
+     * editable.  `tomorrow` is the next one, which nobody has reached yet and
+     * is therefore the one safe to change.  Both flip at 10:00 UTC.
+     */
+    if (path === '/admin/votd-dates') {
+      const secret = request.headers.get('X-Admin-Secret') || url.searchParams.get('secret');
+      const json = (o, st = 200) => new Response(JSON.stringify(o), {
+        status: st, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      });
+      if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) return json({ error: 'forbidden' }, 403);
+      return json({
+        today: votdDateEarliest(0),
+        tomorrow: votdDateEarliest(1),
+        // What the reader-facing routes still call today and tomorrow, so the
+        // page can say plainly how far ahead of Eastern it is working.
+        todayET: votdDateET(0),
+        flipsAt: '10:00 UTC',
+      });
+    }
+
+    /* ---- /admin/votd-staged — read one date's staged photo, any date ----
+     *
+     * /votd?date= cannot answer for the picker's tomorrow:  it is clamped to
+     * ET+1 because a cold key there would pin the wrong verse, and the
+     * picker's tomorrow can be ET+2.  This reads the photo record only —
+     * never populates, never rolls, never touches a verse — so it is outside
+     * that hazard entirely and needs no clamp of its own.
+     */
+    if (path === '/admin/votd-staged') {
+      const secret = request.headers.get('X-Admin-Secret') || url.searchParams.get('secret');
+      const json = (o, st = 200) => new Response(JSON.stringify(o), {
+        status: st, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      });
+      if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) return json({ error: 'forbidden' }, 403);
+      const date = url.searchParams.get('date') || votdDateEarliest(1);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: 'bad date' }, 400);
+      const raw = env.COMMENTARY_KV ? await env.COMMENTARY_KV.get(`votdphoto2_${date}`) : null;
+      if (raw === null) return json({ date, staged: false, photo: null });
+      let photo = null;
+      try { photo = JSON.parse(raw); } catch { photo = null; }
+      return json({ date, staged: true, photo });
+    }
+
     if (path === '/votd/next') {
       const date = votdDateET(1);
       let photo = null, staged = false;
@@ -5193,7 +5268,7 @@ Only output valid JSON, no markdown, no preamble.`;
         status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
       });
       if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) return json({ error: 'forbidden' }, 403);
-      const date = url.searchParams.get('date') || votdDateET(1);
+      const date = url.searchParams.get('date') || votdDateEarliest(1);
       const name = url.searchParams.get('filter') || 'original';
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: 'bad date' }, 400);
       if (date < votdDateET(-2)) return json({ error: 'date already past' }, 400);
@@ -5228,7 +5303,7 @@ Only output valid JSON, no markdown, no preamble.`;
         status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
       });
       if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) return json({ error: 'forbidden' }, 403);
-      const date = url.searchParams.get('date') || votdDateET(1);
+      const date = url.searchParams.get('date') || votdDateEarliest(1);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: 'bad date' }, 400);
       if (date < votdDateET(-2)) return json({ error: 'date already past' }, 400);
       if (!env.COMMENTARY_KV) return json({ error: 'kv_unset' }, 503);
@@ -5287,7 +5362,7 @@ Only output valid JSON, no markdown, no preamble.`;
           status: 403, headers: { ...cors, 'Content-Type': 'application/json' }
         });
       }
-      const date = url.searchParams.get('date') || votdDateET(1);
+      const date = url.searchParams.get('date') || votdDateEarliest(1);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return new Response(JSON.stringify({ error: 'bad date' }), {
           status: 400, headers: { ...cors, 'Content-Type': 'application/json' }
@@ -5626,7 +5701,20 @@ Only output valid JSON, no markdown, no preamble.`;
       //
       // 08:00 UTC is two hours before the earliest local midnight anywhere
       // (UTC+14), the same margin the QT warm-up below relies on.
-      const date = votdDateET(1);
+      //
+      // Staged two picker-days out, not one.  The picker's calendar turns over
+      // at 10:00 UTC — the moment UTC+14 reaches the date — so the tile that
+      // becomes "tomorrow" two hours from now is votdDateEarliest(2), and
+      // staging it here keeps that tile populated the instant it appears
+      // rather than leaving it empty for the next twenty-two hours.  The date
+      // going LIVE at 10:00 UTC was staged by this same cron yesterday, so
+      // nothing is staged late;  everything simply moved one slot earlier.
+      //
+      // Exactly one date per run, and never a date already staged:
+      // votdStagePhoto pops the head of the queue and overwrites, so staging
+      // the same date twice would spend an approved photo and replace one that
+      // had been chosen.
+      const date = votdDateEarliest(2);
       ctx.waitUntil(
         // Stage tomorrow, from the queue if anything is waiting.
         //
