@@ -421,11 +421,14 @@ applyOverlay();
 // crisp on a 2x display without pulling full-size originals for ten photos.
 const big = (u, w) => String(u).replace(/&w=\d+/, '&w=' + w);
 
-function render(b){
+function render(b, keepView){
   document.getElementById('boot').hidden = true;
   document.getElementById('wrap').hidden = false;
   document.getElementById('tabs').hidden = false;
-  showTab(localStorage.getItem(TAB_KEY) || 'pick');
+  // keepView on a re-read that the reader did not ask for:  showTab scrolls to
+  // the top, which is right on first paint and an unexplained jump when the
+  // board is refreshed under someone halfway down the page.
+  if(!keepView) showTab(localStorage.getItem(TAB_KEY) || 'pick');
   document.getElementById('stats').textContent =
     b.candidates.length + ' shown · ' + b.queue.length + ' queued · ' +
     b.usedCount + ' used · ' + b.rejectedCount + ' blocked';
@@ -473,6 +476,7 @@ function render(b){
   }
 
   const q = document.getElementById('queue');
+  queueDepth = b.queue.length;
   document.getElementById('qn').textContent = b.queue.length;
   document.getElementById('qtab').textContent = '(' + b.queue.length + ')';
   q.innerHTML = '';
@@ -716,6 +720,42 @@ async function renderLive(dates){
  * this tile often has none and shows the sample card instead — which is what
  * it has always done before the 09:00 UTC verse write.
  */
+/* How many photos are waiting, from the last board read.  The tomorrow tile
+ * uses it to decide whether it may stage itself — see autoStage. */
+let queueDepth = 0;
+
+/* Dates this page has already tried to stage.  One attempt each, so a stage
+ * that produces nothing cannot become a loop of re-rolls. */
+const autoStaged = new Set();
+
+/**
+ * Tomorrow must never be empty while today has a photo.
+ *
+ * Staging is a once-a-day cron, so between a date first appearing as
+ * "tomorrow" and the next run there was a window where the tile sat empty
+ * with a button asking to be pressed — and the queue it would take from was
+ * sitting right there, full.  Nothing about that window is a decision; the
+ * top of the queue is going to be taken either way.  So the page takes it.
+ *
+ * Only when the queue actually has something.  On an empty queue votdStagePhoto
+ * rolls a random photo from Unsplash instead, and a picture nobody chose is
+ * worse than a tile that says it is waiting — that case keeps the button.
+ */
+async function autoStage(date){
+  if(autoStaged.has(date) || queueDepth < 1) return false;
+  autoStaged.add(date);
+  try{
+    const r = await call('/admin/votd-next?date=' + encodeURIComponent(date));
+    if(r && r.staged){
+      // The queue lost its head;  the board below must be re-read or it keeps
+      // showing a photo that now belongs to a date.
+      call('/admin/votd-board').then((b) => render(b, true)).catch(() => {});
+      return true;
+    }
+  }catch(e){ /* leave the button to do it by hand */ }
+  return false;
+}
+
 async function renderNext(dates){
   const el = document.getElementById('next');
   let photo = null, date = null, staged = false, verse = null;
@@ -734,6 +774,12 @@ async function renderNext(dates){
       }
     }
   }catch(e){ /* falls through to the not-staged caption below */ }
+
+  // Empty, with photos waiting — take one rather than showing a button.  One
+  // attempt per date, then render whatever the second read finds.
+  if(date && !staged && await autoStage(date)){
+    return renderNext(dates);
+  }
 
   el.textContent = '';
   if(!date){
