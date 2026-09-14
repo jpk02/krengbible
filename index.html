@@ -691,7 +691,7 @@ import {
   setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 import {
-  initializeFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot
+  initializeFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -742,7 +742,13 @@ window.fb = {
     }
     return deleteUser(u);
   },
-  collection, doc, getDocs, setDoc, deleteDoc, onSnapshot
+  collection, doc, getDocs, setDoc, deleteDoc, onSnapshot,
+  // A server-stamped field (`_srv`) rides on every synced record write, see
+  // the app's syncEngine.ts:  the app's incremental sync filters on it, so a
+  // record this site writes is found by every device whatever their clocks
+  // say.  `_updatedAt` stays exactly as it is — it is the merge clock, and the
+  // rules compare it.
+  serverTimestamp
 };
 
 onAuthStateChanged(fbAuth, (user) => {
@@ -9712,7 +9718,7 @@ async function fbMergeHighlights(uid){
     } else if(lTs > (r?r.ts:0) || !r){
       if(lHas){ nextHl[k]=localHl[k]; nextVt[k]=localVt[k]||{ko:'',en:''}; }
       nextTs[k]=lTs;
-      pushes.push({key:k, payload: lHas ? {color:localHl[k],ko:(localVt[k]||{}).ko||'',en:(localVt[k]||{}).en||'',_updatedAt:lTs} : {deleted:true,_updatedAt:lTs}});
+      pushes.push({key:k, payload: lHas ? {color:localHl[k],ko:(localVt[k]||{}).ko||'',en:(localVt[k]||{}).en||'',_updatedAt:lTs,_srv:fb.serverTimestamp()} : {deleted:true,_updatedAt:lTs,_srv:fb.serverTimestamp()}});
     } else {
       if(r && !r.deleted && r.color){ nextHl[k]=r.color; nextVt[k]={ko:r.ko,en:r.en}; }
       else if(lHas){ nextHl[k]=localHl[k]; nextVt[k]=localVt[k]||{ko:'',en:''}; }
@@ -9769,8 +9775,8 @@ async function fbMergeProgress(uid){
       if(lHas) nextProg[k]=localProg[k];
       nextTs[k]=lTs;
       pushes.push({key:k, payload: lHas
-        ? Object.assign({},localProg[k],{_updatedAt:lTs,updatedAt:lTs,readAt:typeof localProg[k].readAt==='number'?localProg[k].readAt:lTs})
-        : {deleted:true,_updatedAt:lTs,updatedAt:lTs}});
+        ? Object.assign({},localProg[k],{_updatedAt:lTs,updatedAt:lTs,_srv:fb.serverTimestamp(),readAt:typeof localProg[k].readAt==='number'?localProg[k].readAt:lTs})
+        : {deleted:true,_updatedAt:lTs,updatedAt:lTs,_srv:fb.serverTimestamp()}});
     } else {
       if(r && !r.deleted && (r.date||r.readAt)) nextProg[k]=progEntryFromRemote(r);
       else if(lHas) nextProg[k]=localProg[k];
@@ -9966,10 +9972,10 @@ function fbPushHighlight(key){
   ts[key]=t; hlTsSave(ts);
   if(key in hl){
     window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'highlights',key), {
-      color:hl[key], ko:(vt[key]||{}).ko||'', en:(vt[key]||{}).en||'', _updatedAt:t
+      color:hl[key], ko:(vt[key]||{}).ko||'', en:(vt[key]||{}).en||'', _updatedAt:t, _srv:window.fb.serverTimestamp()
     }).catch(function(){});
   } else {
-    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'highlights',key), {deleted:true,_updatedAt:t}).catch(function(){});
+    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'highlights',key), {deleted:true,_updatedAt:t,_srv:window.fb.serverTimestamp()}).catch(function(){});
   }
 }
 
@@ -10003,14 +10009,14 @@ function fbPushProgress(key){
   // all, i.e. a record that predates the new shape.
   var entry=prog[key]||{};
   if(key in prog){
-    var payload=Object.assign({},entry,{_updatedAt:t,updatedAt:t,readAt:typeof entry.readAt==='number'?entry.readAt:t});
+    var payload=Object.assign({},entry,{_updatedAt:t,updatedAt:t,_srv:window.fb.serverTimestamp(),readAt:typeof entry.readAt==='number'?entry.readAt:t});
     window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'progress',key), payload).catch(function(){});
   } else {
     var was=progLastKnown[key];
     var tomb=was&&was.date
-      ? Object.assign({deleted:true,date:was.date,source:was.source||'manual',_updatedAt:t,updatedAt:t},
+      ? Object.assign({deleted:true,date:was.date,source:was.source||'manual',_updatedAt:t,updatedAt:t,_srv:window.fb.serverTimestamp()},
                       typeof was.readAt==='number'?{readAt:was.readAt}:{})
-      : {deleted:true,_updatedAt:t,updatedAt:t};
+      : {deleted:true,_updatedAt:t,updatedAt:t,_srv:window.fb.serverTimestamp()};
     window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'progress',key), tomb).catch(function(){});
   }
 }
@@ -10092,9 +10098,9 @@ async function fbMergeNotes(uid){
     } else if(lTs > (r?r.ts:0) || !r){
       if(lHas){
         nextNotes[id]=localNotes[id];
-        pushes.push({id:id, payload: Object.assign({},localNotes[id],{_updatedAt:lTs})});
+        pushes.push({id:id, payload: Object.assign({},localNotes[id],{_updatedAt:lTs,_srv:fb.serverTimestamp()})});
       } else {
-        pushes.push({id:id, payload:{deleted:true,_updatedAt:lTs}});
+        pushes.push({id:id, payload:{deleted:true,_updatedAt:lTs,_srv:fb.serverTimestamp()}});
       }
       nextTs[id]=lTs;
     } else {
@@ -10160,10 +10166,10 @@ function fbPushNote(id){
     var n=notes[id];
     window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'notes',id), {
       bookIdx:n.bookIdx, chapter:n.chapter, startVerse:n.startVerse, endVerse:n.endVerse,
-      text:n.text||'', _updatedAt:t
+      text:n.text||'', _updatedAt:t, _srv:window.fb.serverTimestamp()
     }).catch(function(){});
   } else {
-    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'notes',id), {deleted:true,_updatedAt:t}).catch(function(){});
+    window.fb.setDoc(window.fb.doc(window.fbDB,'users',fbActiveUid,'notes',id), {deleted:true,_updatedAt:t,_srv:window.fb.serverTimestamp()}).catch(function(){});
   }
 }
 
