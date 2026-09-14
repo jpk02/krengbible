@@ -145,6 +145,11 @@
   .live .cap{font-size:12px;color:var(--dim);margin:8px 0 10px;line-height:1.4}
   .live button{width:100%}
   .live button.undo{margin-top:6px;color:var(--dim)}
+  /* Two choices side by side, one solid and one outlined, rather than two
+     identical black slabs stacked with no gap. */
+  .live .acts{display:flex;gap:8px;margin-top:2px}
+  .live .acts button{width:auto;flex:1;min-width:0}
+  button.ghost{background:transparent;color:var(--accent);border-color:var(--accent);flex:1;font-weight:560}
   aside h2 + h2, .live + h2{margin-top:18px}
   /* The hint belongs to the heading above it, not to the tile below. */
   aside h2 + .hint{margin-top:-6px}
@@ -805,16 +810,21 @@ async function renderNext(dates){
     // decision.  Swap keeps it: it goes to the front of the queue and runs
     // the day after instead.  Replace drops it.  The old single button was
     // the second, and "not tomorrow" silently meant "never".
+    const acts = document.createElement('div');
+    acts.className = 'acts';
     const swap = document.createElement('button');
     swap.className = 'add';
-    swap.textContent = 'Swap with next in queue';
+    swap.textContent = 'Swap with next';
+    swap.title = 'Stage the next queued photo;  this one goes to the front of the queue';
     swap.onclick = () => reroll(swap, date, [renderNext], true);
-    el.appendChild(swap);
     const drop = document.createElement('button');
-    drop.className = 'add';
-    drop.textContent = 'Replace and drop this one';
+    drop.className = 'ghost';
+    drop.textContent = 'Replace and drop';
+    drop.title = 'Stage the next queued photo;  this one is dropped';
     drop.onclick = () => reroll(drop, date, [renderNext]);
-    el.appendChild(drop);
+    acts.appendChild(swap);
+    acts.appendChild(drop);
+    el.appendChild(acts);
   } else {
     const btn = document.createElement('button');
     btn.className = 'add';
