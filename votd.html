@@ -271,6 +271,7 @@ const CALL_ERRORS = {
   'unknown slug': 'That photo is not on the board any more — it was staged, ' +
                   'used, or removed since this page loaded.',
   'bad action':   'The page asked the worker for something it does not support.',
+  'queue_empty':  'The queue is empty, so there is nothing to swap with. Queue a photo first, or replace and drop this one.',
 };
 // A stale view can't be fixed by retrying, only by re-reading the board — so
 // these reload instead of leaving a dead page behind an alert.
@@ -799,11 +800,28 @@ async function renderNext(dates){
   el.appendChild(cap);
   if(photo && photo.url) el.appendChild(filterRow(photo.filter, (name) => refilter(el, date, name, renderNext)));
 
-  const btn = document.createElement('button');
-  btn.className = 'add';
-  btn.textContent = staged ? 'Change tomorrow\'s photo' : 'Stage now from the queue';
-  btn.onclick = () => reroll(btn, date, [renderNext]);
-  el.appendChild(btn);
+  if(staged){
+    // Two ways to move on from a staged photo, and they are not the same
+    // decision.  Swap keeps it: it goes to the front of the queue and runs
+    // the day after instead.  Replace drops it.  The old single button was
+    // the second, and "not tomorrow" silently meant "never".
+    const swap = document.createElement('button');
+    swap.className = 'add';
+    swap.textContent = 'Swap with next in queue';
+    swap.onclick = () => reroll(swap, date, [renderNext], true);
+    el.appendChild(swap);
+    const drop = document.createElement('button');
+    drop.className = 'add';
+    drop.textContent = 'Replace and drop this one';
+    drop.onclick = () => reroll(drop, date, [renderNext]);
+    el.appendChild(drop);
+  } else {
+    const btn = document.createElement('button');
+    btn.className = 'add';
+    btn.textContent = 'Stage now from the queue';
+    btn.onclick = () => reroll(btn, date, [renderNext]);
+    el.appendChild(btn);
+  }
   await undoButton(el, date, [renderNext]);
 }
 
@@ -863,12 +881,12 @@ async function refilter(el, date, name, redraw){
  * The board is re-fetched afterwards because a queued photo that gets staged
  * is REMOVED from the queue, and a stale rail would still show it waiting.
  */
-async function reroll(btn, date, after = [renderLive]){
+async function reroll(btn, date, after = [renderLive], keep = false){
   const label = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Rolling…';
+  btn.textContent = keep ? 'Swapping…' : 'Rolling…';
   try{
-    const r = await call('/admin/votd-next?date=' + encodeURIComponent(date));
+    const r = await call('/admin/votd-next?date=' + encodeURIComponent(date) + (keep ? '&keep=1' : ''));
     if(!r.staged){
       throw new Error('Every roll came back unusable just now — people shots, too dark, or Unsplash+. Nothing was changed. Try again.');
     }

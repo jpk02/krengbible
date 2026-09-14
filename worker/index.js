@@ -5338,6 +5338,14 @@ Only output valid JSON, no markdown, no preamble.`;
       // removing, and touching the queue or the log would be a guess.
       const d = prev.displaced;
       const curSlug = current ? (current.slug || votdSlug(current.url)) : null;
+      // A swap put the restored photo at the front of the queue;  now that it
+      // is staged again it must not also sit there, and it ran after all.
+      if (d && d.kept && prev.photo && prev.photo.url) {
+        const queue = await votdReadJson(env, 'votd_queue', []);
+        const rest = queue.filter((q) => !(q && q.slug === d.kept));
+        if (rest.length !== queue.length) await votdWriteJson(env, 'votd_queue', rest);
+        await votdMarkUsed(env, { ...prev.photo, slug: d.kept }, date, 'restored');
+      }
       if (d && d.slug && curSlug === d.slug) {
         const used = await votdReadJson(env, 'votd_used', {});
         const entry = used[d.slug];
@@ -5390,18 +5398,73 @@ Only output valid JSON, no markdown, no preamble.`;
       // so that undo can put both back — see votdRememberPrev.
       const before = await votdReadStaged(env, date);
       const head = (await votdReadQueue(env))[0] || null;
+
+      /* ?keep=1 — SWAP rather than replace.
+       *
+       * A plain re-roll drops the staged photo:  it was logged as used when it
+       * was staged, and nothing puts it back, so "not tomorrow" meant "never".
+       * That is the wrong default for a photo that was approved into the queue
+       * and only lost its slot to timing.  With keep, the displaced photo goes
+       * back to the FRONT of the queue and its used mark for this date is
+       * struck, so it is next in line rather than gone.
+       *
+       * Only meaningful against the queue:  the whole point is to trade one
+       * approved photo for the next approved one.  With nothing queued a swap
+       * would roll a random photo and call the kept one "next", which is not
+       * what was asked;  refuse, and say so, rather than guess. */
+      const keep = url.searchParams.get('keep') === '1' && !!before;
+      if (keep && !head) {
+        return new Response(JSON.stringify({ error: 'queue_empty' }), {
+          status: 422, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      }
+
       const photo = await votdStagePhoto(date, env);
+      let kept = null;
       if (photo) {
         const fromQueue = !!(head && head.slug && head.slug === (photo.slug || votdSlug(photo.url)));
+        if (keep) {
+          const slug = before.slug || votdSlug(before.url);
+          if (slug) {
+            // Strike this date from its used log (it did not run), keeping
+            // the entry if it ran on other days.  The log's copy also holds
+            // alt and topic, which the staged record does not carry.
+            const used = await votdReadJson(env, 'votd_used', {});
+            const entry = used[slug] || null;
+            if (entry) {
+              const dates = (Array.isArray(entry.dates) ? entry.dates : (entry.date ? [entry.date] : [])).filter((x) => x !== date);
+              if (dates.length) used[slug] = { ...entry, dates, date: dates[dates.length - 1] };
+              else delete used[slug];
+              await votdWriteJson(env, 'votd_used', used);
+            }
+            const queue = await votdReadJson(env, 'votd_queue', []);
+            if (!queue.some((q) => q && q.slug === slug)) {
+              queue.unshift({
+                ...before,
+                slug,
+                alt: before.alt || (entry && entry.alt) || '',
+                topic: before.topic ?? (entry && entry.topic) ?? null,
+                filter: before.filter || 'original',
+                source: 'kept',
+                addedAt: new Date().toISOString(),
+              });
+              await votdWriteJson(env, 'votd_queue', queue);
+              kept = slug;
+            }
+          }
+        }
         await votdRememberPrev(env, date, before, {
           slug: photo.slug || votdSlug(photo.url),
           fromQueue,
           entry: fromQueue ? head : null,
+          // So undo knows to take it back OUT of the queue when it restores
+          // it as staged, and to re-mark it used.
+          kept,
         });
       }
       // staged reflects whether anything was actually written — see
       // votdStagePhoto for why a failed roll writes nothing at all.
-      return new Response(JSON.stringify({ date, staged: !!photo, photo }), {
+      return new Response(JSON.stringify({ date, staged: !!photo, photo, kept: !!kept }), {
         headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
       });
     }
