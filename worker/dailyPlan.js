@@ -212,8 +212,15 @@ export function getReadingForDate(date) {
   // reason it is frozen.
   const frozen = FROZEN_BY_DATE.get(dateKey(date));
   if (frozen) {
-    const [, isPsalms, bookIdx, chapter, verseStart, verseEnd] = frozen;
-    return { type: isPsalms ? 'psalms' : 'main', bookIdx, chapter, verseStart, verseEnd };
+    const [, isPsalms, bookIdx, chapter, verseStart, verseEnd, endChapter] = frozen;
+    return {
+      type: isPsalms ? 'psalms' : 'main',
+      bookIdx,
+      chapter,
+      verseStart,
+      verseEnd,
+      ...(endChapter ? { endChapter } : {}),
+    };
   }
 
   const [isPsalms, bookIdx, chapter, verseStart, verseEnd, endChapter] =
