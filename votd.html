@@ -92,6 +92,12 @@
       font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif;
       background:linear-gradient(rgba(0,0,0,0) 0%,rgba(0,0,0,.15) 50%,rgba(0,0,0,.65) 100%)}
   body.noverse .ov{display:none}
+  /* The app's glow around the lettering (VotdCard's photoHalo:  10pt at 50%,
+   * a point of drop), in the tile's own points so it is the same share of the
+   * letter at any tile width.  Without it these previews showed the verse
+   * harder to read over a bright photo than the app now shows it, and a pick
+   * would be judged against the wrong card. */
+  .ov .lab,.ov .ref,.ov .txt{text-shadow:0 calc(1 * var(--u)) calc(10 * var(--u)) rgba(0,0,0,.5)}
   .ov .lab{font-size:calc(12 * var(--u));font-weight:500;letter-spacing:calc(1.2 * var(--u));
            color:rgba(255,255,255,.78);margin-bottom:calc(8 * var(--u))}
   .ov .ref{font-size:calc(13 * var(--u));font-weight:500;color:rgba(255,255,255,.9);
