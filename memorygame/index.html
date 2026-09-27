@@ -7,7 +7,14 @@
 <meta name="description" content="A memory game for teams.">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- Opened from the Home Screen, the page runs without the browser's bars.
+     That is the only way on an iPhone, where Safari will not put a page
+     full screen from a button. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Memory">
 <style>
   :root {
     color-scheme: light dark;
@@ -119,7 +126,9 @@
     color: var(--dim);
   }
   .bar strong { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .bar .spacer { flex: 1; }
+  /* The buttons wrap as one group, so on a narrow screen they drop to their
+     own line together rather than splitting. */
+  .bar .tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
   .result { color: var(--ink); font-weight: 600; }
   .result strong { color: var(--found); }
 
@@ -291,6 +300,8 @@
     justify-content: center;
   }
   button.icon svg { width: 20px; height: 20px; }
+  #fullscreen .exit, #fullscreen.on .enter { display: none; }
+  #fullscreen.on .exit { display: block; }
   .setup .row2 { display: flex; gap: 10px; }
   .setup .row2 button { flex: 1; padding: 12px; font-size: 16px; }
   dialog {
@@ -371,12 +382,17 @@
       <span>Pairs <strong id="pairs">0</strong> / <span id="pairTotal">0</span></span>
       <div class="teams" id="teams" aria-live="polite"></div>
       <span class="result" id="result" aria-live="polite"></span>
-      <span class="spacer"></span>
+      <div class="tools">
       <button type="button" class="secondary" id="undo" disabled>Undo</button>
+      <button type="button" class="secondary icon" id="fullscreen" aria-label="Full screen" hidden>
+        <svg class="enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        <svg class="exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+      </button>
       <button type="button" class="secondary icon" id="optionsGame" aria-label="Options">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       </button>
       <button type="button" class="primary" id="new">New Game</button>
+      </div>
     </div>
     <div class="board" id="board">
       <div class="frame" id="frame">
@@ -554,6 +570,32 @@
     setupEl.hidden = false;
   });
   undoEl.addEventListener('click', undo);
+
+  // ---- Full screen ----
+  // Hides the browser's tab and address bars.  Shown only where the browser
+  // can do it (not iPhone Safari, which allows it for video alone) and not
+  // when already launched from the Home Screen, which has no bars to hide.
+  const fsEl = $('fullscreen'), root = document.documentElement;
+  const fsNow = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const installed = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
+  const canFs = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) &&
+    !!(root.requestFullscreen || root.webkitRequestFullscreen);
+  fsEl.hidden = !canFs || installed;
+  fsEl.addEventListener('click', () => {
+    if (fsNow()) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const p = (root.requestFullscreen || root.webkitRequestFullscreen).call(root, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(() => { /* refused:  stay as is */ });
+    }
+  });
+  function syncFullscreen() {
+    const on = !!fsNow();
+    fsEl.classList.toggle('on', on);
+    fsEl.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+  }
+  document.addEventListener('fullscreenchange', syncFullscreen);
+  document.addEventListener('webkitfullscreenchange', syncFullscreen);
 
   function clearTimers() {
     if (pending) { clearTimeout(pending.timer); pending = null; }
