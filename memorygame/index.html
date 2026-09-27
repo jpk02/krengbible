@@ -178,6 +178,22 @@
     border: 1px solid rgba(255, 255, 255, 0.14);
   }
 
+  /* Row letter and column number, for calling a card out across the room.
+     A dark pill under the text, so it reads on every design. */
+  .tag {
+    display: none;
+    padding: 0.12em 0.4em;
+    border-radius: 0.4em;
+    background: rgba(0, 0, 0, 0.42);
+    color: #fff;
+    font-size: var(--tag, 18px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .grid.labels .tag { display: block; }
+
   /* ---- Card backs ----
      Each design is one background, drawn by the page itself, with its tile
      sizes in percent so a pattern reads the same on a 2 by 2 board as on a
@@ -291,6 +307,16 @@
   .design[aria-checked="true"] .sample { box-shadow: 0 0 0 3px var(--found); }
   .design[aria-checked="true"] { font-weight: 700; }
   dialog .done { width: 100%; padding: 11px; font-size: 16px; }
+  .toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .toggle input { width: 22px; height: 22px; margin: 0; accent-color: var(--found); }
 
   @media (prefers-reduced-motion: reduce) {
     .inner, .pic, .team { transition: none; }
@@ -334,6 +360,8 @@
   <h2 id="optionsTitle">Options</h2>
   <h3>Card Back</h3>
   <div class="designs" id="designs" role="radiogroup" aria-label="Card back"></div>
+  <h3>Card Labels</h3>
+  <label class="toggle">Show row and column, like A3 <input type="checkbox" id="labels"></label>
   <button type="button" class="primary done" id="optionsDone">Done</button>
 </dialog>
 
@@ -366,6 +394,7 @@
     ['aurora', 'Aurora'], ['waves', 'Waves'], ['night', 'Night Sky'],
   ];
   const BACK_STORE = 'memorygame.back';
+  const LABELS_STORE = 'memorygame.labels';
   const MIN = 2, MAX = 10, MAX_TEAMS = 6;
   const MISMATCH_MS = 850;
   const STORE = 'memorygame.setup';
@@ -383,8 +412,18 @@
     const d = localStorage.getItem(BACK_STORE);
     if (DESIGNS.some(([id]) => id === d)) design = d;
   } catch (e) { /* storage unavailable:  classic */ }
+  // Labels on unless turned off:  they are for calling cards out.
+  let labels = true;
+  try { labels = localStorage.getItem(LABELS_STORE) !== '0'; } catch (e) { /* on */ }
+  const labelsEl = $('labels');
+  labelsEl.checked = labels;
+  labelsEl.addEventListener('change', () => {
+    labels = labelsEl.checked;
+    try { localStorage.setItem(LABELS_STORE, labels ? '1' : '0'); } catch (e) { /* fine */ }
+    applyDesign();
+  });
   function applyDesign() {
-    grid.className = 'grid d-' + design;
+    grid.className = 'grid d-' + design + (labels ? ' labels' : '');
     designsEl.querySelectorAll('.design').forEach((el) => {
       el.setAttribute('aria-checked', String(el.dataset.design === design));
     });
@@ -488,14 +527,16 @@
     history = [];
 
     grid.innerHTML = '';
-    deck.forEach((card) => {
+    deck.forEach((card, i) => {
+      // Row as a letter from the top, column as a number from the left.
+      card.tag = String.fromCharCode(65 + Math.floor(i / cols)) + (i % cols + 1);
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'card';
-      el.setAttribute('aria-label', 'Face-down card');
+      el.setAttribute('aria-label', 'Face-down card ' + card.tag);
       el.innerHTML =
         '<span class="inner">' +
-          '<span class="side back"></span>' +
+          '<span class="side back"><span class="tag">' + card.tag + '</span></span>' +
           '<span class="side front"><span class="pic" aria-hidden="true">' + card.obj.pic + '</span></span>' +
         '</span>';
       el.addEventListener('click', () => flip(card));
@@ -526,6 +567,7 @@
     grid.style.gridAutoRows = size + 'px';
     grid.style.gap = gap + 'px';
     grid.style.setProperty('--radius', Math.max(6, Math.min(16, Math.round(size * 0.13))) + 'px');
+    grid.style.setProperty('--tag', Math.max(10, Math.min(44, Math.round(size * 0.26))) + 'px');
   }
   new ResizeObserver(layout).observe(board);
 
@@ -567,7 +609,7 @@
       c.el.classList.toggle('found', c.found);
       c.el.classList.toggle('odd', c.shownOdd);
       c.el.setAttribute('aria-label',
-        !c.up ? 'Face-down card' : c.found ? c.obj.name + ', matched' : c.shownOdd ? c.obj.name + ', no pair' : c.obj.name);
+        !c.up ? 'Face-down card ' + c.tag : c.found ? c.obj.name + ', matched' : c.shownOdd ? c.obj.name + ', no pair' : c.obj.name);
     });
     pairsEl.textContent = String(pairsFound);
     undoEl.disabled = history.length === 0;
