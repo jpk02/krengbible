@@ -113,6 +113,20 @@
     color: var(--ink);
   }
   .setup button.primary { padding: 12px; font-size: 16px; }
+  .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .names[hidden] { display: none; }
+  .names input {
+    font: inherit;
+    font-size: 16px;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .names input:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
 
   /* ---- Game ---- */
   #game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -371,6 +385,7 @@
     <label class="field">Rows <select id="rows"></select></label>
     <label class="field">Columns <select id="cols"></select></label>
     <label class="field">Teams <select id="teamCount"></select></label>
+    <div class="names" id="names"></div>
     <div class="row2">
       <button type="button" class="secondary" id="optionsSetup">Options</button>
       <button type="submit" class="primary">Start</button>
@@ -544,8 +559,37 @@
   fillSelect(colsEl, MIN, MAX, saved.cols);
   fillSelect(teamCountEl, 1, MAX_TEAMS, saved.teams);
 
+  // Team names, one box per team, blank meaning "Team 1" and so on.  Kept
+  // for every slot even when fewer teams are playing, so dropping to two
+  // teams and back to four does not lose the other two names.
+  const namesEl = $('names');
+  const nameDraft = new Array(MAX_TEAMS).fill('');
+  (Array.isArray(saved.names) ? saved.names : []).slice(0, MAX_TEAMS).forEach((n, i) => {
+    if (typeof n === 'string') nameDraft[i] = n;
+  });
+  function renderNameInputs() {
+    const t = Number(teamCountEl.value);
+    namesEl.hidden = t < 2;
+    namesEl.innerHTML = '';
+    for (let i = 0; i < t; i++) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = 20;
+      input.placeholder = 'Team ' + (i + 1);
+      input.setAttribute('aria-label', 'Team ' + (i + 1) + ' name');
+      input.autocomplete = 'off';
+      input.value = nameDraft[i];
+      input.addEventListener('input', () => { nameDraft[i] = input.value; });
+      namesEl.appendChild(input);
+    }
+  }
+  teamCountEl.addEventListener('change', renderNameInputs);
+  renderNameInputs();
+
   let deck = [], first = null, locked = false, pending = null, oddTimer = null;
   let rows = 4, cols = 4, pairTotal = 0, pairsFound = 0, teamCount = 1, turn = 0, scores = [];
+  let teamNames = [];
+  const teamName = (t) => teamNames[t] || 'Team ' + (t + 1);
   let history = [];
 
   function shuffle(list) {
@@ -560,7 +604,8 @@
   setupEl.addEventListener('submit', (e) => {
     e.preventDefault();
     const r = Number(rowsEl.value), c = Number(colsEl.value), t = Number(teamCountEl.value);
-    try { localStorage.setItem(STORE, JSON.stringify({ rows: r, cols: c, teams: t })); } catch (err) { /* fine */ }
+    try { localStorage.setItem(STORE, JSON.stringify({ rows: r, cols: c, teams: t, names: nameDraft })); } catch (err) { /* fine */ }
+    teamNames = nameDraft.slice(0, t).map((n) => n.trim());
     start(r, c, t);
   });
   $('new').addEventListener('click', () => {
@@ -737,7 +782,12 @@
       el.className = 'team' +
         (!done && t === turn ? ' active' : '') +
         (done && winners.includes(t) ? ' winner' : '');
-      el.innerHTML = '<span>Team ' + (t + 1) + '</span><span class="score">' + scores[t] + '</span>';
+      const name = document.createElement('span');
+      name.textContent = teamName(t);
+      const score = document.createElement('span');
+      score.className = 'score';
+      score.textContent = String(scores[t]);
+      el.append(name, score);
       if (!done && t === turn) el.setAttribute('aria-current', 'true');
       teamsEl.appendChild(el);
     }
@@ -748,10 +798,16 @@
       resultEl.innerHTML = '<strong>All pairs found.</strong>';
     } else {
       const best = scores[winners[0]];
-      const names = winners.map((t) => 'Team ' + (t + 1));
-      resultEl.innerHTML = winners.length === 1
-        ? '<strong>' + names[0] + ' wins.</strong>'
-        : '<strong>Tie:</strong> ' + names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ', ' + best + ' each.';
+      const names = winners.map(teamName);
+      const lead = document.createElement('strong');
+      resultEl.textContent = '';
+      if (winners.length === 1) {
+        lead.textContent = names[0] + ' wins.';
+        resultEl.append(lead);
+      } else {
+        lead.textContent = 'Tie:';
+        resultEl.append(lead, ' ' + names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ', ' + best + ' each.');
+      }
     }
   }
 
