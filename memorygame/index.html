@@ -197,7 +197,7 @@
   /* ---- Card backs ----
      Each design is one background, drawn by the page itself, with its tile
      sizes in percent so a pattern reads the same on a 2 by 2 board as on a
-     10 by 10.  The board and the swatches in Options both take a d-* class. */
+     12 by 12.  The board and the swatches in Options both take a d-* class. */
   .d-classic {
     --bk: radial-gradient(circle, var(--back-mark) 0 18%, transparent 19%),
           radial-gradient(circle, transparent 0 30%, var(--back-mark) 31% 33%, transparent 34%),
@@ -367,8 +367,8 @@
 
 <script>
 (() => {
-  // Sixty-two objects;  each game picks as many as its board needs, up to
-  // fifty pairs for 10 by 10.  Code points rather than the characters
+  // Seventy-six objects;  each game picks as many as its board needs, up to
+  // seventy-two pairs for 12 by 12.  Code points rather than the characters
   // themselves, so this file stays plain ASCII.
   const OBJECTS = [
     ['Apple', '\u{1F34E}'], ['Watermelon', '\u{1F349}'], ['Pineapple', '\u{1F34D}'], ['Strawberry', '\u{1F353}'],
@@ -387,6 +387,10 @@
     ['Star', '\u{2B50}'], ['Umbrella', '\u{2614}\u{FE0F}'], ['Snowman', '\u{26C4}\u{FE0F}'], ['Crown', '\u{1F451}'],
     ['Gem', '\u{1F48E}'], ['Gift', '\u{1F381}'], ['Cupcake', '\u{1F9C1}'], ['Doughnut', '\u{1F369}'],
     ['Pizza', '\u{1F355}'], ['Ice cream', '\u{1F366}'],
+    ['Banana', '\u{1F34C}'], ['Kiwi', '\u{1F95D}'], ['Broccoli', '\u{1F966}'], ['Rose', '\u{1F339}'],
+    ['Maple leaf', '\u{1F341}'], ['Bus', '\u{1F68C}'], ['Helicopter', '\u{1F681}'], ['Baseball', '\u{26BE}'],
+    ['Violin', '\u{1F3BB}'], ['Crab', '\u{1F980}'], ['Bee', '\u{1F41D}'], ['Ladybug', '\u{1F41E}'],
+    ['Rabbit', '\u{1F430}'], ['Hamburger', '\u{1F354}'],
   ].map(([name, pic]) => ({ name, pic }));
   const DESIGNS = [
     ['classic', 'Classic'], ['diamonds', 'Diamonds'], ['stripes', 'Stripes'],
@@ -395,7 +399,7 @@
   ];
   const BACK_STORE = 'memorygame.back';
   const LABELS_STORE = 'memorygame.labels';
-  const MIN = 2, MAX = 10, MAX_TEAMS = 6;
+  const MIN = 2, MAX = 12, MAX_TEAMS = 6;
   const MISMATCH_MS = 850;
   const STORE = 'memorygame.setup';
 
@@ -553,7 +557,7 @@
   }
 
   // The largest square that fits the board both across and down.  The gap
-  // and corner scale with the square, so a 10 by 10 board keeps its pictures.
+  // and corner scale with the square, so a 12 by 12 board keeps its pictures.
   function layout() {
     if (gameEl.hidden) return;
     const w = board.clientWidth, h = board.clientHeight;
