@@ -411,8 +411,10 @@
     render();
   }
 
-  // Undo steps back one flip:  a misclick is one tap, a whole turn is two.
-  // It reaches into the pause after a miss, and past the end of a game.
+  // Undo goes back to the start of a turn:  both cards face down, the same
+  // team to play.  Mid-turn it takes back the card just turned;  after a turn
+  // it takes back the whole turn, match and point included.  It reaches into
+  // the pause after a miss, and past the end of a game.
   function undo() {
     if (!history.length) return;
     clearTimers();
@@ -464,7 +466,8 @@
 
   function flip(card) {
     if (locked || card.up || card.found || pairsFound === pairTotal) return;
-    history.push(snapshot());
+    // Saved at the start of each turn only -- what Undo returns to.
+    if (!first) history.push(snapshot());
     card.up = true;
     if (!first) {
       first = card;
