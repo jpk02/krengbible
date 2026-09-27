@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Memory Game</title>
-<meta name="description" content="A 4x4 memory game.">
+<meta name="description" content="A memory game for teams.">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -14,6 +14,8 @@
     --bg: #f4f1eb;
     --ink: #1a1a1a;
     --dim: #6b6660;
+    --panel: #ffffff;
+    --line: #e3ddd2;
     --face: #ffffff;
     --face-edge: #e3ddd2;
     --back: #1b2a4a;
@@ -22,12 +24,15 @@
     --accent: #1b2a4a;
     --accent-ink: #ffffff;
     --found: #2f8f4e;
+    --odd: #d9a21b;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #1a1a1a;
       --ink: #eeeeee;
       --dim: #9a948c;
+      --panel: #242424;
+      --line: #3a3a3a;
       --face: #2a2a2a;
       --face-edge: #3a3a3a;
       --back: #34466e;
@@ -36,6 +41,7 @@
       --accent: #e9e4da;
       --accent-ink: #1a1a1a;
       --found: #5cc47f;
+      --odd: #f0bd3c;
     }
   }
   * { box-sizing: border-box; }
@@ -49,37 +55,74 @@
     justify-content: center;
     padding: 28px 16px 40px;
   }
-  main { width: 100%; max-width: 480px; }
+  main { width: 100%; max-width: 520px; }
   h1 { font-size: 28px; line-height: 34px; margin: 0 0 18px; letter-spacing: -0.3px; }
+  [hidden] { display: none !important; }
 
-  .bar {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 14px;
-    font-size: 14px;
-    color: var(--dim);
-  }
-  .bar strong { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .bar .spacer { flex: 1; }
-  button.new {
+  button.primary {
     font: inherit;
     font-size: 14px;
     font-weight: 600;
-    padding: 8px 14px;
+    padding: 9px 16px;
     border-radius: 10px;
     border: none;
     cursor: pointer;
     background: var(--accent);
     color: var(--accent-ink);
   }
-  button.new:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
+  button:focus-visible, select:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
 
-  .grid {
+  /* ---- Setup ---- */
+  .setup {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
+    gap: 14px;
   }
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; }
+  .field select {
+    font: inherit;
+    font-size: 16px;
+    min-width: 96px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .setup button.primary { justify-self: stretch; padding: 12px; font-size: 16px; }
+
+  /* ---- Game ---- */
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--dim);
+  }
+  .bar strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .bar .spacer { flex: 1; }
+
+  .teams { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    font-size: 14px;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .team .score { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .team.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .team.winner { border-color: var(--found); box-shadow: inset 0 0 0 1px var(--found); }
+
+  .grid { display: grid; gap: var(--gap, 10px); }
 
   /* A card is a button with two faces, turned by rotating the inner layer. */
   .card {
@@ -92,7 +135,7 @@
     perspective: 700px;
     -webkit-tap-highlight-color: transparent;
   }
-  .card:focus-visible { outline: 3px solid var(--found); outline-offset: 3px; border-radius: 14px; }
+  .card:focus-visible { border-radius: var(--radius, 14px); }
   .inner {
     position: absolute;
     inset: 0;
@@ -103,7 +146,7 @@
   .side {
     position: absolute;
     inset: 0;
-    border-radius: 14px;
+    border-radius: var(--radius, 14px);
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     display: flex;
@@ -121,11 +164,16 @@
     background: var(--face);
     border: 1px solid var(--face-edge);
     transform: rotateY(180deg);
+    container-type: size;
   }
+  .card.found { cursor: default; }
+  .card.found .front { border-color: var(--found); box-shadow: inset 0 0 0 2px var(--found); }
+  /* The card with no pair, turned up at the end. */
+  .card.odd .front { border-color: var(--odd); box-shadow: inset 0 0 0 2px var(--odd); }
+
   /* The picture is the device's own colour emoji, drawn at card size:  on an
      iPhone or a Mac that is Apple's glossy 3D set.  A soft shadow lifts it off
      the card;  it pops in as the card turns and bounces when it is matched. */
-  .front { container-type: size; }
   .pic {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     font-size: 58cqh;
@@ -135,27 +183,20 @@
     transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) 0.14s;
   }
   .card.up .pic { transform: scale(1); }
-  .card.found .pic { animation: bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .card.found .pic, .card.odd .pic { animation: bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
   @keyframes bounce {
     0% { transform: scale(1); }
     40% { transform: scale(1.22) rotate(-6deg); }
     70% { transform: scale(0.94) rotate(3deg); }
     100% { transform: scale(1); }
   }
-  .card.found .front { border-color: var(--found); box-shadow: inset 0 0 0 2px var(--found); }
-  .card.found { cursor: default; }
 
-  .win {
-    margin-top: 18px;
-    text-align: center;
-    font-size: 16px;
-    min-height: 24px;
-  }
-  .win strong { color: var(--found); }
+  .result { margin-top: 18px; text-align: center; font-size: 17px; min-height: 26px; }
+  .result strong { color: var(--found); }
 
   @media (prefers-reduced-motion: reduce) {
-    .inner, .pic { transition: none; }
-    .card.found .pic { animation: none; }
+    .inner, .pic, .team { transition: none; }
+    .card.found .pic, .card.odd .pic { animation: none; }
   }
 </style>
 </head>
@@ -163,50 +204,72 @@
 <main>
   <h1>Memory Game</h1>
 
-  <div class="bar" aria-live="polite">
-    <span>Pairs <strong id="pairs">0</strong> / 8</span>
-    <span class="spacer"></span>
-    <button type="button" class="new" id="new">New Game</button>
-  </div>
+  <form class="setup" id="setup">
+    <label class="field">Rows <select id="rows"></select></label>
+    <label class="field">Columns <select id="cols"></select></label>
+    <label class="field">Teams <select id="teamCount"></select></label>
+    <button type="submit" class="primary">Start</button>
+  </form>
 
-  <div class="grid" id="grid" role="grid" aria-label="Memory cards"></div>
-  <p class="win" id="win" aria-live="polite"></p>
+  <section id="game" hidden>
+    <div class="bar">
+      <span>Pairs <strong id="pairs">0</strong> / <span id="pairTotal">0</span></span>
+      <span class="spacer"></span>
+      <button type="button" class="primary" id="new">New Game</button>
+    </div>
+    <div class="teams" id="teams" aria-live="polite"></div>
+    <div class="grid" id="grid" role="grid" aria-label="Memory cards"></div>
+    <p class="result" id="result" aria-live="polite"></p>
+  </section>
 </main>
 
 <script>
 (() => {
-  // Sixteen objects;  each game picks eight.  Code points rather than the
-  // characters themselves, so this file stays plain ASCII.
+  // Forty objects;  each game picks as many as its board needs.  Code points
+  // rather than the characters themselves, so this file stays plain ASCII.
   const OBJECTS = [
-    { name: 'Apple', pic: '\u{1F34E}' },
-    { name: 'Watermelon', pic: '\u{1F349}' },
-    { name: 'Pineapple', pic: '\u{1F34D}' },
-    { name: 'Strawberry', pic: '\u{1F353}' },
-    { name: 'Sunflower', pic: '\u{1F33B}' },
-    { name: 'Cactus', pic: '\u{1F335}' },
-    { name: 'Rocket', pic: '\u{1F680}' },
-    { name: 'Hot air balloon', pic: '\u{1F388}' },
-    { name: 'Soccer ball', pic: '\u{26BD}\u{FE0F}' },
-    { name: 'Guitar', pic: '\u{1F3B8}' },
-    { name: 'Butterfly', pic: '\u{1F98B}' },
-    { name: 'Dolphin', pic: '\u{1F42C}' },
-    { name: 'Turtle', pic: '\u{1F422}' },
-    { name: 'Lion', pic: '\u{1F981}' },
-    { name: 'Rainbow', pic: '\u{1F308}' },
-    { name: 'Crown', pic: '\u{1F451}' },
-  ];
-  const PAIRS = 8;
+    ['Apple', '\u{1F34E}'], ['Watermelon', '\u{1F349}'], ['Pineapple', '\u{1F34D}'], ['Strawberry', '\u{1F353}'],
+    ['Grapes', '\u{1F347}'], ['Cherries', '\u{1F352}'], ['Lemon', '\u{1F34B}'], ['Peach', '\u{1F351}'],
+    ['Sunflower', '\u{1F33B}'], ['Tulip', '\u{1F337}'], ['Cactus', '\u{1F335}'], ['Clover', '\u{1F340}'],
+    ['Rocket', '\u{1F680}'], ['Balloon', '\u{1F388}'], ['Soccer ball', '\u{26BD}\u{FE0F}'], ['Basketball', '\u{1F3C0}'],
+    ['Guitar', '\u{1F3B8}'], ['Trumpet', '\u{1F3BA}'], ['Butterfly', '\u{1F98B}'], ['Dolphin', '\u{1F42C}'],
+    ['Turtle', '\u{1F422}'], ['Lion', '\u{1F981}'], ['Panda', '\u{1F43C}'], ['Penguin', '\u{1F427}'],
+    ['Fox', '\u{1F98A}'], ['Octopus', '\u{1F419}'], ['Rainbow', '\u{1F308}'], ['Crown', '\u{1F451}'],
+    ['Gem', '\u{1F48E}'], ['Gift', '\u{1F381}'], ['Kite', '\u{1FA81}'], ['Car', '\u{1F697}'],
+    ['Sailboat', '\u{26F5}\u{FE0F}'], ['Bicycle', '\u{1F6B2}'], ['Umbrella', '\u{2614}\u{FE0F}'], ['Snowman', '\u{26C4}\u{FE0F}'],
+    ['Cupcake', '\u{1F9C1}'], ['Doughnut', '\u{1F369}'], ['Pizza', '\u{1F355}'], ['Ice cream', '\u{1F366}'],
+  ].map(([name, pic]) => ({ name, pic }));
+  const MIN = 2, MAX = 8, MAX_TEAMS = 6;
   const MISMATCH_MS = 850;
+  const STORE = 'memorygame.setup';
 
-  const grid = document.getElementById('grid');
-  const pairsEl = document.getElementById('pairs');
-  const winEl = document.getElementById('win');
+  const $ = (id) => document.getElementById(id);
+  const setupEl = $('setup'), gameEl = $('game'), grid = $('grid');
+  const rowsEl = $('rows'), colsEl = $('cols'), teamCountEl = $('teamCount');
+  const pairsEl = $('pairs'), pairTotalEl = $('pairTotal'), teamsEl = $('teams'), resultEl = $('result');
 
-  let deck = [];
-  let first = null;
-  let second = null;
-  let locked = false;
-  let found = 0;
+  function fillSelect(el, from, to, value) {
+    for (let v = from; v <= to; v++) {
+      const o = document.createElement('option');
+      o.value = String(v);
+      o.textContent = String(v);
+      el.appendChild(o);
+    }
+    el.value = String(value);
+  }
+
+  let saved = { rows: 4, cols: 4, teams: 2 };
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (s && s.rows && s.cols && s.teams) saved = s;
+  } catch (e) { /* storage unavailable:  defaults */ }
+  fillSelect(rowsEl, MIN, MAX, saved.rows);
+  fillSelect(colsEl, MIN, MAX, saved.cols);
+  fillSelect(teamCountEl, 1, MAX_TEAMS, saved.teams);
+
+
+  let deck = [], first = null, second = null, locked = false;
+  let pairTotal = 0, pairsFound = 0, teamCount = 1, turn = 0, scores = [];
 
   function shuffle(list) {
     const a = list.slice();
@@ -217,14 +280,38 @@
     return a;
   }
 
-  function newGame() {
-    const chosen = shuffle(OBJECTS).slice(0, PAIRS);
-    deck = shuffle(chosen.concat(chosen)).map((obj, i) => ({ obj, i, up: false, found: false }));
+  setupEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const rows = Number(rowsEl.value), cols = Number(colsEl.value), teams = Number(teamCountEl.value);
+    try { localStorage.setItem(STORE, JSON.stringify({ rows, cols, teams })); } catch (err) { /* fine */ }
+    start(rows, cols, teams);
+  });
+  $('new').addEventListener('click', () => {
+    gameEl.hidden = true;
+    setupEl.hidden = false;
+  });
+
+  function start(rows, cols, teams) {
+    const n = rows * cols;
+    pairTotal = Math.floor(n / 2);
+    const picked = shuffle(OBJECTS).slice(0, pairTotal + (n % 2));
+    const pairs = picked.slice(0, pairTotal);
+    const cards = pairs.concat(pairs).map((obj) => ({ obj, odd: false }));
+    if (n % 2) cards.push({ obj: picked[pairTotal], odd: true });
+    deck = shuffle(cards).map((c) => ({ ...c, up: false, found: false }));
+
     first = second = null;
     locked = false;
-    found = 0;
-    pairsEl.textContent = '0';
-    winEl.textContent = '';
+    pairsFound = 0;
+    teamCount = teams;
+    turn = 0;
+    scores = new Array(teams).fill(0);
+
+    // Denser boards get tighter gaps and corners, so the pictures keep room.
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+    grid.style.setProperty('--gap', (cols >= 7 ? 5 : cols >= 5 ? 7 : 10) + 'px');
+    grid.style.setProperty('--radius', (cols >= 7 ? 8 : cols >= 5 ? 11 : 14) + 'px');
+
     grid.innerHTML = '';
     deck.forEach((card) => {
       const el = document.createElement('button');
@@ -240,6 +327,27 @@
       card.el = el;
       grid.appendChild(el);
     });
+
+    pairTotalEl.textContent = String(pairTotal);
+    pairsEl.textContent = '0';
+    resultEl.textContent = '';
+    renderTeams();
+    setupEl.hidden = true;
+    gameEl.hidden = false;
+  }
+
+  function renderTeams(winners) {
+    teamsEl.hidden = teamCount < 2;
+    teamsEl.innerHTML = '';
+    for (let t = 0; t < teamCount; t++) {
+      const el = document.createElement('div');
+      el.className = 'team' +
+        (!winners && t === turn ? ' active' : '') +
+        (winners && winners.includes(t) ? ' winner' : '');
+      el.innerHTML = '<span>Team ' + (t + 1) + '</span><span class="score">' + scores[t] + '</span>';
+      if (!winners && t === turn) el.setAttribute('aria-current', 'true');
+      teamsEl.appendChild(el);
+    }
   }
 
   function show(card, up) {
@@ -249,7 +357,7 @@
   }
 
   function flip(card) {
-    if (locked || card.up || card.found) return;
+    if (locked || card.up || card.found || pairsFound === pairTotal) return;
     show(card, true);
     if (!first) {
       first = card;
@@ -258,36 +366,59 @@
     second = card;
 
     if (first.obj === second.obj) {
-      // A match stays face up for the rest of the game.
+      // A match stays face up, scores for the team whose turn it is, and that
+      // team goes again.
       [first, second].forEach((c) => {
         c.found = true;
         c.el.classList.add('found');
         c.el.setAttribute('aria-label', c.obj.name + ', matched');
       });
-      found += 1;
-      pairsEl.textContent = String(found);
       first = second = null;
-      if (found === PAIRS) {
-        winEl.innerHTML = '<strong>All pairs found.</strong>';
-      }
+      pairsFound += 1;
+      scores[turn] += 1;
+      pairsEl.textContent = String(pairsFound);
+      if (pairsFound === pairTotal) finish();
+      else renderTeams();
       return;
     }
 
-    // Not a match:  leave both showing long enough to remember, then turn
-    // them back over.  No other card can be flipped in the meantime.
+    // Not a match:  both stay showing long enough to remember, turn back over,
+    // and the turn passes to the next team.
     locked = true;
-    const a = first;
-    const b = second;
+    const a = first, b = second;
     setTimeout(() => {
       show(a, false);
       show(b, false);
       first = second = null;
       locked = false;
+      turn = (turn + 1) % teamCount;
+      renderTeams();
     }, MISMATCH_MS);
   }
 
-  document.getElementById('new').addEventListener('click', newGame);
-  newGame();
+  function finish() {
+    // The card without a pair turns up on its own once every pair is found.
+    const odd = deck.find((c) => c.odd);
+    if (odd) {
+      setTimeout(() => {
+        show(odd, true);
+        odd.el.classList.add('odd');
+        odd.el.setAttribute('aria-label', odd.obj.name + ', no pair');
+      }, 450);
+    }
+    if (teamCount < 2) {
+      renderTeams();
+      resultEl.innerHTML = '<strong>All pairs found.</strong>';
+      return;
+    }
+    const best = Math.max(...scores);
+    const winners = scores.map((s, t) => (s === best ? t : -1)).filter((t) => t >= 0);
+    renderTeams(winners);
+    const names = winners.map((t) => 'Team ' + (t + 1));
+    resultEl.innerHTML = winners.length === 1
+      ? '<strong>' + names[0] + ' wins</strong> with ' + best + (best === 1 ? ' pair.' : ' pairs.')
+      : '<strong>Tie</strong> between ' + names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ', ' + best + ' each.';
+  }
 })();
 </script>
 </body>
