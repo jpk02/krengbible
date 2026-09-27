@@ -194,6 +194,29 @@
   }
   .grid.labels .tag { display: block; }
 
+  /* The other place labels can go:  letters down the left of the rows and
+     numbers across the top of the columns, leaving the cards blank.  The
+     heads take the grid's own column and row sizes from script, so each
+     label sits squarely against its row or column. */
+  .frame {
+    display: grid;
+    grid-template-columns: var(--band, 0px) auto;
+    grid-template-rows: var(--band, 0px) auto;
+  }
+  .frame .grid { grid-column: 2; grid-row: 2; }
+  .colhead, .rowhead { display: none; }
+  .frame.edges .colhead { display: grid; grid-column: 2; grid-row: 1; }
+  .frame.edges .rowhead { display: grid; grid-column: 1; grid-row: 2; }
+  .colhead span, .rowhead span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--dim);
+    font-size: var(--edge, 14px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* ---- Card backs ----
      Each design is one background, drawn by the page itself, with its tile
      sizes in percent so a pattern reads the same on a 2 by 2 board as on a
@@ -307,16 +330,21 @@
   .design[aria-checked="true"] .sample { box-shadow: 0 0 0 3px var(--found); }
   .design[aria-checked="true"] { font-weight: 700; }
   dialog .done { width: 100%; padding: 11px; font-size: 16px; }
-  .toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 18px;
-    font-size: 15px;
+  .choice { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
+  .choice button {
+    padding: 10px 6px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: none;
+    color: var(--ink);
+    font-size: 14px;
     cursor: pointer;
   }
-  .toggle input { width: 22px; height: 22px; margin: 0; accent-color: var(--found); }
+  .choice button[aria-checked="true"] {
+    border-color: var(--found);
+    box-shadow: inset 0 0 0 1px var(--found);
+    font-weight: 700;
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .inner, .pic, .team { transition: none; }
@@ -351,7 +379,11 @@
       <button type="button" class="primary" id="new">New Game</button>
     </div>
     <div class="board" id="board">
-      <div class="grid" id="grid" role="grid" aria-label="Memory cards"></div>
+      <div class="frame" id="frame">
+        <div class="colhead" id="colhead" aria-hidden="true"></div>
+        <div class="rowhead" id="rowhead" aria-hidden="true"></div>
+        <div class="grid" id="grid" role="grid" aria-label="Memory cards"></div>
+      </div>
     </div>
   </section>
 </main>
@@ -360,8 +392,12 @@
   <h2 id="optionsTitle">Options</h2>
   <h3>Card Back</h3>
   <div class="designs" id="designs" role="radiogroup" aria-label="Card back"></div>
-  <h3>Card Labels</h3>
-  <label class="toggle">Show row and column, like A3 <input type="checkbox" id="labels"></label>
+  <h3>Row and Column Labels</h3>
+  <div class="choice" id="labels" role="radiogroup" aria-label="Row and column labels">
+    <button type="button" role="radio" data-mode="cards">On Cards</button>
+    <button type="button" role="radio" data-mode="edges">Along Edges</button>
+    <button type="button" role="radio" data-mode="off">Off</button>
+  </div>
   <button type="button" class="primary done" id="optionsDone">Done</button>
 </dialog>
 
@@ -416,18 +452,32 @@
     const d = localStorage.getItem(BACK_STORE);
     if (DESIGNS.some(([id]) => id === d)) design = d;
   } catch (e) { /* storage unavailable:  classic */ }
-  // Labels on unless turned off:  they are for calling cards out.
-  let labels = true;
-  try { labels = localStorage.getItem(LABELS_STORE) !== '0'; } catch (e) { /* on */ }
-  const labelsEl = $('labels');
-  labelsEl.checked = labels;
-  labelsEl.addEventListener('change', () => {
-    labels = labelsEl.checked;
-    try { localStorage.setItem(LABELS_STORE, labels ? '1' : '0'); } catch (e) { /* fine */ }
-    applyDesign();
+  // Where the row and column labels go, for calling cards out:  on each card
+  // ("cards"), along the top and left of the board ("edges"), or nowhere.
+  // On the edges a card has to be found by counting along from the label,
+  // which is a little harder than reading it off the card.  The switch this
+  // replaced stored '1' and '0', read here as cards and off.
+  const LABEL_MODES = ['cards', 'edges', 'off'];
+  let labels = 'cards';
+  try {
+    const v = localStorage.getItem(LABELS_STORE);
+    labels = v === '0' ? 'off' : LABEL_MODES.includes(v) ? v : 'cards';
+  } catch (e) { /* on cards */ }
+  const labelsEl = $('labels'), frame = $('frame');
+  labelsEl.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      labels = b.dataset.mode;
+      try { localStorage.setItem(LABELS_STORE, labels); } catch (e) { /* fine */ }
+      applyDesign();
+      layout();
+    });
   });
   function applyDesign() {
-    grid.className = 'grid d-' + design + (labels ? ' labels' : '');
+    grid.className = 'grid d-' + design + (labels === 'cards' ? ' labels' : '');
+    frame.classList.toggle('edges', labels === 'edges');
+    labelsEl.querySelectorAll('button').forEach((b) => {
+      b.setAttribute('aria-checked', String(b.dataset.mode === labels));
+    });
     designsEl.querySelectorAll('.design').forEach((el) => {
       el.setAttribute('aria-checked', String(el.dataset.design === design));
     });
@@ -548,6 +598,12 @@
       grid.appendChild(el);
     });
 
+    const colhead = $('colhead'), rowhead = $('rowhead');
+    colhead.innerHTML = '';
+    for (let c = 1; c <= cols; c++) colhead.insertAdjacentHTML('beforeend', '<span>' + c + '</span>');
+    rowhead.innerHTML = '';
+    for (let r = 0; r < rows; r++) rowhead.insertAdjacentHTML('beforeend', '<span>' + String.fromCharCode(65 + r) + '</span>');
+
     pairTotalEl.textContent = String(pairTotal);
     setupEl.hidden = true;
     gameEl.hidden = false;
@@ -562,14 +618,26 @@
     if (gameEl.hidden) return;
     const w = board.clientWidth, h = board.clientHeight;
     if (!w || !h) return;
-    let gap = 8, size = 0;
-    for (let pass = 0; pass < 2; pass++) {
-      size = Math.floor(Math.min((w - gap * (cols - 1)) / cols, (h - gap * (rows - 1)) / rows));
+    // With edge labels a band along the top and left holds them, taken out of
+    // the room before the squares are sized.  It scales with the square, so
+    // the passes settle all three together.
+    const edges = labels === 'edges';
+    let gap = 8, size = 0, band = edges ? 20 : 0;
+    for (let pass = 0; pass < 3; pass++) {
+      size = Math.floor(Math.min((w - band - gap * (cols - 1)) / cols, (h - band - gap * (rows - 1)) / rows));
       gap = Math.max(3, Math.min(10, Math.round(size * 0.06)));
+      if (edges) band = Math.max(16, Math.min(40, Math.round(size * 0.36)));
     }
     grid.style.gridTemplateColumns = 'repeat(' + cols + ', ' + size + 'px)';
     grid.style.gridAutoRows = size + 'px';
     grid.style.gap = gap + 'px';
+    const colhead = $('colhead'), rowhead = $('rowhead');
+    colhead.style.gridTemplateColumns = grid.style.gridTemplateColumns;
+    colhead.style.columnGap = gap + 'px';
+    rowhead.style.gridAutoRows = size + 'px';
+    rowhead.style.rowGap = gap + 'px';
+    frame.style.setProperty('--band', band + 'px');
+    frame.style.setProperty('--edge', Math.max(11, Math.min(30, Math.round(band * 0.62))) + 'px');
     grid.style.setProperty('--radius', Math.max(6, Math.min(16, Math.round(size * 0.13))) + 'px');
     grid.style.setProperty('--tag', Math.max(10, Math.min(44, Math.round(size * 0.26))) + 'px');
   }
