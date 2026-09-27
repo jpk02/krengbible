@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Memory Game</title>
-<meta name="description" content="A 4x4 memory game.  Flip two cards;  a matching pair stays face up.">
+<meta name="description" content="A 4x4 memory game.">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -50,8 +50,7 @@
     padding: 28px 16px 40px;
   }
   main { width: 100%; max-width: 480px; }
-  h1 { font-size: 28px; line-height: 34px; margin: 0 0 4px; letter-spacing: -0.3px; }
-  .lede { color: var(--dim); font-size: 15px; margin: 0 0 20px; }
+  h1 { font-size: 28px; line-height: 34px; margin: 0 0 18px; letter-spacing: -0.3px; }
 
   .bar {
     display: flex;
@@ -123,7 +122,26 @@
     border: 1px solid var(--face-edge);
     transform: rotateY(180deg);
   }
-  .front svg { width: 62%; height: 62%; }
+  /* The picture is the device's own colour emoji, drawn at card size:  on an
+     iPhone or a Mac that is Apple's glossy 3D set.  A soft shadow lifts it off
+     the card;  it pops in as the card turns and bounces when it is matched. */
+  .front { container-type: size; }
+  .pic {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    font-size: 58cqh;
+    line-height: 1;
+    filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.22));
+    transform: scale(0.55);
+    transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) 0.14s;
+  }
+  .card.up .pic { transform: scale(1); }
+  .card.found .pic { animation: bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes bounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.22) rotate(-6deg); }
+    70% { transform: scale(0.94) rotate(3deg); }
+    100% { transform: scale(1); }
+  }
   .card.found .front { border-color: var(--found); box-shadow: inset 0 0 0 2px var(--found); }
   .card.found { cursor: default; }
 
@@ -136,17 +154,16 @@
   .win strong { color: var(--found); }
 
   @media (prefers-reduced-motion: reduce) {
-    .inner { transition: none; }
+    .inner, .pic { transition: none; }
+    .card.found .pic { animation: none; }
   }
 </style>
 </head>
 <body>
 <main>
   <h1>Memory Game</h1>
-  <p class="lede">Flip two cards.  A matching pair stays face up;  anything else turns back over.</p>
 
   <div class="bar" aria-live="polite">
-    <span>Moves <strong id="moves">0</strong></span>
     <span>Pairs <strong id="pairs">0</strong> / 8</span>
     <span class="spacer"></span>
     <button type="button" class="new" id="new">New Game</button>
@@ -158,27 +175,30 @@
 
 <script>
 (() => {
-  // Twelve objects, drawn rather than typed, so every device shows the same
-  // picture.  Each game picks eight of them at random.
+  // Sixteen objects;  each game picks eight.  Code points rather than the
+  // characters themselves, so this file stays plain ASCII.
   const OBJECTS = [
-    { name: 'Heart', svg: '<path fill="#e0445a" d="M12 21s-7-4.4-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6C19 16.6 12 21 12 21z"/>' },
-    { name: 'Star', svg: '<path fill="#f2b631" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.5 1.3 6.6L12 17.3l-5.9 3.2 1.3-6.6-4.9-4.5 6.6-.8z"/>' },
-    { name: 'Moon', svg: '<path fill="#6b6fd6" d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>' },
-    { name: 'Sun', svg: '<g stroke="#f08c2a" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g><circle cx="12" cy="12" r="4.6" fill="#f08c2a"/>' },
-    { name: 'Leaf', svg: '<path fill="#3f9a4f" d="M5 19C5 11 10 5 20 4c0 10-6 15-15 15z"/><path d="M5 19l9-9" stroke="#ffffff" stroke-opacity=".7" stroke-width="1.4" stroke-linecap="round"/>' },
-    { name: 'Fish', svg: '<path fill="#1f9aa8" d="M2.5 12c3-5 9.5-6.2 13.5-2l5.5-3.5v11L16 14c-4 4.2-10.5 3-13.5-2z"/><circle cx="8" cy="11" r="1.2" fill="#ffffff"/>' },
-    { name: 'Key', svg: '<g fill="none" stroke="#b07a2c" stroke-width="2.2" stroke-linecap="round"><circle cx="7.5" cy="12" r="4"/><path d="M11.5 12H21M17.5 12v3.2M20.5 12v2.4"/></g>' },
-    { name: 'Bell', svg: '<path fill="#d9a21b" d="M6 16v-4.8a6 6 0 0 1 12 0V16l2 2H4z"/><circle cx="12" cy="20.2" r="1.7" fill="#d9a21b"/>' },
-    { name: 'Drop', svg: '<path fill="#2f7fd8" d="M12 2.8s6.2 7 6.2 11.2a6.2 6.2 0 0 1-12.4 0C5.8 9.8 12 2.8 12 2.8z"/>' },
-    { name: 'Flower', svg: '<g fill="#e46fa8"><circle cx="12" cy="6.6" r="3.3"/><circle cx="17.1" cy="10.3" r="3.3"/><circle cx="15.2" cy="16.3" r="3.3"/><circle cx="8.8" cy="16.3" r="3.3"/><circle cx="6.9" cy="10.3" r="3.3"/></g><circle cx="12" cy="12" r="2.6" fill="#f5c542"/>' },
-    { name: 'Cloud', svg: '<path fill="#7fb4e6" d="M7 18.5a4.2 4.2 0 0 1-.6-8.4A6 6 0 0 1 18 9.2a4.7 4.7 0 0 1 .3 9.3z"/>' },
-    { name: 'Anchor', svg: '<g fill="none" stroke="#2c4a7a" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="4.8" r="2"/><path d="M12 6.8V20.5M8 10.5h8M4.8 13.6a7.2 7.2 0 0 0 14.4 0"/></g>' },
+    { name: 'Apple', pic: '\u{1F34E}' },
+    { name: 'Watermelon', pic: '\u{1F349}' },
+    { name: 'Pineapple', pic: '\u{1F34D}' },
+    { name: 'Strawberry', pic: '\u{1F353}' },
+    { name: 'Sunflower', pic: '\u{1F33B}' },
+    { name: 'Cactus', pic: '\u{1F335}' },
+    { name: 'Rocket', pic: '\u{1F680}' },
+    { name: 'Hot air balloon', pic: '\u{1F388}' },
+    { name: 'Soccer ball', pic: '\u{26BD}\u{FE0F}' },
+    { name: 'Guitar', pic: '\u{1F3B8}' },
+    { name: 'Butterfly', pic: '\u{1F98B}' },
+    { name: 'Dolphin', pic: '\u{1F42C}' },
+    { name: 'Turtle', pic: '\u{1F422}' },
+    { name: 'Lion', pic: '\u{1F981}' },
+    { name: 'Rainbow', pic: '\u{1F308}' },
+    { name: 'Crown', pic: '\u{1F451}' },
   ];
   const PAIRS = 8;
   const MISMATCH_MS = 850;
 
   const grid = document.getElementById('grid');
-  const movesEl = document.getElementById('moves');
   const pairsEl = document.getElementById('pairs');
   const winEl = document.getElementById('win');
 
@@ -186,7 +206,6 @@
   let first = null;
   let second = null;
   let locked = false;
-  let moves = 0;
   let found = 0;
 
   function shuffle(list) {
@@ -203,9 +222,7 @@
     deck = shuffle(chosen.concat(chosen)).map((obj, i) => ({ obj, i, up: false, found: false }));
     first = second = null;
     locked = false;
-    moves = 0;
     found = 0;
-    movesEl.textContent = '0';
     pairsEl.textContent = '0';
     winEl.textContent = '';
     grid.innerHTML = '';
@@ -217,7 +234,7 @@
       el.innerHTML =
         '<span class="inner">' +
           '<span class="side back"></span>' +
-          '<span class="side front"><svg viewBox="0 0 24 24" aria-hidden="true">' + card.obj.svg + '</svg></span>' +
+          '<span class="side front"><span class="pic" aria-hidden="true">' + card.obj.pic + '</span></span>' +
         '</span>';
       el.addEventListener('click', () => flip(card));
       card.el = el;
@@ -239,8 +256,6 @@
       return;
     }
     second = card;
-    moves += 1;
-    movesEl.textContent = String(moves);
 
     if (first.obj === second.obj) {
       // A match stays face up for the rest of the game.
@@ -253,7 +268,7 @@
       pairsEl.textContent = String(found);
       first = second = null;
       if (found === PAIRS) {
-        winEl.innerHTML = '<strong>All pairs found</strong> in ' + moves + ' moves.';
+        winEl.innerHTML = '<strong>All pairs found.</strong>';
       }
       return;
     }
