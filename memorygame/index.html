@@ -48,6 +48,7 @@
   html, body { margin: 0; }
   body {
     min-height: 100vh;
+    min-height: 100dvh;
     background: var(--bg);
     color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Helvetica, Arial, sans-serif;
@@ -59,17 +60,29 @@
   h1 { font-size: 28px; line-height: 34px; margin: 0 0 18px; letter-spacing: -0.3px; }
   [hidden] { display: none !important; }
 
-  button.primary {
-    font: inherit;
+  /* Playing:  the board takes the whole screen, a slim bar above it. */
+  body.playing {
+    height: 100vh;
+    height: 100dvh;
+    padding:
+      max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+  body.playing main { max-width: none; height: 100%; display: flex; flex-direction: column; }
+  body.playing h1 { display: none; }
+
+  button { font: inherit; }
+  button.primary, button.secondary {
     font-size: 14px;
     font-weight: 600;
-    padding: 9px 16px;
+    padding: 8px 14px;
     border-radius: 10px;
-    border: none;
     cursor: pointer;
-    background: var(--accent);
-    color: var(--accent-ink);
+    white-space: nowrap;
   }
+  button.primary { border: none; background: var(--accent); color: var(--accent-ink); }
+  button.secondary { border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  button:disabled { opacity: 0.4; cursor: default; }
   button:focus-visible, select:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
 
   /* ---- Setup ---- */
@@ -92,29 +105,34 @@
     background: var(--bg);
     color: var(--ink);
   }
-  .setup button.primary { justify-self: stretch; padding: 12px; font-size: 16px; }
+  .setup button.primary { padding: 12px; font-size: 16px; }
 
   /* ---- Game ---- */
+  #game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .bar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 12px;
+    gap: 8px 12px;
+    margin-bottom: 8px;
     font-size: 14px;
     color: var(--dim);
   }
   .bar strong { color: var(--ink); font-variant-numeric: tabular-nums; }
   .bar .spacer { flex: 1; }
+  .result { color: var(--ink); font-weight: 600; }
+  .result strong { color: var(--found); }
 
-  .teams { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .teams { display: flex; flex-wrap: wrap; gap: 6px; }
   .team {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 7px 12px;
+    gap: 7px;
+    padding: 5px 11px;
     border-radius: 999px;
     border: 1px solid var(--line);
     background: var(--panel);
+    color: var(--ink);
     font-size: 14px;
     transition: background 0.2s, color 0.2s, border-color 0.2s;
   }
@@ -122,17 +140,19 @@
   .team.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .team.winner { border-color: var(--found); box-shadow: inset 0 0 0 1px var(--found); }
 
-  .grid { display: grid; gap: var(--gap, 10px); }
+  /* The board fills what is left;  each square is sized in script to the
+     largest that fits both across and down. */
+  .board { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .grid { display: grid; }
 
   /* A card is a button with two faces, turned by rotating the inner layer. */
   .card {
     position: relative;
-    aspect-ratio: 1;
     padding: 0;
     border: none;
     background: none;
     cursor: pointer;
-    perspective: 700px;
+    perspective: 800px;
     -webkit-tap-highlight-color: transparent;
   }
   .card:focus-visible { border-radius: var(--radius, 14px); }
@@ -176,7 +196,7 @@
      the card;  it pops in as the card turns and bounces when it is matched. */
   .pic {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    font-size: 58cqh;
+    font-size: 60cqh;
     line-height: 1;
     filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.22));
     transform: scale(0.55);
@@ -190,9 +210,6 @@
     70% { transform: scale(0.94) rotate(3deg); }
     100% { transform: scale(1); }
   }
-
-  .result { margin-top: 18px; text-align: center; font-size: 17px; min-height: 26px; }
-  .result strong { color: var(--found); }
 
   @media (prefers-reduced-motion: reduce) {
     .inner, .pic, .team { transition: none; }
@@ -214,39 +231,50 @@
   <section id="game" hidden>
     <div class="bar">
       <span>Pairs <strong id="pairs">0</strong> / <span id="pairTotal">0</span></span>
+      <div class="teams" id="teams" aria-live="polite"></div>
+      <span class="result" id="result" aria-live="polite"></span>
       <span class="spacer"></span>
+      <button type="button" class="secondary" id="undo" disabled>Undo</button>
       <button type="button" class="primary" id="new">New Game</button>
     </div>
-    <div class="teams" id="teams" aria-live="polite"></div>
-    <div class="grid" id="grid" role="grid" aria-label="Memory cards"></div>
-    <p class="result" id="result" aria-live="polite"></p>
+    <div class="board" id="board">
+      <div class="grid" id="grid" role="grid" aria-label="Memory cards"></div>
+    </div>
   </section>
 </main>
 
 <script>
 (() => {
-  // Forty objects;  each game picks as many as its board needs.  Code points
-  // rather than the characters themselves, so this file stays plain ASCII.
+  // Sixty-two objects;  each game picks as many as its board needs, up to
+  // fifty pairs for 10 by 10.  Code points rather than the characters
+  // themselves, so this file stays plain ASCII.
   const OBJECTS = [
     ['Apple', '\u{1F34E}'], ['Watermelon', '\u{1F349}'], ['Pineapple', '\u{1F34D}'], ['Strawberry', '\u{1F353}'],
     ['Grapes', '\u{1F347}'], ['Cherries', '\u{1F352}'], ['Lemon', '\u{1F34B}'], ['Peach', '\u{1F351}'],
+    ['Pear', '\u{1F350}'], ['Blueberries', '\u{1FAD0}'], ['Coconut', '\u{1F965}'], ['Avocado', '\u{1F951}'],
+    ['Tomato', '\u{1F345}'], ['Carrot', '\u{1F955}'], ['Corn', '\u{1F33D}'], ['Mushroom', '\u{1F344}'],
     ['Sunflower', '\u{1F33B}'], ['Tulip', '\u{1F337}'], ['Cactus', '\u{1F335}'], ['Clover', '\u{1F340}'],
-    ['Rocket', '\u{1F680}'], ['Balloon', '\u{1F388}'], ['Soccer ball', '\u{26BD}\u{FE0F}'], ['Basketball', '\u{1F3C0}'],
+    ['Rocket', '\u{1F680}'], ['Balloon', '\u{1F388}'], ['Airplane', '\u{2708}\u{FE0F}'], ['Train', '\u{1F684}'],
+    ['Car', '\u{1F697}'], ['Sailboat', '\u{26F5}\u{FE0F}'], ['Bicycle', '\u{1F6B2}'], ['Kite', '\u{1FA81}'],
+    ['Soccer ball', '\u{26BD}\u{FE0F}'], ['Basketball', '\u{1F3C0}'], ['Tennis ball', '\u{1F3BE}'], ['Drum', '\u{1F941}'],
     ['Guitar', '\u{1F3B8}'], ['Trumpet', '\u{1F3BA}'], ['Butterfly', '\u{1F98B}'], ['Dolphin', '\u{1F42C}'],
-    ['Turtle', '\u{1F422}'], ['Lion', '\u{1F981}'], ['Panda', '\u{1F43C}'], ['Penguin', '\u{1F427}'],
-    ['Fox', '\u{1F98A}'], ['Octopus', '\u{1F419}'], ['Rainbow', '\u{1F308}'], ['Crown', '\u{1F451}'],
-    ['Gem', '\u{1F48E}'], ['Gift', '\u{1F381}'], ['Kite', '\u{1FA81}'], ['Car', '\u{1F697}'],
-    ['Sailboat', '\u{26F5}\u{FE0F}'], ['Bicycle', '\u{1F6B2}'], ['Umbrella', '\u{2614}\u{FE0F}'], ['Snowman', '\u{26C4}\u{FE0F}'],
-    ['Cupcake', '\u{1F9C1}'], ['Doughnut', '\u{1F369}'], ['Pizza', '\u{1F355}'], ['Ice cream', '\u{1F366}'],
+    ['Whale', '\u{1F433}'], ['Octopus', '\u{1F419}'], ['Turtle', '\u{1F422}'], ['Frog', '\u{1F438}'],
+    ['Lion', '\u{1F981}'], ['Tiger', '\u{1F42F}'], ['Panda', '\u{1F43C}'], ['Koala', '\u{1F428}'],
+    ['Elephant', '\u{1F418}'], ['Fox', '\u{1F98A}'], ['Penguin', '\u{1F427}'], ['Owl', '\u{1F989}'],
+    ['Parrot', '\u{1F99C}'], ['Unicorn', '\u{1F984}'], ['Rainbow', '\u{1F308}'], ['Crescent moon', '\u{1F319}'],
+    ['Star', '\u{2B50}'], ['Umbrella', '\u{2614}\u{FE0F}'], ['Snowman', '\u{26C4}\u{FE0F}'], ['Crown', '\u{1F451}'],
+    ['Gem', '\u{1F48E}'], ['Gift', '\u{1F381}'], ['Cupcake', '\u{1F9C1}'], ['Doughnut', '\u{1F369}'],
+    ['Pizza', '\u{1F355}'], ['Ice cream', '\u{1F366}'],
   ].map(([name, pic]) => ({ name, pic }));
-  const MIN = 2, MAX = 8, MAX_TEAMS = 6;
+  const MIN = 2, MAX = 10, MAX_TEAMS = 6;
   const MISMATCH_MS = 850;
   const STORE = 'memorygame.setup';
 
   const $ = (id) => document.getElementById(id);
-  const setupEl = $('setup'), gameEl = $('game'), grid = $('grid');
+  const setupEl = $('setup'), gameEl = $('game'), board = $('board'), grid = $('grid');
   const rowsEl = $('rows'), colsEl = $('cols'), teamCountEl = $('teamCount');
   const pairsEl = $('pairs'), pairTotalEl = $('pairTotal'), teamsEl = $('teams'), resultEl = $('result');
+  const undoEl = $('undo');
 
   function fillSelect(el, from, to, value) {
     for (let v = from; v <= to; v++) {
@@ -255,7 +283,7 @@
       o.textContent = String(v);
       el.appendChild(o);
     }
-    el.value = String(value);
+    el.value = String(Math.min(to, Math.max(from, value)));
   }
 
   let saved = { rows: 4, cols: 4, teams: 2 };
@@ -267,9 +295,9 @@
   fillSelect(colsEl, MIN, MAX, saved.cols);
   fillSelect(teamCountEl, 1, MAX_TEAMS, saved.teams);
 
-
-  let deck = [], first = null, second = null, locked = false;
-  let pairTotal = 0, pairsFound = 0, teamCount = 1, turn = 0, scores = [];
+  let deck = [], first = null, locked = false, pending = null, oddTimer = null;
+  let rows = 4, cols = 4, pairTotal = 0, pairsFound = 0, teamCount = 1, turn = 0, scores = [];
+  let history = [];
 
   function shuffle(list) {
     const a = list.slice();
@@ -282,35 +310,42 @@
 
   setupEl.addEventListener('submit', (e) => {
     e.preventDefault();
-    const rows = Number(rowsEl.value), cols = Number(colsEl.value), teams = Number(teamCountEl.value);
-    try { localStorage.setItem(STORE, JSON.stringify({ rows, cols, teams })); } catch (err) { /* fine */ }
-    start(rows, cols, teams);
+    const r = Number(rowsEl.value), c = Number(colsEl.value), t = Number(teamCountEl.value);
+    try { localStorage.setItem(STORE, JSON.stringify({ rows: r, cols: c, teams: t })); } catch (err) { /* fine */ }
+    start(r, c, t);
   });
   $('new').addEventListener('click', () => {
+    clearTimers();
+    document.body.classList.remove('playing');
     gameEl.hidden = true;
     setupEl.hidden = false;
   });
+  undoEl.addEventListener('click', undo);
 
-  function start(rows, cols, teams) {
+  function clearTimers() {
+    if (pending) { clearTimeout(pending.timer); pending = null; }
+    if (oddTimer) { clearTimeout(oddTimer); oddTimer = null; }
+  }
+
+  function start(r, c, teams) {
+    clearTimers();
+    rows = r;
+    cols = c;
     const n = rows * cols;
     pairTotal = Math.floor(n / 2);
     const picked = shuffle(OBJECTS).slice(0, pairTotal + (n % 2));
     const pairs = picked.slice(0, pairTotal);
     const cards = pairs.concat(pairs).map((obj) => ({ obj, odd: false }));
     if (n % 2) cards.push({ obj: picked[pairTotal], odd: true });
-    deck = shuffle(cards).map((c) => ({ ...c, up: false, found: false }));
+    deck = shuffle(cards).map((card) => ({ ...card, up: false, found: false, shownOdd: false }));
 
-    first = second = null;
+    first = null;
     locked = false;
     pairsFound = 0;
     teamCount = teams;
     turn = 0;
     scores = new Array(teams).fill(0);
-
-    // Denser boards get tighter gaps and corners, so the pictures keep room.
-    grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
-    grid.style.setProperty('--gap', (cols >= 7 ? 5 : cols >= 5 ? 7 : 10) + 'px');
-    grid.style.setProperty('--radius', (cols >= 7 ? 8 : cols >= 5 ? 11 : 14) + 'px');
+    history = [];
 
     grid.innerHTML = '';
     deck.forEach((card) => {
@@ -329,95 +364,150 @@
     });
 
     pairTotalEl.textContent = String(pairTotal);
-    pairsEl.textContent = '0';
-    resultEl.textContent = '';
-    renderTeams();
     setupEl.hidden = true;
     gameEl.hidden = false;
+    document.body.classList.add('playing');
+    render();
+    layout();
   }
 
-  function renderTeams(winners) {
+  // The largest square that fits the board both across and down.  The gap
+  // and corner scale with the square, so a 10 by 10 board keeps its pictures.
+  function layout() {
+    if (gameEl.hidden) return;
+    const w = board.clientWidth, h = board.clientHeight;
+    if (!w || !h) return;
+    let gap = 8, size = 0;
+    for (let pass = 0; pass < 2; pass++) {
+      size = Math.floor(Math.min((w - gap * (cols - 1)) / cols, (h - gap * (rows - 1)) / rows));
+      gap = Math.max(3, Math.min(10, Math.round(size * 0.06)));
+    }
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ', ' + size + 'px)';
+    grid.style.gridAutoRows = size + 'px';
+    grid.style.gap = gap + 'px';
+    grid.style.setProperty('--radius', Math.max(6, Math.min(16, Math.round(size * 0.13))) + 'px');
+  }
+  new ResizeObserver(layout).observe(board);
+
+  // ---- State ----
+
+  function snapshot() {
+    return {
+      cards: deck.map((c) => ({ up: c.up, found: c.found, shownOdd: c.shownOdd })),
+      first: first ? deck.indexOf(first) : -1,
+      pairsFound,
+      turn,
+      scores: scores.slice(),
+    };
+  }
+
+  function restore(s) {
+    deck.forEach((c, i) => Object.assign(c, s.cards[i]));
+    first = s.first >= 0 ? deck[s.first] : null;
+    pairsFound = s.pairsFound;
+    turn = s.turn;
+    scores = s.scores.slice();
+    locked = false;
+    render();
+  }
+
+  // Undo steps back one flip:  a misclick is one tap, a whole turn is two.
+  // It reaches into the pause after a miss, and past the end of a game.
+  function undo() {
+    if (!history.length) return;
+    clearTimers();
+    restore(history.pop());
+  }
+
+  function render(winners) {
+    deck.forEach((c) => {
+      c.el.classList.toggle('up', c.up);
+      c.el.classList.toggle('found', c.found);
+      c.el.classList.toggle('odd', c.shownOdd);
+      c.el.setAttribute('aria-label',
+        !c.up ? 'Face-down card' : c.found ? c.obj.name + ', matched' : c.shownOdd ? c.obj.name + ', no pair' : c.obj.name);
+    });
+    pairsEl.textContent = String(pairsFound);
+    undoEl.disabled = history.length === 0;
+
+    const done = pairsFound === pairTotal;
+    if (done && !winners) winners = winnersOf();
     teamsEl.hidden = teamCount < 2;
     teamsEl.innerHTML = '';
     for (let t = 0; t < teamCount; t++) {
       const el = document.createElement('div');
       el.className = 'team' +
-        (!winners && t === turn ? ' active' : '') +
-        (winners && winners.includes(t) ? ' winner' : '');
+        (!done && t === turn ? ' active' : '') +
+        (done && winners.includes(t) ? ' winner' : '');
       el.innerHTML = '<span>Team ' + (t + 1) + '</span><span class="score">' + scores[t] + '</span>';
-      if (!winners && t === turn) el.setAttribute('aria-current', 'true');
+      if (!done && t === turn) el.setAttribute('aria-current', 'true');
       teamsEl.appendChild(el);
+    }
+
+    if (!done) {
+      resultEl.textContent = '';
+    } else if (teamCount < 2) {
+      resultEl.innerHTML = '<strong>All pairs found.</strong>';
+    } else {
+      const best = scores[winners[0]];
+      const names = winners.map((t) => 'Team ' + (t + 1));
+      resultEl.innerHTML = winners.length === 1
+        ? '<strong>' + names[0] + ' wins.</strong>'
+        : '<strong>Tie:</strong> ' + names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ', ' + best + ' each.';
     }
   }
 
-  function show(card, up) {
-    card.up = up;
-    card.el.classList.toggle('up', up);
-    card.el.setAttribute('aria-label', up ? card.obj.name : 'Face-down card');
+  function winnersOf() {
+    const best = Math.max(...scores);
+    return scores.map((s, t) => (s === best ? t : -1)).filter((t) => t >= 0);
   }
 
   function flip(card) {
     if (locked || card.up || card.found || pairsFound === pairTotal) return;
-    show(card, true);
+    history.push(snapshot());
+    card.up = true;
     if (!first) {
       first = card;
+      render();
       return;
     }
-    second = card;
+    const a = first, b = card;
+    first = null;
 
-    if (first.obj === second.obj) {
+    if (a.obj === b.obj) {
       // A match stays face up, scores for the team whose turn it is, and that
       // team goes again.
-      [first, second].forEach((c) => {
-        c.found = true;
-        c.el.classList.add('found');
-        c.el.setAttribute('aria-label', c.obj.name + ', matched');
-      });
-      first = second = null;
+      a.found = b.found = true;
       pairsFound += 1;
       scores[turn] += 1;
-      pairsEl.textContent = String(pairsFound);
-      if (pairsFound === pairTotal) finish();
-      else renderTeams();
+      render();
+      if (pairsFound === pairTotal) {
+        // The card without a pair turns up on its own once every pair is found.
+        const odd = deck.find((c) => c.odd);
+        if (odd) {
+          oddTimer = setTimeout(() => {
+            oddTimer = null;
+            odd.up = odd.shownOdd = true;
+            render();
+          }, 450);
+        }
+      }
       return;
     }
 
     // Not a match:  both stay showing long enough to remember, turn back over,
     // and the turn passes to the next team.
+    render();
     locked = true;
-    const a = first, b = second;
-    setTimeout(() => {
-      show(a, false);
-      show(b, false);
-      first = second = null;
-      locked = false;
-      turn = (turn + 1) % teamCount;
-      renderTeams();
-    }, MISMATCH_MS);
-  }
-
-  function finish() {
-    // The card without a pair turns up on its own once every pair is found.
-    const odd = deck.find((c) => c.odd);
-    if (odd) {
-      setTimeout(() => {
-        show(odd, true);
-        odd.el.classList.add('odd');
-        odd.el.setAttribute('aria-label', odd.obj.name + ', no pair');
-      }, 450);
-    }
-    if (teamCount < 2) {
-      renderTeams();
-      resultEl.innerHTML = '<strong>All pairs found.</strong>';
-      return;
-    }
-    const best = Math.max(...scores);
-    const winners = scores.map((s, t) => (s === best ? t : -1)).filter((t) => t >= 0);
-    renderTeams(winners);
-    const names = winners.map((t) => 'Team ' + (t + 1));
-    resultEl.innerHTML = winners.length === 1
-      ? '<strong>' + names[0] + ' wins</strong> with ' + best + (best === 1 ? ' pair.' : ' pairs.')
-      : '<strong>Tie</strong> between ' + names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ', ' + best + ' each.';
+    pending = {
+      timer: setTimeout(() => {
+        pending = null;
+        a.up = b.up = false;
+        locked = false;
+        turn = (turn + 1) % teamCount;
+        render();
+      }, MISMATCH_MS),
+    };
   }
 })();
 </script>
