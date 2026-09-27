@@ -174,11 +174,42 @@
     justify-content: center;
   }
   .back {
-    background: var(--back);
-    border: 1px solid var(--back-edge);
-    background-image:
-      radial-gradient(circle at 50% 50%, var(--back-mark) 0 18%, transparent 19%),
-      radial-gradient(circle at 50% 50%, transparent 0 30%, var(--back-mark) 31% 33%, transparent 34%);
+    background: var(--bk);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  /* ---- Card backs ----
+     Each design is one background, drawn by the page itself, with its tile
+     sizes in percent so a pattern reads the same on a 2 by 2 board as on a
+     10 by 10.  The board and the swatches in Options both take a d-* class. */
+  .d-classic {
+    --bk: radial-gradient(circle, var(--back-mark) 0 18%, transparent 19%),
+          radial-gradient(circle, transparent 0 30%, var(--back-mark) 31% 33%, transparent 34%),
+          var(--back);
+  }
+  .d-diamonds {
+    --bk: conic-gradient(from 45deg, #8e2536 25%, #ad3446 0 50%, #8e2536 0 75%, #ad3446 0) 50% 50% / 33.34% 33.34%;
+  }
+  .d-stripes { --bk: repeating-linear-gradient(135deg, #1f6b4a 0 7%, #2b8b60 7% 14%); }
+  .d-dots {
+    --bk: radial-gradient(circle, rgba(255, 255, 255, 0.32) 0 24%, transparent 26%) 0 0 / 25% 25%, #0f7c85;
+  }
+  .d-checker {
+    --bk: conic-gradient(#4a5770 25%, #2f394b 0 50%, #4a5770 0 75%, #2f394b 0) 0 0 / 25% 25%;
+  }
+  .d-sunburst {
+    --bk: radial-gradient(circle, rgba(255, 240, 200, 0.6) 0 10%, transparent 42%),
+          repeating-conic-gradient(#d4721a 0 9deg, #eea032 9deg 18deg);
+  }
+  .d-aurora {
+    --bk: radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.4), transparent 45%),
+          linear-gradient(135deg, #5a3fd4, #c23f8e 55%, #f07b4b);
+  }
+  .d-waves {
+    --bk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 20'%3E%3Cpath d='M0 10 Q10 0 20 10 T40 10' fill='none' stroke='white' stroke-opacity='.38' stroke-width='2.4'/%3E%3C/svg%3E") 0 0 / 50% 25%, #1d5fa8;
+  }
+  .d-night {
+    --bk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cpolygon points='15,8 16.8,13 22,13 17.8,16.2 19.4,21 15,18 10.6,21 12.2,16.2 8,13 13.2,13' fill='%23f3d27a' fill-opacity='.9'/%3E%3Ccircle cx='4' cy='5' r='.9' fill='white' fill-opacity='.7'/%3E%3Ccircle cx='26' cy='25' r='.7' fill='white' fill-opacity='.6'/%3E%3Ccircle cx='25' cy='4' r='.5' fill='white' fill-opacity='.5'/%3E%3C/svg%3E") 0 0 / 33.34% 33.34%, #1a2142;
   }
   .front {
     background: var(--face);
@@ -211,6 +242,56 @@
     100% { transform: scale(1); }
   }
 
+  /* ---- Options ---- */
+  button.icon {
+    width: 38px;
+    height: 36px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  button.icon svg { width: 20px; height: 20px; }
+  .setup .row2 { display: flex; gap: 10px; }
+  .setup .row2 button { flex: 1; padding: 12px; font-size: 16px; }
+  dialog {
+    width: min(92vw, 440px);
+    max-height: 88vh;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--panel);
+    color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+  dialog h2 { font-size: 20px; margin: 0 0 14px; }
+  dialog h3 { font-size: 14px; font-weight: 600; color: var(--dim); margin: 0 0 10px; }
+  .designs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+  .design {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--ink);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .design .sample {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    background: var(--bk);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 0 0 2px transparent;
+    transition: box-shadow 0.15s;
+  }
+  .design[aria-checked="true"] .sample { box-shadow: 0 0 0 3px var(--found); }
+  .design[aria-checked="true"] { font-weight: 700; }
+  dialog .done { width: 100%; padding: 11px; font-size: 16px; }
+
   @media (prefers-reduced-motion: reduce) {
     .inner, .pic, .team { transition: none; }
     .card.found .pic, .card.odd .pic { animation: none; }
@@ -225,7 +306,10 @@
     <label class="field">Rows <select id="rows"></select></label>
     <label class="field">Columns <select id="cols"></select></label>
     <label class="field">Teams <select id="teamCount"></select></label>
-    <button type="submit" class="primary">Start</button>
+    <div class="row2">
+      <button type="button" class="secondary" id="optionsSetup">Options</button>
+      <button type="submit" class="primary">Start</button>
+    </div>
   </form>
 
   <section id="game" hidden>
@@ -235,6 +319,9 @@
       <span class="result" id="result" aria-live="polite"></span>
       <span class="spacer"></span>
       <button type="button" class="secondary" id="undo" disabled>Undo</button>
+      <button type="button" class="secondary icon" id="optionsGame" aria-label="Options">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
       <button type="button" class="primary" id="new">New Game</button>
     </div>
     <div class="board" id="board">
@@ -242,6 +329,13 @@
     </div>
   </section>
 </main>
+
+<dialog id="options" aria-labelledby="optionsTitle">
+  <h2 id="optionsTitle">Options</h2>
+  <h3>Card Back</h3>
+  <div class="designs" id="designs" role="radiogroup" aria-label="Card back"></div>
+  <button type="button" class="primary done" id="optionsDone">Done</button>
+</dialog>
 
 <script>
 (() => {
@@ -266,6 +360,12 @@
     ['Gem', '\u{1F48E}'], ['Gift', '\u{1F381}'], ['Cupcake', '\u{1F9C1}'], ['Doughnut', '\u{1F369}'],
     ['Pizza', '\u{1F355}'], ['Ice cream', '\u{1F366}'],
   ].map(([name, pic]) => ({ name, pic }));
+  const DESIGNS = [
+    ['classic', 'Classic'], ['diamonds', 'Diamonds'], ['stripes', 'Stripes'],
+    ['dots', 'Dots'], ['checker', 'Checker'], ['sunburst', 'Sunburst'],
+    ['aurora', 'Aurora'], ['waves', 'Waves'], ['night', 'Night Sky'],
+  ];
+  const BACK_STORE = 'memorygame.back';
   const MIN = 2, MAX = 10, MAX_TEAMS = 6;
   const MISMATCH_MS = 850;
   const STORE = 'memorygame.setup';
@@ -275,6 +375,46 @@
   const rowsEl = $('rows'), colsEl = $('cols'), teamCountEl = $('teamCount');
   const pairsEl = $('pairs'), pairTotalEl = $('pairTotal'), teamsEl = $('teams'), resultEl = $('result');
   const undoEl = $('undo');
+  const optionsEl = $('options'), designsEl = $('designs');
+
+  // ---- Card back ----
+  let design = 'classic';
+  try {
+    const d = localStorage.getItem(BACK_STORE);
+    if (DESIGNS.some(([id]) => id === d)) design = d;
+  } catch (e) { /* storage unavailable:  classic */ }
+  function applyDesign() {
+    grid.className = 'grid d-' + design;
+    designsEl.querySelectorAll('.design').forEach((el) => {
+      el.setAttribute('aria-checked', String(el.dataset.design === design));
+    });
+  }
+  DESIGNS.forEach(([id, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'design';
+    b.dataset.design = id;
+    b.setAttribute('role', 'radio');
+    b.innerHTML = '<span class="sample d-' + id + '"></span><span>' + label + '</span>';
+    b.addEventListener('click', () => {
+      design = id;
+      try { localStorage.setItem(BACK_STORE, id); } catch (e) { /* fine */ }
+      applyDesign();
+    });
+    designsEl.appendChild(b);
+  });
+  applyDesign();
+  function openOptions() { optionsEl.showModal(); }
+  $('optionsSetup').addEventListener('click', openOptions);
+  $('optionsGame').addEventListener('click', openOptions);
+  $('optionsDone').addEventListener('click', () => optionsEl.close());
+  // A tap outside the panel closes it, as Escape does.
+  // By position, not target:  the panel's own padding is the dialog too.
+  optionsEl.addEventListener('click', (e) => {
+    const r = optionsEl.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (!inside) optionsEl.close();
+  });
 
   function fillSelect(el, from, to, value) {
     for (let v = from; v <= to; v++) {
