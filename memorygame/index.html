@@ -115,7 +115,7 @@
   .setup button.primary { padding: 12px; font-size: 16px; }
   .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
   .names[hidden] { display: none; }
-  .names input {
+  .names input, #renameInput {
     font: inherit;
     font-size: 16px;
     width: 100%;
@@ -126,7 +126,10 @@
     background: var(--bg);
     color: var(--ink);
   }
-  .names input:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
+  #renameInput { margin-bottom: 14px; }
+  .rename-actions { display: flex; gap: 10px; }
+  .rename-actions button { flex: 1; padding: 11px; font-size: 16px; }
+  .names input:focus-visible, #renameInput:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
 
   /* ---- Game ---- */
   #game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -156,7 +159,9 @@
     border: 1px solid var(--line);
     background: var(--panel);
     color: var(--ink);
+    font: inherit;
     font-size: 14px;
+    cursor: pointer;
     transition: background 0.2s, color 0.2s, border-color 0.2s;
   }
   .team .score { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -432,6 +437,17 @@
   <button type="button" class="primary done" id="optionsDone">Done</button>
 </dialog>
 
+<dialog id="rename" aria-labelledby="renameTitle">
+  <form id="renameForm">
+    <h2 id="renameTitle">Team Name</h2>
+    <input type="text" id="renameInput" maxlength="20" autocomplete="off" aria-labelledby="renameTitle">
+    <div class="rename-actions">
+      <button type="button" class="secondary" id="renameCancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
 <script>
 (() => {
   // Seventy-six objects;  each game picks as many as its board needs, up to
@@ -613,8 +629,48 @@
     document.body.classList.remove('playing');
     gameEl.hidden = true;
     setupEl.hidden = false;
+    renderNameInputs();
   });
   undoEl.addEventListener('click', undo);
+
+  // ---- Renaming a team mid-game ----
+  // Tapping a team's chip opens a box for its name.  A box, not the chip
+  // itself, because the chips are rebuilt on every turn and would take a
+  // half-typed name with them.  Saved names go back into the setup too, so
+  // the next game starts with them.  Blank returns to "Team 1" and so on.
+  const renameEl = $('rename'), renameInput = $('renameInput');
+  let renaming = -1;
+  function openRename(t) {
+    renaming = t;
+    renameInput.value = teamNames[t] || '';
+    renameInput.placeholder = 'Team ' + (t + 1);
+    renameEl.showModal();
+    renameInput.select();
+  }
+  $('renameForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (renaming >= 0) {
+      const v = renameInput.value.trim();
+      teamNames[renaming] = v;
+      nameDraft[renaming] = v;
+      try {
+        const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+        if (s) localStorage.setItem(STORE, JSON.stringify({ ...s, names: nameDraft }));
+      } catch (err) { /* fine */ }
+      render();
+    }
+    renameEl.close();
+  });
+  $('renameCancel').addEventListener('click', () => renameEl.close());
+  renameEl.addEventListener('close', () => { renaming = -1; });
+  renameEl.addEventListener('click', (e) => {
+    // Only a tap on the backdrop itself.  Enter in the box "clicks" Save at
+    // 0,0, which by position alone would read as a tap outside.
+    if (e.target !== renameEl) return;
+    const r = renameEl.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (!inside) renameEl.close();
+  });
 
   // ---- Full screen ----
   // Hides the browser's tab and address bars.  Shown only where the browser
@@ -778,7 +834,9 @@
     teamsEl.hidden = teamCount < 2;
     teamsEl.innerHTML = '';
     for (let t = 0; t < teamCount; t++) {
-      const el = document.createElement('div');
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.addEventListener('click', () => openRename(t));
       el.className = 'team' +
         (!done && t === turn ? ' active' : '') +
         (done && winners.includes(t) ? ' winner' : '');
@@ -788,6 +846,7 @@
       score.className = 'score';
       score.textContent = String(scores[t]);
       el.append(name, score);
+      el.setAttribute('aria-label', teamName(t) + ', ' + scores[t] + ', rename');
       if (!done && t === turn) el.setAttribute('aria-current', 'true');
       teamsEl.appendChild(el);
     }
