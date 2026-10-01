@@ -42,6 +42,8 @@ function instructionsSheet() {
     ['               Current year, for the Current month and Jan through it (add a "From Component" to use one component, e.g. Contracted).'],
     ['               O&M expense defaults to Revenue - Operating income.  Type a number over any formula to override it; the PDF uses the cell value.'],
     ['               Rows with no "From Chart" and no formula: type the actuals yourself.'],
+    ['               "EV Basis": if the EV Case values were pro-rated from quarterly, semi-annual or annual figures, pick that here.  The EV Case'],
+    ['               values get a small letter (a, b, ...) and a footnote under the table explains it.  Monthly (the default) adds nothing.'],
     ['               "YTD Method": Sum (default) adds the months up; Average averages them (use for percentages like capacity factor).'],
     ['               Month EV Case and YTD EV Case are always typed in.'],
     ['Commentary  -  Heading + Text pairs for the bottom-right box.'],
@@ -91,6 +93,7 @@ function settingsSheet(settings) {
     'Quarters shown': 'How many of the most recent quarters page 2 shows (1-8).  Enter 3 extra older quarters to show an LTM DSCR for every quarter shown.',
     'Distribution lock-up DSCR': 'Distribution lock-up covenant, e.g. 1.20.  Drawn as a reference line.  Leave blank and it does not appear anywhere.',
     'Default DSCR': 'Default covenant, e.g. 1.10.  Drawn as a reference line.  Leave blank and it does not appear anywhere.',
+    'Pro-rated note': 'Optional wording for the EV Basis footnote under the table.  Blank = "EV Case pro-rated from quarterly figures on a straight-line monthly basis; it does not reflect seasonality within the quarter."  You can use {basis} (quarterly / semi-annual / annual), {period} (quarter / half-year / year) and {comparison} (the Comparison label).',
     'Reserves title': 'Header of the reserves box on page 2 (below the DSCR chart).',
     'Cash flow units': 'Units label for page 2, e.g. $MM or $000s.',
     'Cash flow decimals': 'Decimals in the page 2 cash flow table.',
@@ -165,7 +168,7 @@ function tableSheet(spec) {
   const rows = [[
     h('Metric'), h('From Chart'), h('From Component'), h('YTD Method'),
     h('Prefix'), h('Suffix'), h('Decimals'), h('Better When'), h('Variance As'), h('Bold'),
-    h('Month Actual'), h('Month EV Case'), h('YTD Actual'), h('YTD EV Case'),
+    h('Month Actual'), h('Month EV Case'), h('YTD Actual'), h('YTD EV Case'), h('EV Basis'),
   ]];
   const rowOf = (metric) => items.findIndex((x) => x.metric === metric) + 2;
   const values = new Map();
@@ -199,18 +202,19 @@ function tableSheet(spec) {
       inp(t.metric), inp(t.from || ''), inp(t.fromComp || ''), inp(t.ytd || 'Sum'),
       inp(t.prefix || ''), inp(t.suffix || ''), inp(t.dec), inp(t.better || 'Higher'),
       inp(t.varAs || ''), inp(t.bold || ''),
-      mCell, { v: t.ev[0], s: st }, yCell, { v: t.ev[1], s: st },
+      mCell, { v: t.ev[0], s: st }, yCell, { v: t.ev[1], s: st }, inp(t.evBasis || 'Monthly'),
     ]);
   });
   const n = 200;
   return {
-    name: 'Table', rows, widths: [26, 24, 16, 12, 8, 8, 10, 13, 13, 7, 14, 15, 13, 14], freezeRows: 1,
+    name: 'Table', rows, widths: [26, 24, 16, 12, 8, 8, 10, 13, 13, 7, 14, 15, 13, 14, 22], freezeRows: 1,
     validations: [
       { range: `B2:B${n}`, formula: 'ChartNames' },
       { range: `D2:D${n}`, list: ['Sum', 'Average'] },
       { range: `H2:H${n}`, list: ['Higher', 'Lower'] },
       { range: `I2:I${n}`, list: ['%', 'Abs', 'Pts'] },
       { range: `J2:J${n}`, list: ['Y', 'N'] },
+      { range: `O2:O${n}`, list: ['Monthly', 'Pro-rated quarterly', 'Pro-rated semi-annual', 'Pro-rated annual'] },
     ],
   };
 }
@@ -303,6 +307,7 @@ const COMMON = (o) => [
   ['Side panel width %', o.sideWidth],
   ['Footer', o.footer],
   ['Page size', 'Letter'],
+  ['Pro-rated note', ''],
   ['Include DSCR page', 'Auto'],
   ['DSCR page title', 'Debt Service Coverage - LTM Basis'],
   ['Quarters shown', 4],
@@ -340,7 +345,7 @@ const BLUEFIELD = {
   table: [
     { metric: 'Generation', from: 'Generation (GWh)', suffix: ' GWh', dec: 1, ev: [50.6, 351.4] },
     { metric: 'Revenue', from: 'Revenue ($MM)', prefix: '$', suffix: 'MM', dec: 2, ev: [3.85, 25.30] },
-    { metric: 'O&M expense', derive: ['Revenue', 'Operating income'], prefix: '$', suffix: 'MM', dec: 2, better: 'Lower', varAs: 'Abs', ev: [1.54, 13.68] },
+    { metric: 'O&M expense', derive: ['Revenue', 'Operating income'], prefix: '$', suffix: 'MM', dec: 2, better: 'Lower', varAs: 'Abs', ev: [1.54, 13.68], evBasis: 'Pro-rated annual' },
     { metric: 'Operating income', from: 'Operating income ($MM)', prefix: '$', suffix: 'MM', dec: 2, bold: 'Y', ev: [2.31, 11.62] },
   ],
   commentary: [
@@ -403,10 +408,10 @@ const RIDGELINE = {
     { metric: 'Contracted generation', from: 'Net generation (GWh)', fromComp: 'Contracted', suffix: ' GWh', dec: 0, ev: [241, 1712] },
     { metric: 'Merchant generation', from: 'Net generation (GWh)', fromComp: 'Merchant', suffix: ' GWh', dec: 0, ev: [50, 398] },
     { metric: 'Net generation', from: 'Net generation (GWh)', suffix: ' GWh', dec: 0, bold: 'Y', ev: [291, 2110] },
-    { metric: 'Contracted gross margin', from: 'Gross margin ($MM)', fromComp: 'Contracted', prefix: '$', suffix: 'MM', dec: 1, ev: [5.6, 41.3] },
-    { metric: 'Merchant gross margin', from: 'Gross margin ($MM)', fromComp: 'Merchant', prefix: '$', suffix: 'MM', dec: 1, ev: [0.9, 6.2] },
-    { metric: 'Total gross margin', from: 'Gross margin ($MM)', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', ev: [6.5, 47.5] },
-    { metric: 'EBITDA', from: 'EBITDA ($MM)', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', ev: [5.1, 36.0] },
+    { metric: 'Contracted gross margin', from: 'Gross margin ($MM)', fromComp: 'Contracted', prefix: '$', suffix: 'MM', dec: 1, ev: [5.6, 41.3], evBasis: 'Pro-rated quarterly' },
+    { metric: 'Merchant gross margin', from: 'Gross margin ($MM)', fromComp: 'Merchant', prefix: '$', suffix: 'MM', dec: 1, ev: [0.9, 6.2], evBasis: 'Pro-rated quarterly' },
+    { metric: 'Total gross margin', from: 'Gross margin ($MM)', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', ev: [6.5, 47.5], evBasis: 'Pro-rated quarterly' },
+    { metric: 'EBITDA', from: 'EBITDA ($MM)', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', ev: [5.1, 36.0], evBasis: 'Pro-rated annual' },
   ],
   commentary: [
     ['Status', 'No forced outages, safety incidents, or environmental events.'],

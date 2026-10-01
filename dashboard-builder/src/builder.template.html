@@ -147,6 +147,10 @@
   table.cmp td.var.good { color: var(--good); }
   table.cmp td.var.bad { color: var(--bad); }
   table.cmp.dense td { padding-top: 2px; padding-bottom: 2px; }
+  table.cmp td.ev { position: relative; }
+  table.cmp sup.evn { position: absolute; right: 1px; top: 2px; font-size: 7.5px; font-weight: 700; color: var(--ink-2); }
+  .tnotes { margin-top: 8px; padding-top: 5px; border-top: 1px solid var(--hair); font-size: 9.5px; line-height: 1.35; color: var(--ink-2); }
+  .tnotes sup { font-size: 7.5px; font-weight: 700; color: var(--ink); margin-right: 3px; }
 
   .side-b { display: flex; flex-direction: column; gap: 10px; }
   table.side { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
@@ -625,6 +629,7 @@ function buildModel(sheets) {
     dflt: sNum('Default DSCR', null),
     cfUnits: sText('Cash flow units', '$MM'),
     cfDec: Math.max(0, Math.min(4, Math.round(sNum('Cash flow decimals', 2)))),
+    proNote: sText('Pro-rated note', ''),
   };
 
   // ---- Charts
@@ -721,6 +726,7 @@ function buildModel(sheets) {
       prefix: 'prefix', suffix: 'suffix', dec: 'decimals', better: 'better when', varAs: 'variance as', bold: 'bold',
       mA: 'month actual', mE: ['month ev case', 'month comparison', 'month budget', 'month plan'],
       yA: 'ytd actual', yE: ['ytd ev case', 'ytd comparison', 'ytd budget', 'ytd plan'],
+      evBasis: ['ev basis', 'comparison basis'],
     };
     if (col(H.metric) === undefined) errors.push('Table tab: row 1 must contain a "Metric" column header.');
     else {
@@ -781,6 +787,15 @@ function buildModel(sheets) {
           if (Number.isNaN(n)) warnings.push(`${line}: "${cellW(row, c)}" in ${label} is not a number; shown as blank.`);
           return null;
         };
+        const evBasisOf = (v, where) => {
+          const b = norm(v);
+          if (!b || b === 'monthly') return null;
+          if (/semi|half/.test(b)) return 'semi-annual';
+          if (/quarter/.test(b)) return 'quarterly';
+          if (/annual|year/.test(b)) return 'annual';
+          warnings.push(`${where}: EV Basis "${v}" should be Monthly, Pro-rated quarterly, Pro-rated semi-annual or Pro-rated annual.`);
+          return null;
+        };
         const mA = actual(H.mA, 'Month Actual', 'm');
         const yA = actual(H.yA, 'YTD Actual', 'y');
 
@@ -794,6 +809,7 @@ function buildModel(sheets) {
           bold: ['y', 'yes', 'true', 'x'].includes(norm(raw(H.bold))),
           m: [mA, num(H.mE, 'Month EV Case')],
           y: [yA, num(H.yE, 'YTD EV Case')],
+          evBasis: evBasisOf(raw(H.evBasis), line),
         });
       });
     }
@@ -1184,17 +1200,28 @@ function tableHtml(model) {
     <tr><th class="metric"></th><th class="grp" colspan="3">${escHtml(cfg.monthHead)}</th><th class="gap"></th><th class="grp" colspan="3">${escHtml(cfg.ytdHead)}</th></tr>
     <tr><th class="metric">Metric</th><th>${escHtml(cfg.actual)}</th><th>${escHtml(cfg.comp)}</th><th>${escHtml(cfg.variance)}</th><th class="gap"></th><th>${escHtml(cfg.actual)}</th><th>${escHtml(cfg.comp)}</th><th>${escHtml(cfg.variance)}</th></tr>
   </thead>`;
+  // Pro-rated EV Case values get a letter marker (a, b, c) per basis, explained under the table.
+  const PERIOD = { quarterly: 'quarter', 'semi-annual': 'half-year', annual: 'year' };
+  const bases = [...new Set(table.map((r) => r.evBasis).filter(Boolean))];
+  const letter = (b) => String.fromCharCode(97 + bases.indexOf(b));
+  const mark = (r) => (r.evBasis ? `<sup class="evn">${letter(r.evBasis)}</sup>` : '');
+  const noteText = (b) => (cfg.proNote
+    ? cfg.proNote.replace(/\{basis\}/gi, b).replace(/\{period\}/gi, PERIOD[b]).replace(/\{comparison\}/gi, cfg.comp)
+    : `${cfg.comp} pro-rated from ${b} figures on a straight-line monthly basis; it does not reflect seasonality within the ${PERIOD[b]}.`);
+  const notes = bases.length
+    ? `<div class="tnotes">${bases.map((b) => `<div><sup>${letter(b)}</sup>${escHtml(noteText(b))}</div>`).join('')}</div>`
+    : '';
   const body = table.map((r) => {
     const vm = fmtVariance(r.m[0], r.m[1], r);
     const vy = fmtVariance(r.y[0], r.y[1], r);
     return `<tr class="${r.bold ? 'bold' : ''}">
       <td class="metric">${escHtml(r.metric)}</td>
-      <td>${escHtml(fmtVal(r.m[0], r, cfg.negParen))}</td><td>${escHtml(fmtVal(r.m[1], r, cfg.negParen))}</td><td class="var ${vm.cls}">${escHtml(vm.text)}</td>
+      <td>${escHtml(fmtVal(r.m[0], r, cfg.negParen))}</td><td class="ev">${escHtml(fmtVal(r.m[1], r, cfg.negParen))}${mark(r)}</td><td class="var ${vm.cls}">${escHtml(vm.text)}</td>
       <td class="gap"></td>
-      <td>${escHtml(fmtVal(r.y[0], r, cfg.negParen))}</td><td>${escHtml(fmtVal(r.y[1], r, cfg.negParen))}</td><td class="var ${vy.cls}">${escHtml(vy.text)}</td>
+      <td>${escHtml(fmtVal(r.y[0], r, cfg.negParen))}</td><td class="ev">${escHtml(fmtVal(r.y[1], r, cfg.negParen))}${mark(r)}</td><td class="var ${vy.cls}">${escHtml(vy.text)}</td>
     </tr>`;
   }).join('');
-  return `<table class="cmp${table.length > 9 ? ' dense' : ''}">${head}<tbody>${body}</tbody></table>`;
+  return `<table class="cmp${table.length > 9 ? ' dense' : ''}">${head}<tbody>${body}</tbody></table>${notes}`;
 }
 
 function sideHtml(model) {
