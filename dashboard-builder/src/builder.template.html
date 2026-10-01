@@ -654,7 +654,7 @@ function buildModel(sheets) {
     resTitle: sText('Reserves title', 'DSR and O&M Reserves'),
     dflt: sNum('Default DSCR', null),
     cfUnits: sText('Cash flow units', '$MM'),
-    cfDec: Math.max(0, Math.min(4, Math.round(sNum('Cash flow decimals', 2)))),
+    cfDec: Math.max(0, Math.min(4, Math.round(sNum('Cash flow decimals', 1)))),
     proNote: sText('Pro-rated note', ''),
   };
 

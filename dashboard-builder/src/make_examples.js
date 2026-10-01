@@ -100,7 +100,7 @@ function settingsSheet(settings) {
     'Pro-rated note': 'Optional wording for the EV Basis footnote under the table.  Blank = "EV Case pro-rated from quarterly figures on a straight-line monthly basis; it does not reflect seasonality within the quarter."  You can use {basis} (quarterly / semi-annual / annual), {period} (quarter / half-year / year) and {comparison} (the Comparison label).',
     'Reserves title': 'Header of the reserves box on page 2 (below the DSCR chart).',
     'Cash flow units': 'Units label for page 2, e.g. $MM or $000s.',
-    'Cash flow decimals': 'Decimals in the page 2 cash flow table.',
+    'Cash flow decimals': 'Decimals in the page 2 cash flow table and reserves (default 1).',
   };
   const rows = [[h('Setting'), h('Value'), h('Notes')]];
   const validations = [];
@@ -377,7 +377,7 @@ const COMMON = (o) => [
   ['Default DSCR', o.dflt],
   ['Reserves title', 'DSR and O&M Reserves'],
   ['Cash flow units', '$MM'],
-  ['Cash flow decimals', 2],
+  ['Cash flow decimals', 1],
 ];
 
 // Fictional example: plain bars + commentary side panel.
