@@ -1450,7 +1450,7 @@ function dscrPageHtml(model, pageNo, pageCount) {
   html += '<main class="body">';
   html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span><span class="h-right">${head}</span></div>`;
   html += '<div class="charts-grid" style="grid-template-columns:repeat(2, minmax(0, 1fr))">';
-  html += `<div class="chart"><div class="chart-head"><span class="chart-title">CFADS vs. debt service (${escHtml(cfg.cfUnits)})</span><div class="legend">${legend1}</div></div><div class="plot" data-dscr="cfads"><svg></svg></div></div>`;
+  html += `<div class="chart"><div class="chart-head"><span class="chart-title">CFADS vs. Debt Service (${escHtml(cfg.cfUnits)})</span><div class="legend">${legend1}</div></div><div class="plot" data-dscr="cfads"><svg></svg></div></div>`;
   html += `<div class="chart"><div class="chart-head"><span class="chart-title">DSCR (x)</span><div class="legend">${legend2}</div></div><div class="plot" data-dscr="ratio"><svg></svg></div></div>`;
   html += '</div></section>';
   const notesBlock = dscrNotes.length ? `<div class="cm-block">${dscrNotes.map((c) => `<div class="cm-item">${c.heading ? `<div class="cm-h">${escHtml(c.heading)}</div>` : ''}${c.text ? `<div class="cm-t">${escHtml(c.text)}</div>` : ''}</div>`).join('')}</div>` : '';
