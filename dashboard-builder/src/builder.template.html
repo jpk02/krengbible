@@ -127,6 +127,7 @@
   .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; font-size: 10px; color: var(--ink-2); }
   .legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+  .legend .lg-year { font-weight: 700; color: var(--ink); margin-right: -6px; }
   .legend .div { width: 1px; height: 10px; background: var(--hair); }
   .chart-head.stack { flex-direction: column; align-items: flex-start; gap: 3px; }
   .chart-head.stack .legend { justify-content: flex-start; }
@@ -253,6 +254,14 @@ const STACK_RAMPS = {
   4: ['#244C86', '#4F7DBF', '#8AAEDD', '#B9CFEC'],
 };
 const stackColors = (n) => STACK_RAMPS[Math.max(1, Math.min(4, n))];
+// Prior year is gray (hue = year, shade = component): the same dark-to-light steps in neutral gray.
+const PY_RAMPS = {
+  1: ['#A9AFB8'],
+  2: ['#959CA6', '#CBD0D6'],
+  3: ['#868D98', '#A9AFB8', '#CED2D8'],
+  4: ['#7D848F', '#9CA3AD', '#BCC1C8', '#DADDE1'],
+};
+const pyColors = (n) => PY_RAMPS[Math.max(1, Math.min(4, n))];
 // Debt service on page 2: neutral grays (principal, interest, then any third line) so CFADS blue
 // carries the emphasis; validated as distinct from the blue (normal-vision dE 15.5).
 const DS_COLORS = ['#7A7F87', '#C9CCD1', '#A2A7AE'];     // neutral legend swatches for "this year" / "prior year"
@@ -1120,6 +1129,7 @@ function drawChart(svg, ch, cfg, W, H, notes) {
   const data = chartSeries(ch, cfg);
   const stacked = ch.comps.length > 1;
   const colors = stackColors(ch.comps.length);
+  const pyCols = pyColors(ch.comps.length);
 
   // stack extents per year/month
   const ext = data.map((comps) => MONTHS.map((_, m) => {
@@ -1197,7 +1207,7 @@ function drawChart(svg, ch, cfg, W, H, notes) {
         let segBase = yb;
         if (stacked && Math.abs(yb - y0) > 0.5) segBase = v > 0 ? yb - gap : yb + gap;
         if ((v > 0 && ye >= segBase) || (v < 0 && ye <= segBase)) return;
-        const fill = slot === 1 ? colors[ci] : mix(colors[ci], '#FFFFFF', PY_MIX);
+        const fill = slot === 1 ? colors[ci] : pyCols[ci];
         const p = svgEl('path', { d: barPath(x, bw, segBase, ye, isEnd), fill }, g);
         const tt = svgEl('title', {}, p);
         tt.textContent = `${MONTHS[m]} ${yearLabel[slot]}${stacked ? ' · ' + ch.comps[ci] : ''}: ${fmtNum(v, ch.dec, cfg.negParen)}`;
@@ -1236,18 +1246,13 @@ function drawChart(svg, ch, cfg, W, H, notes) {
 }
 
 function legendHtml(ch, cfg) {
-  const items = [];
+  const sw = (c) => `<i style="background:${c}"></i>`;
   if (ch.comps.length > 1) {
-    const sc = stackColors(ch.comps.length);
-    ch.comps.forEach((c, i) => items.push(`<span><i style="background:${sc[i]}"></i>${escHtml(c)}</span>`));
-    items.push('<span class="div"></span>');
-    items.push(`<span><i style="background:${mix(YEAR_SOLID, '#FFFFFF', PY_MIX)}"></i>${cfg.py}</span>`);
-    items.push(`<span><i style="background:${YEAR_SOLID}"></i>${cfg.cy}</span>`);
-  } else {
-    items.push(`<span><i style="background:${mix(PALETTE[0], '#FFFFFF', PY_MIX)}"></i>${cfg.py}</span>`);
-    items.push(`<span><i style="background:${PALETTE[0]}"></i>${cfg.cy}</span>`);
+    // Grouped by year: blue shades = current year, gray shades = prior year.
+    const group = (year, cols) => `<span class="lg-year">${year}:</span>${ch.comps.map((c, i) => `<span>${sw(cols[i])}${escHtml(c)}</span>`).join('')}`;
+    return `<div class="legend">${group(cfg.py, pyColors(ch.comps.length))}<span class="div"></span>${group(cfg.cy, stackColors(ch.comps.length))}</div>`;
   }
-  return `<div class="legend">${items.join('')}</div>`;
+  return `<div class="legend"><span>${sw(pyColors(1)[0])}${cfg.py}</span><span>${sw(PALETTE[0])}${cfg.cy}</span></div>`;
 }
 
 /* ================= PAGE ================= */
