@@ -11,7 +11,7 @@ const FROM_CHARTS = '(from Charts)';
 
 const LISTS = {
   'Current month': MONTHS,
-  'Data labels': ['This year', 'Both years', 'None'],
+  'Data labels': ['Both years', 'This year', 'None'],
   'Chart columns': ['Auto', '1', '2', '3'],
   'Negative numbers': ['Parentheses', 'Minus sign'],
   'Side panel type': ['Commentary', 'Table', 'Table + Commentary', 'None'],
@@ -63,7 +63,7 @@ function settingsSheet(settings) {
     'Prior year': 'Year whose values are the lighter bars next to them.',
     'Current month': 'The month being reported.  Drives Month Actual and YTD (Jan through this month) in the table.',
     'Chart section title': 'Header above the charts.',
-    'Data labels': 'Which bars get value labels: This year / Both years / None.',
+    'Data labels': 'Which bars get value labels: Both years / This year / None.',
     'Chart columns': 'Auto = 1 column for up to 3 charts, 2 columns for more.',
     'Table title': 'Header above the comparison table.',
     'Month heading': 'Heading over the monthly columns.  Leave blank to use the Current month (e.g. August).',
@@ -174,7 +174,7 @@ const COMMON = (o) => [
   ['Prior year', 2025],
   ['Current month', 'Aug'],
   ['Chart section title', 'Monthly Performance - 2026 vs. 2025'],
-  ['Data labels', 'This year'],
+  ['Data labels', 'Both years'],
   ['Chart columns', 'Auto'],
   ['Table title', o.tableTitle],
   ['Month heading', ''],

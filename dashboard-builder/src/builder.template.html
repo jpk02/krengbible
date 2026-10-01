@@ -580,7 +580,7 @@ function buildModel(sheets) {
     period: sText('Period label'),
     color,
     chartTitle: sText('Chart section title', 'Monthly Performance'),
-    labels: sChoice('Data labels', ['This year', 'Both years', 'None'], 'This year'),
+    labels: sChoice('Data labels', ['Both years', 'This year', 'None'], 'Both years'),
     chartCols: sChoice('Chart columns', ['Auto', '1', '2', '3'], 'Auto'),
     tableTitle: sText('Table title', 'Performance vs. EV Case - Monthly & YTD'),
     actual: sText('Actual label', 'Actual'),
@@ -996,7 +996,7 @@ function drawChart(svg, ch, cfg, W, H, notes) {
         const tt = svgEl('title', {}, p);
         tt.textContent = `${MONTHS[m]} ${yearLabel[slot]}${stacked ? ' · ' + ch.comps[ci] : ''}: ${fmtNum(v, ch.dec, cfg.negParen)}`;
         // label inside a stacked segment, only when it fits with padding
-        if (stacked && slot === 1 && labelMode !== 'None') {
+        if (stacked && (slot === 1 || labelMode === 'Both years') && labelMode !== 'None') {
           const s = fmtNum(v, ch.dec, cfg.negParen);
           const tw = textWidth(s, 8.5, 600);
           const segH = Math.abs(segBase - ye);
@@ -1023,7 +1023,7 @@ function drawChart(svg, ch, cfg, W, H, notes) {
   for (const L of labels) {
     if (placed.some((P) => L.x0 < P.x1 + 1 && L.x1 > P.x0 - 1 && L.y0 < P.y1 && L.y1 > P.y0)) continue;
     placed.push(L);
-    const t = svgEl('text', { x: L.cx, y: L.ly, 'text-anchor': 'middle', 'font-size': LBL, 'font-weight': L.slot === 1 ? 600 : 400, fill: L.slot === 1 ? '#111827' : '#6B7280' }, g);
+    const t = svgEl('text', { x: L.cx, y: L.ly, 'text-anchor': 'middle', 'font-size': LBL, 'font-weight': L.slot === 1 ? 600 : 400, fill: L.slot === 1 ? '#111827' : '#4B5563' }, g);
     t.textContent = L.s;
   }
   return plotBottom - top;
