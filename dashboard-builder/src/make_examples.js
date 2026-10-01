@@ -16,6 +16,7 @@ const LISTS = {
   'Negative numbers': ['Parentheses', 'Minus sign'],
   'Side panel type': ['Commentary', 'Table', 'Table + Commentary', 'None'],
   'Page size': ['Letter', 'A4'],
+  'Include DSCR page': ['Auto', 'Yes', 'No'],
 };
 
 function instructionsSheet() {
@@ -44,6 +45,10 @@ function instructionsSheet() {
     ['               Month EV Case and YTD EV Case are always typed in.'],
     ['Commentary  -  Heading + Text pairs for the bottom-right box.'],
     ['Side Table  -  a free-form grid for the bottom-right box.  Row 1 = column headers.  Values print exactly as they appear in Excel.'],
+    ['Debt Service  -  quarterly cash flow for page 2.  One column per quarter, oldest on the left.  Role: Revenue, Expense or Debt service.'],
+    ['               Enter expenses and debt service as positive numbers.  CFADS = Revenue - Expenses.  DSCR = CFADS / Debt service.'],
+    ['               LTM DSCR = last 4 quarters of CFADS / last 4 quarters of debt service.  Add any expense or debt service rows you need.'],
+    ['DSCR Notes  -  optional Heading + Text pairs shown beside the cash flow table on page 2.'],
     [],
     [{ v: 'Tips', s: S.bold }],
     ['-  Do not rename the tabs or the column headers in row 1.  You can add, delete or reorder rows freely.'],
@@ -78,6 +83,13 @@ function settingsSheet(settings) {
     'Side panel width %': 'Width of the bottom-right box as a share of the page (15-50).',
     'Footer': 'Sources line at the bottom of the page.',
     'Page size': 'Letter or A4 (always landscape).',
+    'Include DSCR page': 'Auto = add page 2 (Debt Service Coverage) when the Debt Service tab has data.  Yes / No to force it.',
+    'DSCR page title': 'Header above the DSCR charts on page 2.',
+    'Quarters shown': 'How many of the most recent quarters page 2 shows (1-8).  Enter 3 extra older quarters to show an LTM DSCR for every quarter shown.',
+    'Lock-up DSCR': 'Distribution lock-up covenant, e.g. 1.20.  Drawn as a reference line; leave blank for none.',
+    'Default DSCR': 'Default covenant, e.g. 1.10.  Drawn as a reference line; leave blank for none.',
+    'Cash flow units': 'Units label for page 2, e.g. $MM or $000s.',
+    'Cash flow decimals': 'Decimals in the page 2 cash flow table.',
   };
   const rows = [[h('Setting'), h('Value'), h('Notes')]];
   const validations = [];
@@ -153,6 +165,22 @@ function listsSheet() {
 }
 const CHART_NAMES = { name: 'ChartNames', ref: `OFFSET(Lists!$A$2,0,0,MAX(1,COUNTIF(Lists!$A$2:$A$${LIST_ROWS + 1},"?*")),1)` };
 
+function debtServiceSheet(d) {
+  const rows = [[h('Line item'), h('Role'), ...d.quarters.map(h)]];
+  for (const [name, role, vals] of d.lines) rows.push([inp(name), inp(role), ...vals.map((v) => ({ v, s: S.input2 }))]);
+  for (let i = 0; i < 2; i++) rows.push([inp(''), inp(''), ...d.quarters.map(() => ({ v: '', s: S.input2 }))]);
+  return {
+    name: 'Debt Service', rows, widths: [26, 14, ...d.quarters.map(() => 11)], freezeRows: 1,
+    validations: [{ range: 'B2:B100', list: ['Revenue', 'Expense', 'Debt service'] }],
+  };
+}
+
+function dscrNotesSheet(items) {
+  const rows = [[h('Heading'), h('Text')]];
+  for (const [a, b] of items) rows.push([inp(a), inp(b)]);
+  return { name: 'DSCR Notes', rows, widths: [30, 90], freezeRows: 1 };
+}
+
 function commentarySheet(items) {
   const rows = [[h('Heading'), h('Text')]];
   for (const [a, b] of items) rows.push([inp(a), inp(b)]);
@@ -174,6 +202,8 @@ function build(spec) {
     tableSheet(spec.table),
     commentarySheet(spec.commentary),
     sideTableSheet(spec.sideTable),
+    debtServiceSheet(spec.debt),
+    dscrNotesSheet(spec.dscrNotes),
     listsSheet(),
   ], { names: [CHART_NAMES] });
 }
@@ -203,6 +233,13 @@ const COMMON = (o) => [
   ['Side panel width %', o.sideWidth],
   ['Footer', o.footer],
   ['Page size', 'Letter'],
+  ['Include DSCR page', 'Auto'],
+  ['DSCR page title', 'Debt Service Coverage - LTM Basis'],
+  ['Quarters shown', 4],
+  ['Lock-up DSCR', o.lockup],
+  ['Default DSCR', o.dflt],
+  ['Cash flow units', '$MM'],
+  ['Cash flow decimals', 2],
 ];
 
 // Fictional example: plain bars + commentary side panel.
@@ -214,6 +251,8 @@ const BLUEFIELD = {
     sideTitle: 'Maintenance Commentary',
     sideWidth: 30,
     footer: 'Sources: Bluefield monthly operating reports; 2026 EV Case model.  Fictional example data.',
+    lockup: 1.20,
+    dflt: 1.10,
   }),
   series: [
     { chart: 'Generation (GWh)', year: 2026, decimals: 1, values: pad([24.6, 27.3, 38.9, 44.1, 49.8, 52.4, 41.7, 47.2]) },
@@ -239,6 +278,21 @@ const BLUEFIELD = {
     ['Portfolio', 'Routine preventive maintenance continued; no safety or environmental events.'],
   ],
   sideTable: [['Item', 'Value']],
+  debt: {
+    quarters: ['Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026', 'Q2 2026'],
+    lines: [
+      ['Revenue', 'Revenue', [5.31, 5.62, 10.04, 10.52, 5.93, 6.08, 10.61]],
+      ['O&M', 'Expense', [1.92, 2.01, 2.08, 2.17, 2.03, 2.11, 2.19]],
+      ['Property taxes', 'Expense', [0.40, 0.40, 0.40, 0.40, 0.42, 0.45, 0.45]],
+      ['Other taxes', 'Expense', [0.11, 0.09, 0.18, 0.21, 0.10, 0.08, 0.19]],
+      ['Principal', 'Debt service', [2.40, 2.42, 2.48, 2.51, 2.57, 2.62, 2.68]],
+      ['Interest', 'Debt service', [1.91, 1.86, 1.81, 1.76, 1.70, 1.65, 1.60]],
+    ],
+  },
+  dscrNotes: [
+    ['Seasonality', 'Q1 and Q4 coverage falls below 1.0x on a stand-alone basis every year; the covenants test on an LTM basis.'],
+    ['Next test', 'Q3 2026 test at September 30, 2026.  Distributions require 1.20x LTM.'],
+  ],
 };
 
 // Fictional example: stacked contracted/merchant bars + table and commentary side panel.
@@ -250,6 +304,8 @@ const RIDGELINE = {
     sideTitle: 'Liquidity and Monitoring',
     sideWidth: 32,
     footer: 'Sources: Ridgeline monthly operating reports; 2026 EV Case model.  Fictional example data.',
+    lockup: 1.25,
+    dflt: 1.10,
   }),
   series: [
     { chart: 'Net generation (GWh)', component: 'Contracted', year: 2026, decimals: 0, values: pad([205, 188, 196, 112, 214, 231, 236, 228]) },
@@ -288,6 +344,20 @@ const RIDGELINE = {
     ['Debt service reserve', '$12.25MM', 'Flat'],
     ['Term loan', '$182.4MM', '-$1.8MM'],
     ['Revolver', '$0.0MM', 'Flat'],
+  ],
+  debt: {
+    quarters: ['Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026', 'Q2 2026'],
+    lines: [
+      ['Revenue', 'Revenue', [28.41, 30.12, 27.23, 35.64, 29.02, 31.27, 24.81]],
+      ['O&M', 'Expense', [9.18, 9.51, 9.09, 10.42, 9.33, 9.61, 11.84]],
+      ['Property taxes', 'Expense', [1.20, 1.20, 1.20, 1.20, 1.25, 1.25, 1.25]],
+      ['Other taxes', 'Expense', [0.52, 0.48, 0.61, 0.73, 0.50, 0.47, 0.41]],
+      ['Principal', 'Debt service', [4.40, 4.50, 4.60, 4.60, 4.70, 4.80, 4.90]],
+      ['Interest', 'Debt service', [3.31, 3.25, 3.20, 3.15, 3.10, 3.05, 3.00]],
+    ],
+  },
+  dscrNotes: [
+    ['Q2 2026', 'The April planned outage on Unit 1 reduced revenue and added O&M; LTM coverage stays well above lock-up.'],
   ],
 };
 

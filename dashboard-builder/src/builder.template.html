@@ -64,11 +64,27 @@
   #dropOverlay.on { display: flex; }
 
   #stage { padding: 20px 16px 40px; }
-  #pageWrap { margin: 0 auto; box-shadow: 0 2px 14px rgba(15, 23, 42, .18); background: #fff; overflow: hidden; }
+  #pageWrap { margin: 0 auto; overflow: hidden; }
   #pageWrap[hidden] { display: none; }
   #page { transform-origin: top left; }
 
-  /* ---------- the dashboard page ---------- */
+  /* ---------- the dashboard page(s) ---------- */
+  #page > .page { box-shadow: 0 2px 14px rgba(15, 23, 42, .18); margin-bottom: 24px; }
+  #page > .page:last-child { margin-bottom: 0; }
+  .card-h { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+  .card-h .h-right { font-weight: 600; font-size: 11.5px; opacity: .95; white-space: nowrap; }
+  table.cf { width: 100%; border-collapse: collapse; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  table.cf th { font-weight: 600; color: var(--ink-2); text-align: right; padding: 3px 10px; border-bottom: 1px solid #AEB8C8; white-space: nowrap; }
+  table.cf th:first-child, table.cf td:first-child { text-align: left; }
+  table.cf td { text-align: right; padding: 3px 10px; white-space: nowrap; }
+  table.cf td:first-child { color: var(--ink-2); }
+  table.cf td.sub, table.cf th.sub { padding-left: 22px; }
+  table.cf tr.total td { font-weight: 700; color: var(--ink); border-top: 1px solid #AEB8C8; }
+  table.cf tr.ratio td { font-weight: 700; color: var(--ink); background: var(--band); }
+  table.cf tr.gap td { padding: 3px 0; }
+  table.cf .ltm { background: #EEF2F8; }
+  table.cf tr.ratio td.ltm { background: #E1E8F3; }
+  table.cf td.below { color: var(--bad); }
   .page {
     --theme: #1F3B6E;
     width: 11in; height: calc(8.5in - 1px);
@@ -148,8 +164,10 @@
     html, body { background: #fff; }
     .no-print { display: none !important; }
     #stage { padding: 0; }
-    #pageWrap { width: auto !important; height: auto !important; box-shadow: none; margin: 0; overflow: visible; }
-    #page { transform: none !important; }
+    #pageWrap { width: auto !important; height: auto !important; margin: 0; overflow: visible; }
+    #page { transform: none !important; width: auto !important; }
+    #page > .page { box-shadow: none; margin: 0; break-after: page; page-break-after: always; }
+    #page > .page:last-child { break-after: auto; page-break-after: auto; }
   }
 </style>
 </head>
@@ -178,7 +196,7 @@
     <li>Click <b>Save as PDF</b>.</li>
   </ol>
 </div>
-<div id="stage"><div id="pageWrap" hidden><div id="page" class="page"></div></div></div>
+<div id="stage"><div id="pageWrap" hidden><div id="page"></div></div></div>
 <div id="dropOverlay" class="no-print">Drop the workbook to build the dashboard</div>
 
 <script>
@@ -592,6 +610,13 @@ function buildModel(sheets) {
     sideWidth: Math.min(50, Math.max(15, sNum('Side panel width %', 30))),
     footer: sText('Footer'),
     pageSize: sChoice('Page size', ['Letter', 'A4'], 'Letter'),
+    dscrInclude: sChoice('Include DSCR page', ['Auto', 'Yes', 'No'], 'Auto'),
+    dscrTitle: sText('DSCR page title', 'Debt Service Coverage - LTM Basis'),
+    dscrQuarters: Math.max(1, Math.min(8, Math.round(sNum('Quarters shown', 4)))),
+    lockup: sNum('Lock-up DSCR', null),
+    dflt: sNum('Default DSCR', null),
+    cfUnits: sText('Cash flow units', '$MM'),
+    cfDec: Math.max(0, Math.min(4, Math.round(sNum('Cash flow decimals', 2)))),
   };
 
   // ---- Charts
@@ -776,6 +801,60 @@ function buildModel(sheets) {
     });
   }
 
+  // ---- Debt service (quarterly cash flow -> CFADS -> DSCR)
+  let dscr = null;
+  const dg = findSheet(sheets, 'Debt Service');
+  if (dg && dg[0]) {
+    const hdr = dg[0];
+    const hm = headerMap(hdr);
+    const li = hm['line item'] ?? 0, rc = hm['role'] ?? 1;
+    const qCols = [];
+    hdr.forEach((c, i) => {
+      if (i === li || i === rc || !c || c.v === null) return;
+      let label = c.w.trim();
+      if (typeof c.v === 'number' && c.v > 20000) {
+        const d = new Date(Date.UTC(1899, 11, 30) + Math.round(c.v) * 864e5);
+        label = `Q${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`;
+      }
+      if (label) qCols.push({ i, label });
+    });
+    const lines = [];
+    dg.forEach((row, ri) => {
+      if (ri === 0 || isBlankRow(row)) return;
+      const name = cellW(row, li);
+      if (!name) return;
+      const role = norm(cellW(row, rc));
+      const kind = role.startsWith('rev') ? 'rev' : role.startsWith('exp') ? 'exp' : role.startsWith('debt') ? 'ds' : null;
+      if (!kind) { warnings.push(`Debt Service tab row ${ri + 1} (${name}): Role should be Revenue, Expense or Debt service; row skipped.`); return; }
+      const vals = qCols.map((q) => {
+        const n = toNumber(row[q.i]);
+        if (Number.isNaN(n)) { warnings.push(`Debt Service tab row ${ri + 1}, ${q.label}: "${cellW(row, q.i)}" is not a number; treated as blank.`); return null; }
+        return n;
+      });
+      lines.push({ name, kind, vals });
+    });
+    // Quarters with any data, oldest to newest as entered left to right.
+    const used = qCols.map((q, k) => ({ ...q, k })).filter((q) => lines.some((l) => l.vals[q.k] !== null));
+    if (lines.length && used.length) {
+      const sum = (kind, k) => lines.filter((l) => l.kind === kind).reduce((a, l) => a + (l.vals[k] ?? 0), 0);
+      const quarters = used.map((q) => {
+        const rev = sum('rev', q.k), exp = sum('exp', q.k), ds = sum('ds', q.k);
+        return { label: q.label, k: q.k, cfads: rev - exp, ds, dscr: ds > 0 ? (rev - exp) / ds : null };
+      });
+      quarters.forEach((q, i) => {
+        if (i < 3) { q.ltm = null; return; }
+        const win = quarters.slice(i - 3, i + 1);
+        const c = win.reduce((a, w) => a + w.cfads, 0), d = win.reduce((a, w) => a + w.ds, 0);
+        q.ltmCfads = c; q.ltmDs = d; q.ltm = d > 0 ? c / d : null;
+      });
+      if (!lines.some((l) => l.kind === 'ds')) warnings.push('Debt Service tab: no rows with Role "Debt service", so DSCR cannot be calculated.');
+      if (quarters.length < 4) warnings.push(`Debt Service tab: LTM DSCR needs 4 quarters of data; only ${quarters.length} entered.`);
+      dscr = { lines, quarters, shown: quarters.slice(-cfg.dscrQuarters) };
+    }
+  }
+  if (cfg.dscrInclude === 'Yes' && !dscr) warnings.push('Settings: Include DSCR page is Yes, but the Debt Service tab has no data.');
+  if (cfg.dscrInclude === 'No') dscr = null;
+
   // ---- Side panel
   const commentary = [];
   const cmg = findSheet(sheets, 'Commentary');
@@ -803,7 +882,19 @@ function buildModel(sheets) {
     warnings.push(`Side panel type is "${cfg.sideType}" but the Side Table tab has no data rows below the header.`);
   }
 
-  return { cfg, charts, table, footnotes, commentary, sideTable, errors, warnings };
+    const dscrNotes = [];
+  const dng = findSheet(sheets, 'DSCR Notes');
+  if (dng) {
+    const hm = headerMap(dng[0]);
+    const hc = hm['heading'] ?? 0, tc = hm['text'] ?? 1;
+    dng.forEach((row, ri) => {
+      if (ri === 0 || isBlankRow(row)) return;
+      const hd = cellW(row, hc), tx = cellW(row, tc);
+      if (hd || tx) dscrNotes.push({ heading: hd, text: tx });
+    });
+  }
+
+  return { cfg, charts, table, footnotes, commentary, sideTable, dscr, dscrNotes, errors, warnings };
 }
 
 /* ================= FORMATTING ================= */
@@ -1077,15 +1168,222 @@ function sideHtml(model) {
   return parts.join('');
 }
 
+/* ================= DSCR PAGE ================= */
+
+const fmtX = (v) => (v === null || v === undefined || !Number.isFinite(v) ? 'n/a' : `${v.toFixed(2)}x`);
+const STATUS_WARN = '#B7791F', STATUS_CRIT = '#B42318';
+
+function yAxis(g, ticks, y, left, right, W, text) {
+  for (const t of ticks) {
+    const yy = Math.round(y(t)) + 0.5;
+    svgEl('line', { x1: left, x2: W - right, y1: yy, y2: yy, stroke: t === 0 ? '#9CA3AF' : '#E5E7EB', 'stroke-width': 1 }, g);
+    const tx = svgEl('text', { x: left - 6, y: yy + 3, 'text-anchor': 'end', 'font-size': 9, fill: '#6B7280' }, g);
+    tx.textContent = text(t);
+  }
+}
+function niceTicks(lo, hi, n) {
+  const step = niceStep((hi - lo) / n);
+  const t0 = Math.floor(lo / step + 1e-9) * step, t1 = Math.ceil(hi / step - 1e-9) * step;
+  const ticks = [];
+  for (let t = t0; t <= t1 + step / 2; t += step) ticks.push(Number(t.toFixed(10)));
+  return { ticks, t0, t1, step };
+}
+
+/* CFADS (one bar) next to debt service (stacked by line item), per quarter. */
+function drawCfadsChart(svg, model, W, H) {
+  const { cfg, dscr } = model;
+  svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const qs = dscr.shown;
+  const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
+  const dsColors = dsLines.map((_, i) => PALETTE[1 + (i % 3)]);
+  let hi = 0, lo = 0;
+  qs.forEach((q) => { hi = Math.max(hi, q.cfads, q.ds); lo = Math.min(lo, q.cfads); });
+  if (hi === lo) hi = lo + 1;
+  const { ticks, t0, t1, step } = niceTicks(lo, hi, 3);
+  const dec = step < 1 ? Math.ceil(-Math.log10(step) - 1e-9) : 0;
+  const tickText = (t) => fmtNum(t, dec, cfg.negParen);
+  const left = Math.max(...ticks.map((t) => textWidth(tickText(t), 9))) + 8, right = 4, top = 15, xAxisH = 15;
+  const negPad = lo < 0 ? 12 : 0;
+  const bottom = H - xAxisH - negPad;
+  if (bottom - top < 20) return false;
+  const y = (v) => top + (t1 - v) / (t1 - t0) * (bottom - top);
+  const g = svgEl('g', {}, svg);
+  yAxis(g, ticks, y, left, right, W, tickText);
+  const band = (W - left - right) / qs.length;
+  const bw = Math.min(24, band * 0.3), gap = 2;
+  const y0 = y(0);
+  qs.forEach((q, i) => {
+    const cx = left + band * i + band / 2;
+    const lbl = svgEl('text', { x: cx, y: H - 3, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
+    lbl.textContent = q.label;
+    // CFADS
+    const xc = cx - bw - gap / 2;
+    const pc = svgEl('path', { d: barPath(xc, bw, y0, y(q.cfads), true), fill: PALETTE[0] }, g);
+    svgEl('title', {}, pc).textContent = `${q.label} CFADS: ${fmtNum(q.cfads, cfg.cfDec, cfg.negParen)}`;
+    const tc = svgEl('text', { x: xc + bw / 2, y: q.cfads >= 0 ? y(q.cfads) - 4 : y(q.cfads) + 11, 'text-anchor': 'middle', 'font-size': 9, 'font-weight': 600, fill: '#111827' }, g);
+    tc.textContent = fmtNum(q.cfads, cfg.cfDec > 1 ? 1 : cfg.cfDec, cfg.negParen);
+    // Debt service stack
+    const xd = cx + gap / 2;
+    let acc = 0;
+    const segs = dsLines.map((l, li) => ({ v: l.vals[q.k] ?? 0, li })).filter((sg) => sg.v > 0);
+    segs.forEach((sg, si) => {
+      const yb = y(acc), ye = y(acc + sg.v);
+      acc += sg.v;
+      const base = si > 0 ? yb - gap : yb;
+      if (ye >= base) return;
+      const p = svgEl('path', { d: barPath(xd, bw, base, ye, si === segs.length - 1), fill: dsColors[sg.li] }, g);
+      svgEl('title', {}, p).textContent = `${q.label} ${dsLines[sg.li].name}: ${fmtNum(sg.v, cfg.cfDec, cfg.negParen)}`;
+      const s = fmtNum(sg.v, 1, cfg.negParen);
+      if (base - ye >= 13 && textWidth(s, 8.5, 600) + 4 <= bw + 6) {
+        const ink = luminance(dsColors[sg.li]) > 0.35 ? '#111827' : '#FFFFFF';
+        const t = svgEl('text', { x: xd + bw / 2, y: (base + ye) / 2 + 3, 'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 600, fill: ink }, g);
+        t.textContent = s;
+      }
+    });
+    const td = svgEl('text', { x: xd + bw / 2, y: y(q.ds) - 4, 'text-anchor': 'middle', 'font-size': 9, 'font-weight': 600, fill: '#111827' }, g);
+    td.textContent = fmtNum(q.ds, cfg.cfDec > 1 ? 1 : cfg.cfDec, cfg.negParen);
+  });
+  return true;
+}
+
+/* Quarterly DSCR as bars, LTM DSCR as a line with markers, covenant levels as reference lines. */
+function drawDscrChart(svg, model, W, H) {
+  const { cfg, dscr } = model;
+  svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const qs = dscr.shown;
+  const vals = qs.flatMap((q) => [q.dscr, q.ltm]).filter((v) => v !== null && Number.isFinite(v));
+  const refs = [cfg.lockup !== null ? { v: cfg.lockup, name: 'Lock-up', c: STATUS_WARN } : null, cfg.dflt !== null ? { v: cfg.dflt, name: 'Default', c: STATUS_CRIT } : null].filter(Boolean);
+  const hi = Math.max(1, ...vals, ...refs.map((r) => r.v)) * 1.1;
+  const { ticks, t0, t1 } = niceTicks(0, hi, 4);
+  const tickText = (t) => `${t.toFixed(t % 1 ? 1 : 0)}x`;
+  const refLabelW = refs.length ? Math.max(...refs.map((r) => textWidth(`${r.name} ${fmtX(r.v)}`, 8.5, 600))) + 6 : 0;
+  const left = Math.max(...ticks.map((t) => textWidth(tickText(t), 9))) + 8, right = 4 + refLabelW, top = 15, xAxisH = 15;
+  const bottom = H - xAxisH;
+  if (bottom - top < 20) return false;
+  const y = (v) => top + (t1 - v) / (t1 - t0) * (bottom - top);
+  const g = svgEl('g', {}, svg);
+  yAxis(g, ticks, y, left, right, W, tickText);
+  const band = (W - left - right) / qs.length;
+  const bw = Math.min(24, band * 0.3);
+  const barFill = mix(PALETTE[0], '#FFFFFF', PY_MIX);
+  const y0 = y(0);
+  const pts = [];
+  const placed = [];
+  qs.forEach((q, i) => {
+    const cx = left + band * i + band / 2;
+    const lbl = svgEl('text', { x: cx, y: H - 3, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
+    lbl.textContent = q.label;
+    if (q.dscr !== null && q.dscr > 0) {
+      const p = svgEl('path', { d: barPath(cx - bw / 2, bw, y0, y(q.dscr), true), fill: barFill }, g);
+      svgEl('title', {}, p).textContent = `${q.label} quarterly DSCR: ${fmtX(q.dscr)}`;
+      const ty = y0 - 5;  // quarterly label sits at the bar's base, clear of the LTM line
+      if (y0 - y(q.dscr) >= 15) {
+        const t = svgEl('text', { x: cx, y: ty, 'text-anchor': 'middle', 'font-size': 8.5, fill: '#1F2937' }, g);
+        t.textContent = fmtX(q.dscr);
+        const w = textWidth(fmtX(q.dscr), 8.5);
+        placed.push({ x0: cx - w / 2, x1: cx + w / 2, y0: ty - 9, y1: ty });
+      }
+    }
+    if (q.ltm !== null && q.ltm !== undefined) pts.push({ x: cx, y: y(q.ltm), q });
+  });
+  // covenant reference lines
+  for (const r of refs) {
+    const yy = Math.round(y(r.v)) + 0.5;
+    svgEl('line', { x1: left, x2: W - refLabelW, y1: yy, y2: yy, stroke: r.c, 'stroke-width': 1 }, g);
+    const t = svgEl('text', { x: W - refLabelW + 4, y: yy + 3, 'font-size': 8.5, 'font-weight': 600, fill: r.c }, g);
+    t.textContent = `${r.name} ${fmtX(r.v)}`;
+  }
+  // LTM line + markers + labels
+  if (pts.length > 1) {
+    svgEl('path', { d: pts.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(''), fill: 'none', stroke: '#1F2937', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, g);
+  }
+  for (const p of pts) {
+    const c = svgEl('circle', { cx: p.x, cy: p.y, r: 4, fill: '#1F2937', stroke: '#FFFFFF', 'stroke-width': 2 }, g);
+    svgEl('title', {}, c).textContent = `${p.q.label} LTM DSCR: ${fmtX(p.q.ltm)}`;
+    const s = fmtX(p.q.ltm);
+    const w = textWidth(s, 9.5, 700);
+    let ly = p.y - 8;
+    const hit = (yy) => placed.some((b) => p.x - w / 2 < b.x1 && p.x + w / 2 > b.x0 && yy - 10 < b.y1 && yy > b.y0);
+    if (ly - 10 < 0 || hit(ly)) ly = p.y + 16;
+    const t = svgEl('text', { x: p.x, y: ly, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: '#111827' }, g);
+    t.textContent = s;
+  }
+  return true;
+}
+
+function cfTableHtml(model) {
+  const { cfg, dscr } = model;
+  const qs = dscr.shown;
+  const last = qs[qs.length - 1];
+  const hasLtm = last.ltm !== null && last.ltm !== undefined;
+  const ltmIdx = hasLtm ? dscr.quarters.indexOf(last) : -1;
+  const win = hasLtm ? dscr.quarters.slice(ltmIdx - 3, ltmIdx + 1) : [];
+  const f = (v) => (v === null || v === undefined ? '–' : fmtNum(v, cfg.cfDec, cfg.negParen));
+  const cell = (v, extra = '') => `<td class="${extra}">${f(v)}</td>`;
+  const ltmCell = (fn) => (hasLtm ? `<td class="ltm">${f(win.reduce((a, q) => a + fn(q), 0))}</td>` : '');
+  const lineVal = (l, q) => (l.vals[q.k] === null ? null : (l.kind === 'exp' ? -l.vals[q.k] : l.vals[q.k]));
+  const lineRow = (l, sub) => `<tr><td class="${sub ? 'sub' : ''}">${escHtml(l.kind === 'exp' ? 'Less: ' + l.name : l.name)}</td>${qs.map((q) => cell(lineVal(l, q))).join('')}${hasLtm ? `<td class="ltm">${f(win.reduce((a, q) => a + (lineVal(l, q) ?? 0), 0))}</td>` : ''}</tr>`;
+  const ratioCls = (v) => (v !== null && cfg.lockup !== null && v < cfg.lockup ? 'below' : '');
+  let html = `<table class="cf"><thead><tr><th>${escHtml(cfg.cfUnits)}</th>${qs.map((q) => `<th>${escHtml(q.label)}</th>`).join('')}${hasLtm ? `<th class="ltm">LTM ${escHtml(last.label)}</th>` : ''}</tr></thead><tbody>`;
+  dscr.lines.filter((l) => l.kind === 'rev').forEach((l) => { html += lineRow(l, false); });
+  dscr.lines.filter((l) => l.kind === 'exp').forEach((l) => { html += lineRow(l, true); });
+  html += `<tr class="total"><td>CFADS</td>${qs.map((q) => cell(q.cfads)).join('')}${ltmCell((q) => q.cfads)}</tr>`;
+  html += '<tr class="gap"><td colspan="99"></td></tr>';
+  dscr.lines.filter((l) => l.kind === 'ds').forEach((l) => { html += lineRow(l, true); });
+  html += `<tr class="total"><td>Total debt service</td>${qs.map((q) => cell(q.ds)).join('')}${ltmCell((q) => q.ds)}</tr>`;
+  html += '<tr class="gap"><td colspan="99"></td></tr>';
+  html += `<tr class="ratio"><td>DSCR - quarter</td>${qs.map((q) => `<td>${fmtX(q.dscr)}</td>`).join('')}${hasLtm ? '<td class="ltm"></td>' : ''}</tr>`;
+  html += `<tr class="ratio"><td>DSCR - LTM</td>${qs.map((q) => `<td class="${ratioCls(q.ltm ?? null)}">${q.ltm === null || q.ltm === undefined ? '–' : fmtX(q.ltm)}</td>`).join('')}${hasLtm ? `<td class="ltm ${ratioCls(last.ltm)}">${fmtX(last.ltm)}</td>` : ''}</tr>`;
+  html += '</tbody></table>';
+  return html;
+}
+
+function dscrPageHtml(model, pageNo, pageCount) {
+  const { cfg, dscr, dscrNotes } = model;
+  const last = dscr.shown[dscr.shown.length - 1];
+  const head = last.ltm !== null && last.ltm !== undefined
+    ? `LTM DSCR at ${escHtml(last.label)}: ${fmtX(last.ltm)}${cfg.lockup !== null ? ` &nbsp;·&nbsp; Lock-up ${fmtX(cfg.lockup)}` : ''}`
+    : '';
+  const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
+  const legend1 = [`<span><i style="background:${PALETTE[0]}"></i>CFADS</span>`]
+    .concat(dsLines.map((l, i) => `<span><i style="background:${PALETTE[1 + (i % 3)]}"></i>${escHtml(l.name)}</span>`)).join('');
+  const legend2 = [
+    `<span><i style="background:${mix(PALETTE[0], '#FFFFFF', PY_MIX)}"></i>Quarterly</span>`,
+    '<span><i style="background:#1F2937;border-radius:50%"></i>LTM</span>',
+    cfg.lockup !== null ? `<span><i style="background:${STATUS_WARN};height:2px"></i>Lock-up</span>` : '',
+    cfg.dflt !== null ? `<span><i style="background:${STATUS_CRIT};height:2px"></i>Default</span>` : '',
+  ].join('');
+  let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
+  html += '<main class="body">';
+  html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span><span class="h-right">${head}</span></div>`;
+  html += '<div class="charts-grid" style="grid-template-columns:repeat(2, minmax(0, 1fr))">';
+  html += `<div class="chart"><div class="chart-head"><span class="chart-title">CFADS vs. debt service (${escHtml(cfg.cfUnits)})</span><div class="legend">${legend1}</div></div><div class="plot" data-dscr="cfads"><svg></svg></div></div>`;
+  html += `<div class="chart"><div class="chart-head"><span class="chart-title">DSCR (x)</span><div class="legend">${legend2}</div></div><div class="plot" data-dscr="ratio"><svg></svg></div></div>`;
+  html += '</div></section>';
+  const notes = dscrNotes.length ? `<section class="card"><div class="card-h">DSCR Notes</div><div class="card-b side-b"><div class="cm-block">${dscrNotes.map((c) => `<div class="cm-item">${c.heading ? `<div class="cm-h">${escHtml(c.heading)}</div>` : ''}${c.text ? `<div class="cm-t">${escHtml(c.text)}</div>` : ''}</div>`).join('')}</div></div></section>` : '';
+  html += `<div class="bottom" style="grid-template-columns:${notes ? `minmax(0, 1fr) ${cfg.sideWidth}%` : '1fr'}">`;
+  html += `<section class="card"><div class="card-h">Cash Flow Available for Debt Service</div><div class="card-b">${cfTableHtml(model)}</div></section>${notes}</div>`;
+  html += '</main>';
+  html += `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page ${pageNo} of ${pageCount}</span></footer>`;
+  return html;
+}
+
 function renderPage(model) {
   const { cfg, charts, table } = model;
-  const page = document.getElementById('page');
+  const container = document.getElementById('page');
   const a4 = cfg.pageSize === 'A4';
   const pw = a4 ? '297mm' : '11in', ph = a4 ? '210mm' : '8.5in';
   document.getElementById('pageSizeRule').textContent = `@page { size: ${pw} ${ph}; margin: 0; }`;
-  page.style.width = pw;
-  page.style.height = `calc(${ph} - 1px)`;
-  page.style.setProperty('--theme', cfg.color);
+  container.style.width = pw;
+  const pageCount = model.dscr ? 2 : 1;
+  container.innerHTML = Array.from({ length: pageCount }, () => '<div class="page"></div>').join('');
+  const pages = Array.from(container.children);
+  pages.forEach((pg) => {
+    pg.style.width = pw;
+    pg.style.height = `calc(${ph} - 1px)`;
+    pg.style.setProperty('--theme', cfg.color);
+  });
+  const page = pages[0];
 
   const sideBody = cfg.sideType === 'None' ? '' : sideHtml(model);
   const hasSide = sideBody !== '';
@@ -1113,8 +1411,9 @@ function renderPage(model) {
     html += '</div>';
   }
   html += '</main>';
-  html += `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page 1 of 1</span></footer>`;
+  html += `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page 1 of ${pageCount}</span></footer>`;
   page.innerHTML = html;
+  if (model.dscr) pages[1].innerHTML = dscrPageHtml(model, 2, pageCount);
   document.getElementById('pageWrap').hidden = false;
 
   const layoutWarnings = [];
@@ -1129,10 +1428,19 @@ function renderPage(model) {
   if (charts.length && smallest < 45) {
     layoutWarnings.push('The page is crowded: the charts are very short.  Remove some table rows, shorten the commentary, or set "Chart columns" to 2.');
   }
-  const body = page.querySelector('.body');
-  if (body.scrollHeight > body.clientHeight + 2) {
-    layoutWarnings.push('Some content does not fit on one page and is cut off at the bottom.  Remove table rows or shorten the commentary.');
+  if (model.dscr) {
+    pages[1].querySelectorAll('.plot').forEach((plot) => {
+      const svg = plot.querySelector('svg');
+      const fn = plot.dataset.dscr === 'cfads' ? drawCfadsChart : drawDscrChart;
+      if (fn(svg, model, plot.clientWidth, plot.clientHeight) === false) layoutWarnings.push('The DSCR page is crowded: its charts are very short.  Shorten the DSCR Notes or the Debt Service rows.');
+    });
   }
+  pages.forEach((pg, i) => {
+    const body = pg.querySelector('.body');
+    if (body.scrollHeight > body.clientHeight + 2) {
+      layoutWarnings.push(`Some content does not fit on page ${i + 1} and is cut off at the bottom.  Remove table rows or shorten the commentary.`);
+    }
+  });
   fitToScreen();
   return layoutWarnings;
 }
@@ -1141,7 +1449,7 @@ function fitToScreen() {
   const page = document.getElementById('page');
   const wrap = document.getElementById('pageWrap');
   if (wrap.hidden) return;
-  const w = page.offsetWidth, h = page.offsetHeight;
+  const w = page.offsetWidth, h = page.scrollHeight;
   const s = Math.min(1, (document.documentElement.clientWidth - 32) / w);
   page.style.transform = s < 1 ? `scale(${s})` : '';
   wrap.style.width = w * s + 'px';
