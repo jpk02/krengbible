@@ -244,6 +244,15 @@ const FULL_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'ju
 const PALETTE = ['#2F5D9E', '#2A9D8F', '#D98A2B', '#8E6BB0'];
 const PY_MIX = 0.55;              // how far prior-year bars are lightened toward white
 const YEAR_SOLID = '#4B5563';
+// Stacked components: one blue, dark to light (ordinal ramp, validated: monotone lightness, single hue),
+// so the parts of a stack blend instead of contrasting.  The first matches single-series bars.
+const STACK_RAMPS = {
+  1: ['#2F5D9E'],
+  2: ['#2F5D9E', '#8AAEDD'],
+  3: ['#244C86', '#4F7DBF', '#8AAEDD'],
+  4: ['#244C86', '#4F7DBF', '#8AAEDD', '#B9CFEC'],
+};
+const stackColors = (n) => STACK_RAMPS[Math.max(1, Math.min(4, n))];
 // Debt service on page 2: neutral grays (principal, interest, then any third line) so CFADS blue
 // carries the emphasis; validated as distinct from the blue (normal-vision dE 15.5).
 const DS_COLORS = ['#7A7F87', '#C9CCD1', '#A2A7AE'];     // neutral legend swatches for "this year" / "prior year"
@@ -1110,7 +1119,7 @@ function drawChart(svg, ch, cfg, W, H, notes) {
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const data = chartSeries(ch, cfg);
   const stacked = ch.comps.length > 1;
-  const colors = ch.comps.map((_, i) => PALETTE[i]);
+  const colors = stackColors(ch.comps.length);
 
   // stack extents per year/month
   const ext = data.map((comps) => MONTHS.map((_, m) => {
@@ -1229,7 +1238,8 @@ function drawChart(svg, ch, cfg, W, H, notes) {
 function legendHtml(ch, cfg) {
   const items = [];
   if (ch.comps.length > 1) {
-    ch.comps.forEach((c, i) => items.push(`<span><i style="background:${PALETTE[i]}"></i>${escHtml(c)}</span>`));
+    const sc = stackColors(ch.comps.length);
+    ch.comps.forEach((c, i) => items.push(`<span><i style="background:${sc[i]}"></i>${escHtml(c)}</span>`));
     items.push('<span class="div"></span>');
     items.push(`<span><i style="background:${mix(YEAR_SOLID, '#FFFFFF', PY_MIX)}"></i>${cfg.py}</span>`);
     items.push(`<span><i style="background:${YEAR_SOLID}"></i>${cfg.cy}</span>`);
