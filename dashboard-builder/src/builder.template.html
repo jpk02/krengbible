@@ -103,6 +103,9 @@
   .plot svg { position: absolute; inset: 0; display: block; overflow: visible; }
   .plot text { font-family: var(--font); }
 
+  .fnotes { flex: none; margin: 0 12px; padding: 4px 0 6px; border-top: 1px solid var(--hair); font-size: 9.5px; line-height: 1.35; color: var(--ink-2); }
+  .fnotes sup { font-size: 7px; font-weight: 700; color: var(--ink); margin-right: 3px; }
+  .fnotes b { font-weight: 600; color: var(--ink); }
   .bottom { flex: none; display: grid; gap: 12px; align-items: stretch; }
   .bottom.no-charts { flex: 1; }
 
@@ -516,6 +519,22 @@ function toNumber(c) {
   return Number.isFinite(n) ? (neg ? -n : n) : NaN;
 }
 
+const capWord = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/* Month from a cell: "Aug", "August", "Sept", 8, or an Excel date.  null = blank, NaN = unreadable. */
+function parseMonth(c) {
+  if (!c || c.v === null) return null;
+  if (typeof c.v === 'number') {
+    if (Number.isInteger(c.v) && c.v >= 1 && c.v <= 12) return c.v - 1;
+    if (c.v > 31) return new Date(Date.UTC(1899, 11, 30) + Math.round(c.v) * 864e5).getUTCMonth();
+    return NaN;
+  }
+  const tok = norm(c.v).split(/[\s\-\/,.]+/)[0];
+  if (tok.length < 3) return NaN;
+  const i = FULL_MONTHS.findIndex((f) => f.startsWith(tok));
+  return i >= 0 ? i : NaN;
+}
+
 function findSheet(sheets, name) {
   const key = Object.keys(sheets).find((k) => norm(k) === norm(name));
   return key ? sheets[key] : null;
@@ -563,11 +582,9 @@ function buildModel(sheets) {
     chartTitle: sText('Chart section title', 'Monthly Performance'),
     labels: sChoice('Data labels', ['This year', 'Both years', 'None'], 'This year'),
     chartCols: sChoice('Chart columns', ['Auto', '1', '2', '3'], 'Auto'),
-    tableTitle: sText('Table title', 'Performance vs. Plan - Monthly & YTD'),
-    monthHead: sText('Month heading', 'Month'),
-    ytdHead: sText('YTD heading', 'Year to Date'),
+    tableTitle: sText('Table title', 'Performance vs. EV Case - Monthly & YTD'),
     actual: sText('Actual label', 'Actual'),
-    comp: sText('Comparison label', 'Plan'),
+    comp: sText('Comparison label', 'EV Case'),
     variance: sText('Variance label', 'Variance'),
     negParen: sChoice('Negative numbers', ['Parentheses', 'Minus sign'], 'Parentheses') === 'Parentheses',
     sideType: sChoice('Side panel type', ['Commentary', 'Table', 'Table + Commentary', 'None'], 'Commentary'),
@@ -635,6 +652,22 @@ function buildModel(sheets) {
   for (const y of sortedYears) {
     if (y !== cfg.cy && y !== cfg.py) warnings.push(`Charts tab: rows for ${y} are ignored (Settings shows ${cfg.cy} vs. ${cfg.py}).`);
   }
+  let cur = S['current month'] ? parseMonth(S['current month']) : null;
+  if (Number.isNaN(cur)) {
+    warnings.push(`Settings: Current month "${sText('Current month')}" is not a month like Aug or August.  Using the last month with ${cfg.cy} data instead.`);
+    cur = null;
+  }
+  if (cur === null) {
+    cur = -1;
+    for (const ch of charts) for (const r of ch.rows) if (r.year === cfg.cy) r.values.forEach((v, m) => { if (v !== null) cur = Math.max(cur, m); });
+    if (cur < 0) cur = 11;
+  }
+  cfg.cur = cur;
+  cfg.monthHead = sText('Month heading', '') || capWord(FULL_MONTHS[cur]);
+  cfg.ytdHead = sText('YTD heading', '') || `YTD Through ${capWord(FULL_MONTHS[cur])}`;
+  const hiddenLater = charts.some((ch) => ch.rows.some((r) => r.year === cfg.cy && r.values.some((v, m) => v !== null && m > cur)));
+  if (hiddenLater) warnings.push(`Charts tab: ${cfg.cy} values after ${MONTHS[cur]} are not shown, because Current month is ${MONTHS[cur]}.`);
+
   for (const ch of charts) {
     const dup = new Set();
     for (const r of ch.rows) {
@@ -649,41 +682,98 @@ function buildModel(sheets) {
   const tg = findSheet(sheets, 'Table');
   if (tg) {
     const hm = headerMap(tg[0]);
-    const col = (n) => hm[n];
-    if (col('metric') === undefined) errors.push('Table tab: row 1 must contain a "Metric" column header.');
+    const col = (names) => { for (const n of [].concat(names)) if (hm[n] !== undefined) return hm[n]; return undefined; };
+    const H = {
+      metric: 'metric', from: 'from chart', fromComp: 'from component', ytdMethod: 'ytd method',
+      prefix: 'prefix', suffix: 'suffix', dec: 'decimals', better: 'better when', varAs: 'variance as', bold: 'bold',
+      mA: 'month actual', mE: ['month ev case', 'month comparison', 'month budget', 'month plan'],
+      yA: 'ytd actual', yE: ['ytd ev case', 'ytd comparison', 'ytd budget', 'ytd plan'],
+    };
+    if (col(H.metric) === undefined) errors.push('Table tab: row 1 must contain a "Metric" column header.');
     else {
       tg.forEach((row, ri) => {
         if (ri === 0 || isBlankRow(row)) return;
-        const metric = cellW(row, col('metric'));
+        const metric = cellW(row, col(H.metric));
         if (!metric) return;
-        const num = (name) => {
-          if (col(name) === undefined) return null;
-          const n = toNumber(row[col(name)]);
-          if (Number.isNaN(n)) { warnings.push(`Table tab row ${ri + 1}: "${cellW(row, col(name))}" in "${name}" is not a number; shown as blank.`); return null; }
+        const line = `Table tab row ${ri + 1} (${metric})`;
+        const num = (names, label) => {
+          const c = col(names);
+          if (c === undefined) return null;
+          const n = toNumber(row[c]);
+          if (Number.isNaN(n)) { warnings.push(`${line}: "${cellW(row, c)}" in ${label} is not a number; shown as blank.`); return null; }
           return n;
         };
-        const raw = (name) => (col(name) === undefined || !row[col(name)] ? '' : String(row[col(name)].v ?? ''));
-        const dec = num('decimals');
-        const suffix = raw('suffix');
-        let varAs = norm(raw('variance as'));
+        const raw = (names) => { const c = col(names); return c === undefined || !row[c] ? '' : String(row[c].v ?? '').trim(); };
+        const dec = num(H.dec, 'Decimals');
+        const suffix = raw(H.suffix);
+        let varAs = norm(raw(H.varAs));
         if (!['%', 'abs', 'pts'].includes(varAs)) {
-          if (varAs) warnings.push(`Table tab row ${ri + 1}: Variance As "${raw('variance as')}" should be %, Abs or Pts.`);
+          if (varAs) warnings.push(`${line}: Variance As "${raw(H.varAs)}" should be %, Abs or Pts.`);
           varAs = suffix.trim() === '%' ? 'pts' : '%';
         }
-        const better = norm(raw('better when'));
+
+        // Actuals: pulled from the Charts tab when "From Chart" is filled in, otherwise typed.
+        let mA = null, yA = null;
+        const from = raw(H.from);
+        if (from) {
+          const ch = charts.find((c) => norm(c.name) === norm(from));
+          const comp = raw(H.fromComp);
+          const avg = norm(raw(H.ytdMethod)) === 'average';
+          if (!ch) {
+            warnings.push(`${line}: From Chart "${from}" does not match any Chart name on the Charts tab.`);
+          } else if (comp && !ch.comps.some((c) => norm(c) === norm(comp))) {
+            warnings.push(ch.comps.filter(Boolean).length
+              ? `${line}: "${from}" has no component called "${comp}".  Its components are: ${ch.comps.filter(Boolean).join(', ')}.`
+              : `${line}: "${from}" is not a stacked chart, so leave From Component blank.`);
+          } else {
+            const src = ch.rows.filter((r) => r.year === cfg.cy && (!comp || norm(r.comp) === norm(comp)));
+            const monthVal = (m) => src.reduce((acc, r) => (r.values[m] === null ? acc : (acc ?? 0) + r.values[m]), null);
+            mA = monthVal(cfg.cur);
+            const vals = [];
+            for (let m = 0; m <= cfg.cur; m++) { const v = monthVal(m); if (v !== null) vals.push(v); }
+            if (vals.length) yA = vals.reduce((a, b) => a + b, 0) / (avg ? vals.length : 1);
+            if (mA === null) warnings.push(`${line}: "${from}" has no ${cfg.cy} value for ${MONTHS[cfg.cur]} on the Charts tab.`);
+          }
+        } else {
+          mA = num(H.mA, 'Month Actual');
+          yA = num(H.yA, 'YTD Actual');
+        }
+
         table.push({
           metric,
-          prefix: raw('prefix'),
-          suffix,
+          prefix: raw(H.prefix),
+          suffix: col(H.suffix) === undefined || !row[col(H.suffix)] ? '' : String(row[col(H.suffix)].v ?? ''),
           dec: dec === null ? 1 : Math.max(0, Math.min(4, Math.round(dec))),
-          lowerBetter: better === 'lower',
+          lowerBetter: norm(raw(H.better)) === 'lower',
           varAs,
-          bold: ['y', 'yes', 'true', 'x'].includes(norm(raw('bold'))),
-          m: [num('month actual'), num('month comparison')],
-          y: [num('ytd actual'), num('ytd comparison')],
+          bold: ['y', 'yes', 'true', 'x'].includes(norm(raw(H.bold))),
+          m: [mA, num(H.mE, 'Month EV Case')],
+          y: [yA, num(H.yE, 'YTD EV Case')],
         });
       });
     }
+  }
+
+  // ---- Footnotes
+  const footnotes = [];
+  const fg = findSheet(sheets, 'Footnotes');
+  if (fg) {
+    const hm = headerMap(fg[0]);
+    const cc = hm['chart'] ?? 0, mc = hm['month'] ?? 1, nc = hm['note'] ?? 2;
+    fg.forEach((row, ri) => {
+      if (ri === 0 || isBlankRow(row)) return;
+      const text = cellW(row, nc);
+      if (!text) return;
+      const m = parseMonth(row && row[mc]);
+      if (m === null || Number.isNaN(m)) { warnings.push(`Footnotes tab row ${ri + 1}: "${cellW(row, mc)}" is not a month like Jul or July; footnote skipped.`); return; }
+      const cname = cellW(row, cc);
+      let chart = null;
+      if (cname) {
+        chart = charts.find((c) => norm(c.name) === norm(cname)) || null;
+        if (!chart) { warnings.push(`Footnotes tab row ${ri + 1}: Chart "${cname}" does not match any Chart name on the Charts tab; footnote skipped.`); return; }
+      }
+      footnotes.push({ num: footnotes.length + 1, month: m, chart, text });
+    });
   }
 
   // ---- Side panel
@@ -713,7 +803,7 @@ function buildModel(sheets) {
     warnings.push(`Side panel type is "${cfg.sideType}" but the Side Table tab has no data rows below the header.`);
   }
 
-  return { cfg, charts, table, commentary, sideTable, errors, warnings };
+  return { cfg, charts, table, footnotes, commentary, sideTable, errors, warnings };
 }
 
 /* ================= FORMATTING ================= */
@@ -809,12 +899,15 @@ function chartSeries(ch, cfg) {
     const ys = r.year === cfg.py ? 0 : r.year === cfg.cy ? 1 : -1;
     const ci = ch.comps.indexOf(r.comp);
     if (ys < 0 || ci < 0) continue;
-    r.values.forEach((v, m) => { if (v !== null) out[ys][ci][m] = (out[ys][ci][m] ?? 0) + v; });
+    r.values.forEach((v, m) => {
+      if (v === null || (ys === 1 && m > cfg.cur)) return;
+      out[ys][ci][m] = (out[ys][ci][m] ?? 0) + v;
+    });
   }
   return out;
 }
 
-function drawChart(svg, ch, cfg, W, H) {
+function drawChart(svg, ch, cfg, W, H, notes) {
   svg.setAttribute('width', W);
   svg.setAttribute('height', H);
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -870,6 +963,11 @@ function drawChart(svg, ch, cfg, W, H) {
   MONTHS.forEach((mn, m) => {
     const tx = svgEl('text', { x: left + band * m + band / 2, y: H - 3, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
     tx.textContent = mn;
+    const marks = notes.filter((f) => f.month === m).map((f) => f.num);
+    if (marks.length) {
+      const sup = svgEl('tspan', { dx: 1, dy: -4, 'font-size': 7.5, 'font-weight': 700, fill: '#111827' }, tx);
+      sup.textContent = marks.join(',');
+    }
   });
 
   const yearLabel = [String(cfg.py), String(cfg.cy)];
@@ -1001,7 +1099,11 @@ function renderPage(model) {
     charts.forEach((ch, i) => {
       html += `<div class="chart"><div class="chart-head"><span class="chart-title">${escHtml(ch.name)}</span>${legendHtml(ch, cfg)}</div><div class="plot" data-i="${i}"><svg></svg></div></div>`;
     });
-    html += '</div></section>';
+    html += '</div>';
+    if (model.footnotes.length) {
+      html += `<div class="fnotes">${model.footnotes.map((f) => `<div><sup>${f.num}</sup><b>${MONTHS[f.month]}${f.chart ? ', ' + escHtml(f.chart.name) : ''}:</b> ${escHtml(f.text)}</div>`).join('')}</div>`;
+    }
+    html += '</section>';
   }
   if (hasTable || hasSide) {
     const colsCss = hasTable && hasSide ? `grid-template-columns: minmax(0, 1fr) ${cfg.sideWidth}%` : 'grid-template-columns: 1fr';
@@ -1020,7 +1122,8 @@ function renderPage(model) {
   page.querySelectorAll('.plot').forEach((plot) => {
     const ch = charts[+plot.dataset.i];
     const svg = plot.querySelector('svg');
-    const h = drawChart(svg, ch, cfg, plot.clientWidth, plot.clientHeight);
+    const notes = model.footnotes.filter((f) => f.chart === null || f.chart === ch);
+    const h = drawChart(svg, ch, cfg, plot.clientWidth, plot.clientHeight, notes);
     smallest = Math.min(smallest, h === false ? 0 : h);
   });
   if (charts.length && smallest < 45) {

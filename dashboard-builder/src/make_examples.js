@@ -7,8 +7,10 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const h = (v) => ({ v, s: S.header });
 const note = (v) => ({ v, s: S.note });
 const inp = (v) => ({ v, s: S.input });
+const FROM_CHARTS = '(from Charts)';
 
 const LISTS = {
+  'Current month': MONTHS,
   'Data labels': ['This year', 'Both years', 'None'],
   'Chart columns': ['Auto', '1', '2', '3'],
   'Negative numbers': ['Parentheses', 'Minus sign'],
@@ -21,17 +23,25 @@ function instructionsSheet() {
     [{ v: 'Monthly Dashboard Inputs', s: S.title }],
     [],
     [{ v: 'How to use', s: S.bold }],
-    ['1.  Fill in the Settings, Charts, Table, Commentary and Side Table tabs.  Blue text on yellow = inputs.'],
+    ['1.  Fill in the Settings, Charts, Footnotes, Table, Commentary and Side Table tabs.  Blue text on yellow = inputs.'],
     ['2.  Save this workbook.'],
-    ['3.  Open "Dashboard Builder.html" in Edge or Chrome and drag this workbook onto the page.'],
+    ['3.  Open the Dashboard Builder page in Edge or Chrome and drag this workbook onto it.'],
     ['4.  Click "Save as PDF" (or press Ctrl+P), choose "Save as PDF", and save.'],
     [],
     [{ v: 'Tabs', s: S.bold }],
     ['Settings  -  titles, labels, footer, and layout options.  The Notes column explains each one.'],
+    ['               "Current month" drives the month and YTD columns of the table.  Current-year chart values after it are not shown.'],
     ['Charts  -  one row per chart / component / year with Jan-Dec values.  Leave months blank where there is no data yet.'],
     ['               Each distinct "Chart" name becomes its own chart.  Rows with a "Component" (e.g. Contracted, Merchant) are stacked.'],
-    ['               Every chart shows the Current year and Prior year from Settings side by side, month by month.'],
+    ['               Every chart shows the Prior year and Current year from Settings side by side, month by month.'],
+    ['               Enter full precision here (e.g. 3.92); the Decimals column only controls how the chart labels are rounded.'],
+    ['Footnotes  -  explain a month on a chart.  Leave "Chart" blank to mark that month on every chart.'],
+    ['               The month label gets a small number and the note prints under the charts.'],
     ['Table  -  any number of rows.  The variance is calculated for you; "Better When" sets whether it shows green or red.'],
+    ['               Put a chart name in "From Chart" to fill Month Actual and YTD Actual from the Charts tab automatically'],
+    ['               (add a "From Component" to use just one component, e.g. Contracted).  Leave "From Chart" blank to type the actuals yourself.'],
+    ['               "YTD Method": Sum (default) adds the months up; Average averages them (use for percentages like capacity factor).'],
+    ['               Month EV Case and YTD EV Case are always typed in.'],
     ['Commentary  -  Heading + Text pairs for the bottom-right box.'],
     ['Side Table  -  a free-form grid for the bottom-right box.  Row 1 = column headers.  Values print exactly as they appear in Excel.'],
     [],
@@ -40,7 +50,7 @@ function instructionsSheet() {
     ['-  Copy this workbook for each asset (one workbook = one dashboard).'],
     ['-  Your data never leaves your computer: the builder page reads the file locally in the browser.'],
   ];
-  return { name: 'Instructions', rows: lines, widths: [130] };
+  return { name: 'Instructions', rows: lines, widths: [140] };
 }
 
 function settingsSheet(settings) {
@@ -51,12 +61,13 @@ function settingsSheet(settings) {
     'Header color': 'Hex color for the banner and section headers, e.g. #1F3B6E.',
     'Current year': 'Year whose values are the solid bars.',
     'Prior year': 'Year whose values are the lighter bars next to them.',
+    'Current month': 'The month being reported.  Drives Month Actual and YTD (Jan through this month) in the table.',
     'Chart section title': 'Header above the charts.',
     'Data labels': 'Which bars get value labels: This year / Both years / None.',
     'Chart columns': 'Auto = 1 column for up to 3 charts, 2 columns for more.',
     'Table title': 'Header above the comparison table.',
-    'Month heading': 'Heading over the monthly columns, e.g. August.',
-    'YTD heading': 'Heading over the year-to-date columns.',
+    'Month heading': 'Heading over the monthly columns.  Leave blank to use the Current month (e.g. August).',
+    'YTD heading': 'Heading over the year-to-date columns.  Leave blank for "YTD Through August".',
     'Actual label': 'Column label for actual values.',
     'Comparison label': 'Column label for the comparison case (EV Case, Budget, Forecast...).',
     'Variance label': 'Column label for the variance.',
@@ -73,43 +84,57 @@ function settingsSheet(settings) {
     rows.push([{ v: k, s: S.bold }, inp(v), note(notes[k] || '')]);
     if (LISTS[k]) validations.push({ range: `B${rows.length}`, list: LISTS[k] });
   }
-  return { name: 'Settings', rows, widths: [24, 70, 70], freezeRows: 1, validations };
+  return { name: 'Settings', rows, widths: [24, 70, 90], freezeRows: 1, validations };
 }
+
+const decimalsIn = (vals) => Math.max(0, ...vals.filter((v) => v !== null).map((v) => (String(v).split('.')[1] || '').length));
 
 function chartsSheet(series) {
   const rows = [[h('Chart'), h('Component'), h('Year'), h('Decimals'), ...MONTHS.map(h)]];
   for (const s of series) {
-    const style = s.decimals >= 2 ? S.input2 : S.input1;
+    const style = decimalsIn(s.values) >= 2 ? S.input2 : S.input1;
     rows.push([
       inp(s.chart), inp(s.component || ''), inp(s.year), inp(s.decimals),
       ...MONTHS.map((_, i) => (s.values[i] === undefined || s.values[i] === null ? { v: '', s: style } : { v: s.values[i], s: style })),
     ]);
   }
+  return { name: 'Charts', rows, widths: [26, 16, 8, 10, ...MONTHS.map(() => 8)], freezeRows: 1 };
+}
+
+function footnotesSheet(items) {
+  const rows = [[h('Chart'), h('Month'), h('Note')]];
+  for (const [c, m, t] of items) rows.push([inp(c), inp(m), inp(t)]);
+  for (let i = 0; i < 3; i++) rows.push([inp(''), inp(''), inp('')]);
   return {
-    name: 'Charts', rows, widths: [26, 16, 8, 10, ...MONTHS.map(() => 8)], freezeRows: 1,
+    name: 'Footnotes', rows, widths: [28, 10, 100], freezeRows: 1,
+    validations: [{ range: 'B2:B200', list: MONTHS }],
   };
 }
 
 function tableSheet(items) {
   const rows = [[
-    h('Metric'), h('Prefix'), h('Suffix'), h('Decimals'), h('Better When'), h('Variance As'), h('Bold'),
-    h('Month Actual'), h('Month Comparison'), h('YTD Actual'), h('YTD Comparison'),
+    h('Metric'), h('From Chart'), h('From Component'), h('YTD Method'),
+    h('Prefix'), h('Suffix'), h('Decimals'), h('Better When'), h('Variance As'), h('Bold'),
+    h('Month Actual'), h('Month EV Case'), h('YTD Actual'), h('YTD EV Case'),
   ]];
   for (const t of items) {
     const st = t.dec >= 2 ? S.input2 : S.input1;
+    const actual = (v) => (t.from ? note(FROM_CHARTS) : { v, s: st });
     rows.push([
-      inp(t.metric), inp(t.prefix || ''), inp(t.suffix || ''), inp(t.dec), inp(t.better || 'Higher'),
+      inp(t.metric), inp(t.from || ''), inp(t.fromComp || ''), inp(t.ytd || 'Sum'),
+      inp(t.prefix || ''), inp(t.suffix || ''), inp(t.dec), inp(t.better || 'Higher'),
       inp(t.varAs || ''), inp(t.bold || ''),
-      { v: t.m[0], s: st }, { v: t.m[1], s: st }, { v: t.y[0], s: st }, { v: t.y[1], s: st },
+      actual(t.m && t.m[0]), { v: t.ev[0], s: st }, actual(t.y && t.y[0]), { v: t.ev[1], s: st },
     ]);
   }
   const n = 200;
   return {
-    name: 'Table', rows, widths: [26, 8, 8, 10, 13, 13, 7, 14, 18, 12, 16], freezeRows: 1,
+    name: 'Table', rows, widths: [26, 24, 16, 12, 8, 8, 10, 13, 13, 7, 14, 15, 13, 14], freezeRows: 1,
     validations: [
-      { range: `E2:E${n}`, list: ['Higher', 'Lower'] },
-      { range: `F2:F${n}`, list: ['%', 'Abs', 'Pts'] },
-      { range: `G2:G${n}`, list: ['Y', 'N'] },
+      { range: `D2:D${n}`, list: ['Sum', 'Average'] },
+      { range: `H2:H${n}`, list: ['Higher', 'Lower'] },
+      { range: `I2:I${n}`, list: ['%', 'Abs', 'Pts'] },
+      { range: `J2:J${n}`, list: ['Y', 'N'] },
     ],
   };
 }
@@ -131,6 +156,7 @@ function build(spec) {
     instructionsSheet(),
     settingsSheet(spec.settings),
     chartsSheet(spec.series),
+    footnotesSheet(spec.footnotes),
     tableSheet(spec.table),
     commentarySheet(spec.commentary),
     sideTableSheet(spec.sideTable),
@@ -138,7 +164,6 @@ function build(spec) {
 }
 
 const pad = (arr) => { const a = new Array(12).fill(null); arr.forEach((v, i) => { a[i] = v; }); return a; };
-const at = (map) => { const a = new Array(12).fill(null); for (const [m, v] of Object.entries(map)) a[MONTHS.indexOf(m)] = v; return a; };
 
 const COMMON = (o) => [
   ['Title', o.title],
@@ -147,14 +172,15 @@ const COMMON = (o) => [
   ['Header color', '#1F3B6E'],
   ['Current year', 2026],
   ['Prior year', 2025],
+  ['Current month', 'Aug'],
   ['Chart section title', 'Monthly Performance - 2026 vs. 2025'],
   ['Data labels', 'This year'],
   ['Chart columns', 'Auto'],
   ['Table title', o.tableTitle],
-  ['Month heading', 'August'],
-  ['YTD heading', 'YTD Through August'],
+  ['Month heading', ''],
+  ['YTD heading', ''],
   ['Actual label', 'Actual'],
-  ['Comparison label', 'Budget'],
+  ['Comparison label', 'EV Case'],
   ['Variance label', 'Variance'],
   ['Negative numbers', 'Parentheses'],
   ['Side panel type', o.sideType],
@@ -168,28 +194,32 @@ const COMMON = (o) => [
 const BLUEFIELD = {
   settings: COMMON({
     title: 'BLUEFIELD SOLAR HOLDINGS',
-    tableTitle: 'Operating and Financial Performance vs. Budget - Monthly & YTD',
+    tableTitle: 'Operating and Financial Performance vs. EV Case - Monthly & YTD',
     sideType: 'Commentary',
     sideTitle: 'Maintenance Commentary',
     sideWidth: 30,
-    footer: 'Sources: Bluefield monthly operating reports; 2026 budget model.  Fictional example data.',
+    footer: 'Sources: Bluefield monthly operating reports; 2026 EV Case model.  Fictional example data.',
   }),
   series: [
-    { chart: 'Generation (GWh)', year: 2026, decimals: 1, values: pad([24.6, 27.3, 38.9, 44.1, 49.8, 52.4, 51.7, 47.2]) },
+    { chart: 'Generation (GWh)', year: 2026, decimals: 1, values: pad([24.6, 27.3, 38.9, 44.1, 49.8, 52.4, 41.7, 47.2]) },
     { chart: 'Generation (GWh)', year: 2025, decimals: 1, values: pad([22.9, 26.1, 36.4, 42.7, 47.5, 50.9, 49.6, 45.8, 39.2, 31.5, 25.4, 21.8]) },
-    { chart: 'Revenue ($MM)', year: 2026, decimals: 1, values: pad([1.6, 1.8, 2.6, 3.0, 3.4, 4.1, 4.3, 3.9]) },
+    { chart: 'Revenue ($MM)', year: 2026, decimals: 1, values: pad([1.62, 1.84, 2.57, 3.03, 3.41, 4.12, 3.46, 3.92]) },
     { chart: 'Revenue ($MM)', year: 2025, decimals: 1, values: pad([1.5, 1.7, 2.4, 2.8, 3.2, 3.9, 4.0, 3.7, 2.9, 2.2, 1.7, 1.4]) },
-    { chart: 'Operating income ($MM)', year: 2026, decimals: 1, values: pad([-0.4, 0.1, 0.9, 1.3, 1.7, 2.3, 2.5, 2.1]) },
+    { chart: 'Operating income ($MM)', year: 2026, decimals: 1, values: pad([-0.41, 0.12, 0.88, 1.31, 1.69, 2.27, 1.66, 2.07]) },
     { chart: 'Operating income ($MM)', year: 2025, decimals: 1, values: pad([-0.6, -0.2, 0.7, 1.1, 1.5, 2.0, 2.2, 1.9, 1.2, 0.5, -0.1, -0.5]) },
   ],
+  footnotes: [
+    ['', 'Jul', 'Plant shut down July 13-17 for a utility transformer replacement at the point of interconnection.'],
+    ['Operating income ($MM)', 'Jan', 'Annual property insurance premium expensed in January.'],
+  ],
   table: [
-    { metric: 'Generation', suffix: ' GWh', dec: 1, m: [47.2, 50.6], y: [336.0, 351.4] },
-    { metric: 'Revenue', prefix: '$', suffix: 'MM', dec: 2, m: [3.92, 3.85], y: [24.71, 25.30] },
-    { metric: 'O&M expense', prefix: '$', suffix: 'MM', dec: 2, better: 'Lower', varAs: 'Abs', m: [0.86, 0.74], y: [6.12, 6.40] },
-    { metric: 'Operating income', prefix: '$', suffix: 'MM', dec: 2, bold: 'Y', m: [2.07, 2.31], y: [10.48, 11.62] },
+    { metric: 'Generation', from: 'Generation (GWh)', suffix: ' GWh', dec: 1, ev: [50.6, 351.4] },
+    { metric: 'Revenue', from: 'Revenue ($MM)', prefix: '$', suffix: 'MM', dec: 2, ev: [3.85, 25.30] },
+    { metric: 'O&M expense', prefix: '$', suffix: 'MM', dec: 2, better: 'Lower', varAs: 'Abs', m: [0.86], y: [6.12], ev: [0.74, 6.40] },
+    { metric: 'Operating income', from: 'Operating income ($MM)', prefix: '$', suffix: 'MM', dec: 2, bold: 'Y', ev: [2.31, 11.62] },
   ],
   commentary: [
-    ['Inverter block 3', 'Two central inverters offline August 4-9 for warranty replacement of power modules.'],
+    ['Interconnection', 'Utility replaced the POI transformer July 13-17; the plant was offline for the full outage.'],
     ['Tracker controls', 'Firmware update completed across all rows; stow logic retested and passed.'],
     ['Portfolio', 'Routine preventive maintenance continued; no safety or environmental events.'],
   ],
@@ -200,33 +230,37 @@ const BLUEFIELD = {
 const RIDGELINE = {
   settings: COMMON({
     title: 'RIDGELINE POWER PARTNERS',
-    tableTitle: 'Operating Metrics vs. Budget - Monthly & YTD',
+    tableTitle: 'Operating Metrics vs. EV Case - Monthly & YTD',
     sideType: 'Table + Commentary',
     sideTitle: 'Liquidity and Monitoring',
     sideWidth: 32,
-    footer: 'Sources: Ridgeline monthly operating reports; 2026 budget model.  Fictional example data.',
+    footer: 'Sources: Ridgeline monthly operating reports; 2026 EV Case model.  Fictional example data.',
   }),
   series: [
-    { chart: 'Net generation (GWh)', component: 'Contracted', year: 2026, decimals: 0, values: pad([205, 188, 196, 172, 214, 231, 236, 228]) },
-    { chart: 'Net generation (GWh)', component: 'Merchant', year: 2026, decimals: 0, values: pad([48, 35, 52, 61, 44, 73, 81, 57]) },
+    { chart: 'Net generation (GWh)', component: 'Contracted', year: 2026, decimals: 0, values: pad([205, 188, 196, 112, 214, 231, 236, 228]) },
+    { chart: 'Net generation (GWh)', component: 'Merchant', year: 2026, decimals: 0, values: pad([48, 35, 52, 21, 44, 73, 81, 57]) },
     { chart: 'Net generation (GWh)', component: 'Contracted', year: 2025, decimals: 0, values: pad([198, 182, 190, 168, 207, 224, 229, 221, 201, 186, 192, 203]) },
     { chart: 'Net generation (GWh)', component: 'Merchant', year: 2025, decimals: 0, values: pad([66, 51, 58, 72, 60, 88, 94, 79, 55, 47, 53, 62]) },
-    { chart: 'Gross margin ($MM)', component: 'Contracted', year: 2026, decimals: 1, values: pad([5.0, 4.6, 4.8, 4.3, 5.2, 5.6, 5.7, 5.5]) },
-    { chart: 'Gross margin ($MM)', component: 'Merchant', year: 2026, decimals: 1, values: pad([0.6, 0.4, 0.7, 0.9, 0.5, 1.4, 1.7, 0.8]) },
+    { chart: 'Gross margin ($MM)', component: 'Contracted', year: 2026, decimals: 1, values: pad([5.02, 4.61, 4.83, 3.12, 5.18, 5.64, 5.71, 5.49]) },
+    { chart: 'Gross margin ($MM)', component: 'Merchant', year: 2026, decimals: 1, values: pad([0.58, 0.41, 0.66, 0.22, 0.53, 1.38, 1.74, 0.82]) },
     { chart: 'Gross margin ($MM)', component: 'Contracted', year: 2025, decimals: 1, values: pad([4.8, 4.4, 4.6, 4.1, 5.0, 5.4, 5.5, 5.3, 4.9, 4.5, 4.7, 4.9]) },
     { chart: 'Gross margin ($MM)', component: 'Merchant', year: 2025, decimals: 1, values: pad([0.9, 0.6, 0.8, 1.1, 0.8, 1.8, 2.1, 1.2, 0.7, 0.5, 0.6, 0.8]) },
-    { chart: 'EBITDA ($MM)', year: 2026, decimals: 1, values: pad([4.1, 3.6, 4.0, 3.7, 4.2, 5.4, 5.8, 4.8]) },
+    { chart: 'EBITDA ($MM)', year: 2026, decimals: 1, values: pad([4.12, 3.58, 3.97, 2.21, 4.23, 5.41, 5.83, 4.79]) },
     { chart: 'EBITDA ($MM)', year: 2025, decimals: 1, values: pad([4.2, 3.6, 3.9, 3.7, 4.3, 5.7, 6.0, 5.0, 4.1, 3.5, 3.8, 4.2]) },
   ],
+  footnotes: [
+    ['', 'Apr', 'Unit 1 planned major outage April 6-24.'],
+    ['Gross margin ($MM)', 'Jul', 'Merchant margin lifted by the July 14-22 heat wave price spike.'],
+  ],
   table: [
-    { metric: 'Capacity factor', suffix: '%', dec: 1, varAs: 'Pts', m: [88.4, 93.0], y: [86.7, 85.2] },
-    { metric: 'Contracted generation', suffix: ' GWh', dec: 0, m: [228, 241], y: [1670, 1712] },
-    { metric: 'Merchant generation', suffix: ' GWh', dec: 0, m: [57, 50], y: [451, 398] },
-    { metric: 'Net generation', suffix: ' GWh', dec: 0, bold: 'Y', m: [285, 291], y: [2121, 2110] },
-    { metric: 'Contracted gross margin', prefix: '$', suffix: 'MM', dec: 1, m: [5.5, 5.6], y: [40.7, 41.3] },
-    { metric: 'Merchant gross margin', prefix: '$', suffix: 'MM', dec: 1, m: [0.8, 0.9], y: [7.0, 6.2] },
-    { metric: 'Total gross margin', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', m: [6.3, 6.5], y: [47.7, 47.5] },
-    { metric: 'EBITDA', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', m: [4.8, 5.1], y: [35.6, 36.0] },
+    { metric: 'Capacity factor', suffix: '%', dec: 1, varAs: 'Pts', ytd: 'Average', m: [88.4], y: [84.9], ev: [93.0, 85.2] },
+    { metric: 'Contracted generation', from: 'Net generation (GWh)', fromComp: 'Contracted', suffix: ' GWh', dec: 0, ev: [241, 1712] },
+    { metric: 'Merchant generation', from: 'Net generation (GWh)', fromComp: 'Merchant', suffix: ' GWh', dec: 0, ev: [50, 398] },
+    { metric: 'Net generation', from: 'Net generation (GWh)', suffix: ' GWh', dec: 0, bold: 'Y', ev: [291, 2110] },
+    { metric: 'Contracted gross margin', from: 'Gross margin ($MM)', fromComp: 'Contracted', prefix: '$', suffix: 'MM', dec: 1, ev: [5.6, 41.3] },
+    { metric: 'Merchant gross margin', from: 'Gross margin ($MM)', fromComp: 'Merchant', prefix: '$', suffix: 'MM', dec: 1, ev: [0.9, 6.2] },
+    { metric: 'Total gross margin', from: 'Gross margin ($MM)', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', ev: [6.5, 47.5] },
+    { metric: 'EBITDA', from: 'EBITDA ($MM)', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', ev: [5.1, 36.0] },
   ],
   commentary: [
     ['Status', 'No forced outages, safety incidents, or environmental events.'],
