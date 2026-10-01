@@ -48,11 +48,13 @@ function instructionsSheet() {
     ['               Month EV Case and YTD EV Case are always typed in.'],
     ['Commentary  -  Heading + Text pairs for the bottom-right box.'],
     ['Side Table  -  a free-form grid for the bottom-right box.  Row 1 = column headers.  Values print exactly as they appear in Excel.'],
-    ['Debt Service  -  quarterly cash flow for page 2.  One column per quarter, oldest on the left.  Role: Revenue, Expense or Debt service.'],
-    ['               Enter expenses and debt service as positive numbers.  The black "Calculated" rows do the math: Total O&M costs = all Expense'],
-    ['               rows; CFADS = Revenue - Total O&M costs; Total debt service costs = all Debt service rows; DSCR = CFADS / debt service;'],
-    ['               DSCR - LTM = last 4 quarters of CFADS / last 4 quarters of debt service.  To add a line (e.g. LC fees), insert a row'],
-    ['               anywhere and set its Role; the totals pick it up.  The PDF recalculates from the input rows, so it always matches.'],
+    ['Debt Service  -  a running quarterly history for page 2: one column per quarter (Q1 2024 to Q4 2027).  Fill in each quarter when it closes;'],
+    ['               nothing ever needs shifting.  Page 2 shows the last completed quarter before the Current month\'s quarter and the 3 before it'],
+    ['               (Current month Aug -> through Q2; Dec -> through Q3).  Add more quarters by adding columns with labels like "Q1 2028".'],
+    ['               Role: Revenue, Expense or Debt service.  Enter expenses and debt service as positive numbers.  The black "Calculated'],
+    ['               rows do the math: Total O&M costs, CFADS = Revenue - Total O&M costs, Total debt service costs, DSCR, and DSCR - LTM'],
+    ['               (last 4 quarters of CFADS / last 4 quarters of debt service).  To add a line (e.g. LC fees), insert the row between two'],
+    ['               rows of the same block so the totals\' ranges grow to include it.  The PDF recalculates from the input rows.'],
     ['Reserves  -  one row per reserve account (DSR, O&M reserve, ...): Required balance and Balance available.  Shown on page 2 below the DSCR chart'],
     ['               with the % funded; anything under 100% is flagged.'],
     ['DSCR Notes  -  optional Heading + Text pairs shown on page 2 below the reserves.'],
@@ -233,50 +235,70 @@ function listsSheet() {
 }
 const CHART_NAMES = { name: 'ChartNames', ref: `OFFSET(Lists!$A$2,0,0,MAX(1,COUNTIF(Lists!$A$2:$A$${LIST_ROWS + 1},"?*")),1)` };
 
-// Debt Service tab: input rows (Revenue / Expense / Debt service) plus Calculated rows whose
-// formulas total by Role (SUMIF), so a row inserted anywhere with the right Role is included.
-const colLetter = (i) => String.fromCharCode(65 + i);  // i < 26 is plenty here
+// Debt Service tab: a running quarterly history (fixed headers, filled in as quarters close).
+// Input rows by Role, then Calculated rows.  Each total sums only its own block of input rows, so
+// no formula's range includes itself (a whole-column SUMIF would be a circular reference).
+const HISTORY = ['2024', '2025', '2026', '2027'].flatMap((y) => [1, 2, 3, 4].map((q) => `Q${q} ${y}`));
+const colLetter = (i) => (i < 26 ? String.fromCharCode(65 + i) : String.fromCharCode(64 + Math.floor(i / 26)) + String.fromCharCode(65 + (i % 26)));
 function debtServiceSheet(d) {
-  const nq = d.quarters.length;
-  const rows = [[h('Line item'), h('Role'), ...d.quarters.map(h)]];
-  const by = (role) => d.lines.filter((l) => l[1] === role);
-  const inputRow = ([name, role, vals]) => rows.push([inp(name), inp(role), ...vals.map((v) => ({ v, s: S.input2 }))]);
-  const sumRole = (role, q) => by(role).reduce((a, l) => a + l[2][q], 0);
+  const nq = HISTORY.length;
+  const valsFor = (vals) => HISTORY.map((label) => { const i = d.quarters.indexOf(label); return i < 0 ? null : vals[i]; });
+  const lines = d.lines.map(([name, role, vals]) => [name, role, valsFor(vals)]);
+  const by = (role) => lines.filter((l) => l[1] === role);
+  const rows = [[h('Line item'), h('Role'), ...HISTORY.map(h)]];
   const round = (v) => Math.round(v * 1e6) / 1e6;
-  const sumif = (role, c) => `SUMIF($B$2:$B$200,"${role}",${c}$2:${c}$200)`;
-  const calcRow = (name, f, v, style) => {
-    rows.push([{ v: name, s: S.bold }, note('Calculated'), ...d.quarters.map((_, q) => {
-      const val = v(q);
-      return { f: f(colLetter(2 + q), q), v: val === null ? '' : round(val), s: style };
-    })]);
-    return rows.length;  // 1-based row number
+  const block = (role) => {
+    const first = rows.length + 1;
+    by(role).forEach(([name, r, vals]) => rows.push([inp(name), inp(r), ...vals.map((v) => ({ v: v === null ? '' : v, s: S.input2 }))]));
+    return [first, rows.length];
   };
   const blank = () => rows.push([]);
+  const hasData = (q) => lines.some((l) => l[2][q] !== null);
+  const sumRole = (role, q) => by(role).reduce((a, l) => a + (l[2][q] ?? 0), 0);
+  const calcRow = (name, f, v, style) => {
+    rows.push([{ v: name, s: S.bold }, note('Calculated'), ...HISTORY.map((_, q) => {
+      const val = hasData(q) ? v(q) : null;
+      return { f: f(colLetter(2 + q), q), v: val === null || val === undefined ? '' : round(val), s: style };
+    })]);
+    return rows.length;
+  };
 
-  by('Revenue').forEach(inputRow);
+  const [r1, rN] = block('Revenue');
   blank();
-  by('Expense').forEach(inputRow);
-  calcRow('Total O&M costs', (c) => sumif('Expense', c), (q) => sumRole('Expense', q), S.calc2b);
-  const cfadsRow = calcRow('CFADS', (c) => `${sumif('Revenue', c)}-${sumif('Expense', c)}`, (q) => sumRole('Revenue', q) - sumRole('Expense', q), S.calc2b);
+  const [e1, eN] = block('Expense');
+  const rng = (c, a, b) => `${c}${a}:${c}${b}`;
+  // Debt rows are added below; their range is known after, so empty-column checks use a placeholder.
+  const EMPTY = '@@EMPTY@@';
+  const omRow = calcRow('Total O&M costs', (c) => `IF(${EMPTY}${c},"",SUM(${rng(c, e1, eN)}))`, (q) => sumRole('Expense', q), S.calc2b);
+  const cfRow = calcRow('CFADS', (c) => `IF(${EMPTY}${c},"",SUM(${rng(c, r1, rN + 1)})-${c}${omRow})`, (q) => sumRole('Revenue', q) - sumRole('Expense', q), S.calc2b);
   blank();
-  by('Debt service').forEach(inputRow);
-  const dsRow = calcRow('Total debt service costs', (c) => sumif('Debt service', c), (q) => sumRole('Debt service', q), S.calc2b);
+  const [d1, dN] = block('Debt service');
+  const dsRow = calcRow('Total debt service costs', (c) => `IF(${EMPTY}${c},"",SUM(${rng(c, d1, dN)}))`, (q) => sumRole('Debt service', q), S.calc2b);
   blank();
   const cf = (q) => sumRole('Revenue', q) - sumRole('Expense', q);
   const ds = (q) => sumRole('Debt service', q);
-  calcRow('DSCR - quarter', (c) => `IFERROR(${c}${cfadsRow}/${c}${dsRow},"")`, (q) => (ds(q) ? cf(q) / ds(q) : null), S.calcXb);
+  calcRow('DSCR - quarter', (c) => `IFERROR(${c}${cfRow}/${c}${dsRow},"")`, (q) => (ds(q) ? cf(q) / ds(q) : null), S.calcXb);
   calcRow('DSCR - LTM', (c, q) => {
     if (q < 3) return '""';
     const a = colLetter(2 + q - 3);
-    return `IFERROR(SUM(${a}${cfadsRow}:${c}${cfadsRow})/SUM(${a}${dsRow}:${c}${dsRow}),"")`;
+    return `IF(COUNT(${a}${cfRow}:${c}${cfRow})<4,"",IFERROR(SUM(${a}${cfRow}:${c}${cfRow})/SUM(${a}${dsRow}:${c}${dsRow}),""))`;
   }, (q) => {
-    if (q < 3) return null;
+    if (q < 3 || ![0, 1, 2, 3].every((k) => hasData(q - k))) return null;
     let c = 0, dd = 0;
     for (let k = q - 3; k <= q; k++) { c += cf(k); dd += ds(k); }
     return dd ? c / dd : null;
   }, S.calcXb);
+
+  // Fill in the "no inputs in this column" test now that every block's rows are known.
+  const emptyTest = (c) => `COUNT(${rng(c, r1, rN + 1)},${rng(c, e1, eN)},${rng(c, d1, dN)})=0,`;
+  rows.forEach((row) => row.forEach((cell) => {
+    if (cell && cell.f && cell.f.includes(EMPTY)) {
+      const c = cell.f.match(/@@EMPTY@@([A-Z]+)/)[1];
+      cell.f = cell.f.replace(`${EMPTY}${c},`, emptyTest(c));
+    }
+  }));
   return {
-    name: 'Debt Service', rows, widths: [26, 14, ...d.quarters.map(() => 11)], freezeRows: 1,
+    name: 'Debt Service', rows, widths: [26, 14, ...HISTORY.map(() => 10)], freezeRows: 1,
     validations: [{ range: 'B2:B200', list: ['Revenue', 'Expense', 'Debt service', 'Calculated'] }],
   };
 }
@@ -395,14 +417,14 @@ const BLUEFIELD = {
   ],
   sideTable: [['Item', 'Value']],
   debt: {
-    quarters: ['Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026', 'Q2 2026'],
+    quarters: ['Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026', 'Q2 2026', 'Q3 2026'],
     lines: [
-      ['Revenue', 'Revenue', [5.31, 5.62, 10.04, 10.52, 5.93, 6.08, 10.61]],
-      ['O&M', 'Expense', [1.92, 2.01, 2.08, 2.17, 2.03, 2.11, 2.19]],
-      ['Property taxes', 'Expense', [0.40, 0.40, 0.40, 0.40, 0.42, 0.45, 0.45]],
-      ['Other taxes', 'Expense', [0.11, 0.09, 0.18, 0.21, 0.10, 0.08, 0.19]],
-      ['Principal', 'Debt service', [2.40, 2.42, 2.48, 2.51, 2.57, 2.62, 2.68]],
-      ['Interest', 'Debt service', [1.91, 1.86, 1.81, 1.76, 1.70, 1.65, 1.60]],
+      ['Revenue', 'Revenue', [5.31, 5.62, 10.04, 10.52, 5.93, 6.08, 10.61, 10.94]],
+      ['O&M', 'Expense', [1.92, 2.01, 2.08, 2.17, 2.03, 2.11, 2.19, 2.24]],
+      ['Property taxes', 'Expense', [0.40, 0.40, 0.40, 0.40, 0.42, 0.45, 0.45, 0.45]],
+      ['Other taxes', 'Expense', [0.11, 0.09, 0.18, 0.21, 0.10, 0.08, 0.19, 0.22]],
+      ['Principal', 'Debt service', [2.40, 2.42, 2.48, 2.51, 2.57, 2.62, 2.68, 2.74]],
+      ['Interest', 'Debt service', [1.91, 1.86, 1.81, 1.76, 1.70, 1.65, 1.60, 1.55]],
     ],
   },
   reserves: [
@@ -466,14 +488,14 @@ const RIDGELINE = {
     ['Revolver', '$0.0MM', 'Flat'],
   ],
   debt: {
-    quarters: ['Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026', 'Q2 2026'],
+    quarters: ['Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026', 'Q2 2026', 'Q3 2026'],
     lines: [
-      ['Revenue', 'Revenue', [28.41, 30.12, 27.23, 35.64, 29.02, 31.27, 24.81]],
-      ['O&M', 'Expense', [9.18, 9.51, 9.09, 10.42, 9.33, 9.61, 11.84]],
-      ['Property taxes', 'Expense', [1.20, 1.20, 1.20, 1.20, 1.25, 1.25, 1.25]],
-      ['Other taxes', 'Expense', [0.52, 0.48, 0.61, 0.73, 0.50, 0.47, 0.41]],
-      ['Principal', 'Debt service', [4.40, 4.50, 4.60, 4.60, 4.70, 4.80, 4.90]],
-      ['Interest', 'Debt service', [3.31, 3.25, 3.20, 3.15, 3.10, 3.05, 3.00]],
+      ['Revenue', 'Revenue', [28.41, 30.12, 27.23, 35.64, 29.02, 31.27, 24.81, 36.10]],
+      ['O&M', 'Expense', [9.18, 9.51, 9.09, 10.42, 9.33, 9.61, 11.84, 10.55]],
+      ['Property taxes', 'Expense', [1.20, 1.20, 1.20, 1.20, 1.25, 1.25, 1.25, 1.25]],
+      ['Other taxes', 'Expense', [0.52, 0.48, 0.61, 0.73, 0.50, 0.47, 0.41, 0.70]],
+      ['Principal', 'Debt service', [4.40, 4.50, 4.60, 4.60, 4.70, 4.80, 4.90, 4.90]],
+      ['Interest', 'Debt service', [3.31, 3.25, 3.20, 3.15, 3.10, 3.05, 3.00, 2.95]],
     ],
   },
   reserves: [

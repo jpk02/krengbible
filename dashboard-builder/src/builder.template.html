@@ -47,6 +47,7 @@
   .msg { font-size: 13px; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; line-height: 1.4; }
   .msg.error { background: #FDECEA; color: #8A1C12; border: 1px solid #F5C2BC; }
   .msg.warn { background: #FFF7E0; color: #7A5300; border: 1px solid #F1DB9C; }
+  .msg.info { background: #EEF3FB; color: #1E3A68; border: 1px solid #C9D6EC; }
   .msg.ok { background: #EAF6EF; color: #14532D; border: 1px solid #BFE3CC; }
 
   #empty {
@@ -592,7 +593,7 @@ function headerMap(row) {
 }
 
 function buildModel(sheets) {
-  const errors = [], warnings = [];
+  const errors = [], warnings = [], infos = [];
 
   // ---- Settings
   const S = {};
@@ -886,22 +887,41 @@ function buildModel(sheets) {
       });
       lines.push({ name, kind, vals });
     });
-    // Quarters with any data, oldest to newest as entered left to right.
-    const used = qCols.map((q, k) => ({ ...q, k })).filter((q) => lines.some((l) => l.vals[q.k] !== null));
+    // Quarter columns hold a running history.  Each label ("Q3 2026", "3Q26", ...) is placed on a
+    // timeline; page 2 ends at the last completed quarter before the Current month's quarter
+    // (Aug -> Q2, Dec -> Q3), so new columns can be filled in ahead of time and nothing shifts.
+    const qIndex = (label) => {
+      const m = label.match(/Q\s*([1-4])\D*(\d{4}|\d{2})\b/i) || label.match(/\b([1-4])\s*Q\D*(\d{4}|\d{2})\b/i);
+      if (!m) return null;
+      const y = m[2].length === 2 ? 2000 + +m[2] : +m[2];
+      return y * 4 + (+m[1] - 1);
+    };
+    const lastDone = cfg.cy * 4 + Math.floor(cfg.cur / 3) - 1;
+    const qLabel = (i) => `Q${(i % 4) + 1} ${Math.floor(i / 4)}`;
+    let used = qCols.map((q, k) => ({ ...q, k, qi: qIndex(q.label) })).filter((q) => lines.some((l) => l.vals[q.k] !== null));
+    const dated = used.length > 0 && used.every((q) => q.qi !== null);
+    if (dated) {
+      const later = used.filter((q) => q.qi > lastDone);
+      used = used.filter((q) => q.qi <= lastDone).sort((a, b) => a.qi - b.qi);
+      if (later.length) infos.push(`Debt Service tab: ${later.map((q) => q.label).join(', ')} not shown yet; with Current month ${MONTHS[cfg.cur]} ${cfg.cy}, page 2 runs through ${qLabel(lastDone)}.`);
+      if (used.length && used[used.length - 1].qi < lastDone) warnings.push(`Debt Service tab: no data yet for ${qLabel(lastDone)}, so page 2 ends at ${used[used.length - 1].label}.`);
+    }
     if (lines.length && used.length) {
       const sum = (kind, k) => lines.filter((l) => l.kind === kind).reduce((a, l) => a + (l.vals[k] ?? 0), 0);
       const quarters = used.map((q) => {
         const rev = sum('rev', q.k), exp = sum('exp', q.k), ds = sum('ds', q.k);
-        return { label: q.label, k: q.k, cfads: rev - exp, ds, dscr: ds > 0 ? (rev - exp) / ds : null };
+        return { label: q.label, k: q.k, qi: q.qi, cfads: rev - exp, ds, dscr: ds > 0 ? (rev - exp) / ds : null };
       });
       quarters.forEach((q, i) => {
-        if (i < 3) { q.ltm = null; return; }
+        q.ltm = null;
+        if (i < 3) return;
         const win = quarters.slice(i - 3, i + 1);
+        if (dated && win[3].qi - win[0].qi !== 3) return;  // a gap in the history: no true LTM
         const c = win.reduce((a, w) => a + w.cfads, 0), d = win.reduce((a, w) => a + w.ds, 0);
         q.ltmCfads = c; q.ltmDs = d; q.ltm = d > 0 ? c / d : null;
       });
       if (!lines.some((l) => l.kind === 'ds')) warnings.push('Debt Service tab: no rows with Role "Debt service", so DSCR cannot be calculated.');
-      if (quarters.length < 4) warnings.push(`Debt Service tab: LTM DSCR needs 4 quarters of data; only ${quarters.length} entered.`);
+      if (quarters.length < 4) warnings.push(`Debt Service tab: LTM DSCR needs 4 quarters of data; only ${quarters.length} available.`);
       dscr = { lines, quarters, shown: quarters.slice(-cfg.dscrQuarters) };
     }
   }
@@ -969,7 +989,7 @@ function buildModel(sheets) {
     });
   }
 
-  return { cfg, charts, table, footnotes, commentary, sideTable, dscr, dscrNotes, reserves, errors, warnings };
+  return { cfg, charts, table, footnotes, commentary, sideTable, dscr, dscrNotes, reserves, errors, warnings, infos };
 }
 
 /* ================= FORMATTING ================= */
@@ -1640,6 +1660,7 @@ async function loadBytes(u8, label) {
     const layout = renderPage(model);
     const msgs = model.warnings.concat(layout).map((w) => ['warn', w]);
     if (!msgs.length) msgs.push(['ok', `Built from ${label}.  Click "Save as PDF" when it looks right.`]);
+    model.infos.forEach((t) => msgs.push(['info', t]));
     showMessages(msgs);
     document.getElementById('btnPrint').disabled = false;
     document.title = `${model.cfg.title} - ${model.cfg.subtitle || 'Dashboard'}`;
