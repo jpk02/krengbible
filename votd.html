@@ -87,7 +87,12 @@
   .ph{position:relative;container-type:inline-size;aspect-ratio:var(--votd-crop);
       overflow:hidden;background:var(--line);--u:calc(100cqw / 362)}
   .ph img{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;border-radius:0}
+  /* --t is a TEXT point:  the tile's point (--u) times --fit, which is 1 unless
+   * the verse is too long for the tile.  The app's card grows taller for a
+   * long verse;  a preview here is a fixed crop, so it shrinks the text
+   * instead, all of it together, until it fits.  See fitVerse below. */
   .ov{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;
+      --t:calc(var(--u) * var(--fit, 1));
       padding:calc(22 * var(--u));color:#fff;pointer-events:none;text-align:left;
       font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif;
       background:linear-gradient(rgba(0,0,0,0) 0%,rgba(0,0,0,.15) 50%,rgba(0,0,0,.65) 100%)}
@@ -97,19 +102,19 @@
    * letter at any tile width.  Without it these previews showed the verse
    * harder to read over a bright photo than the app now shows it, and a pick
    * would be judged against the wrong card. */
-  .ov .lab,.ov .ref,.ov .txt{text-shadow:0 calc(1 * var(--u)) calc(10 * var(--u)) rgba(0,0,0,.5)}
-  .ov .lab{font-size:calc(12 * var(--u));font-weight:500;letter-spacing:calc(1.2 * var(--u));
-           color:rgba(255,255,255,.78);margin-bottom:calc(8 * var(--u))}
-  .ov .ref{font-size:calc(13 * var(--u));font-weight:500;color:rgba(255,255,255,.9);
-           margin-bottom:calc(4 * var(--u))}
-  .ov .txt{font-size:calc(18 * var(--u));line-height:calc(30 * var(--u));font-weight:400;
-           margin-bottom:calc(8 * var(--u))}
-  .ov .txt.sec{font-size:calc(15 * var(--u));opacity:.85}
-  .ov .div{height:1px;background:rgba(255,255,255,.2);margin:calc(10 * var(--u)) 0}
-  .ov .btn{align-self:flex-start;margin-top:calc(14 * var(--u));
-           padding:calc(9 * var(--u)) calc(16 * var(--u));border-radius:calc(8 * var(--u));
+  .ov .lab,.ov .ref,.ov .txt{text-shadow:0 calc(1 * var(--t)) calc(10 * var(--t)) rgba(0,0,0,.5)}
+  .ov .lab{font-size:calc(12 * var(--t));font-weight:500;letter-spacing:calc(1.2 * var(--t));
+           color:rgba(255,255,255,.78);margin-bottom:calc(8 * var(--t))}
+  .ov .ref{font-size:calc(13 * var(--t));font-weight:500;color:rgba(255,255,255,.9);
+           margin-bottom:calc(4 * var(--t))}
+  .ov .txt{font-size:calc(18 * var(--t));line-height:calc(30 * var(--t));font-weight:400;
+           margin-bottom:calc(8 * var(--t))}
+  .ov .txt.sec{font-size:calc(15 * var(--t));opacity:.85}
+  .ov .div{height:1px;background:rgba(255,255,255,.2);margin:calc(10 * var(--t)) 0}
+  .ov .btn{align-self:flex-start;margin-top:calc(14 * var(--t));
+           padding:calc(9 * var(--t)) calc(16 * var(--t));border-radius:calc(8 * var(--t));
            border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);
-           font-size:calc(12 * var(--u));font-weight:600;letter-spacing:calc(.2 * var(--u))}
+           font-size:calc(12 * var(--t));font-weight:600;letter-spacing:calc(.2 * var(--t))}
   .meta{padding:9px 11px;font-size:12px;color:var(--dim);flex:1;
         display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .row{display:flex;gap:8px;padding:0 11px 11px}
@@ -996,6 +1001,66 @@ document.getElementById('reportBtn').addEventListener('click', (e) => showReport
   }
   catch(e){ document.getElementById('boot').innerHTML = '<span class="err">' + e.message + '</span>'; }
 })();
+
+/* FIT EACH PREVIEW'S VERSE TO ITS TILE.
+ *
+ * A preview is the app's card at its usual size, but the app's card grows
+ * taller when a verse runs long, and a tile here cannot:  it is a fixed crop
+ * of the photo.  A long verse spilled out of the top of the tile, cut off
+ * mid-word.  So any tile whose text does not fit shrinks it, every line of it
+ * by the same factor, to the largest size that does fit.  The photo, which is
+ * what a tile is for judging, stays as it is.
+ *
+ * Automatic, for every tile however it got onto the page:  each overlay is
+ * watched for size changes, which covers a tile being added, the page being
+ * resized, and the verses being switched back on (an overlay hidden with
+ * display:none measures nothing until it is shown).  New tiles are found by
+ * watching the page for them. */
+function verseOverflows(ov){
+  const first = ov.firstElementChild;
+  if(!first) return false;
+  const top = ov.getBoundingClientRect().top + parseFloat(getComputedStyle(ov).paddingTop);
+  return first.getBoundingClientRect().top < top - 0.5;
+}
+function fitVerse(ov){
+  if(!ov.isConnected || !ov.offsetWidth) return;
+  ov.style.setProperty('--fit', '1');
+  if(!verseOverflows(ov)) return;
+  // Halve the gap eight times:  within half a percent of the largest fit.
+  let lo = 0.35, hi = 1;
+  for(let i = 0; i < 8; i++){
+    const mid = (lo + hi) / 2;
+    ov.style.setProperty('--fit', String(mid));
+    if(verseOverflows(ov)) hi = mid; else lo = mid;
+  }
+  ov.style.setProperty('--fit', String(lo));
+}
+const verseSizes = new WeakMap();
+const verseWatch = new ResizeObserver((entries) => {
+  for(const e of entries){
+    // Only a change in WIDTH (or a hidden overlay appearing) can change the
+    // fit;  fitting changes nothing about the overlay's own box, so this
+    // cannot feed itself.
+    const w = Math.round(e.contentRect.width), h = Math.round(e.contentRect.height);
+    const was = verseSizes.get(e.target);
+    if(was && was.w === w && was.h === h) continue;
+    verseSizes.set(e.target, { w, h });
+    fitVerse(e.target);
+  }
+});
+function watchVerses(root){
+  if(root.nodeType !== 1) return;
+  if(root.classList.contains('ov')) verseWatch.observe(root);
+  root.querySelectorAll('.ov').forEach((ov) => verseWatch.observe(ov));
+}
+watchVerses(document.body);
+new MutationObserver((records) => {
+  for(const r of records) r.addedNodes.forEach(watchVerses);
+}).observe(document.body, { childList: true, subtree: true });
+// Text measured before the fonts arrived was measured in the wrong font.
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(() => document.querySelectorAll('.ov').forEach(fitVerse));
+}
 </script>
 </body>
 </html>
