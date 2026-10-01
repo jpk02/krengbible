@@ -390,7 +390,7 @@ const BLUEFIELD = {
     sideWidth: 30,
     footer: 'Sources: Bluefield monthly operating reports; 2026 EV Case model.  Fictional example data.',
     lockup: 1.20,
-    dflt: 1.10,
+    dflt: 1.00,
   }),
   series: [
     { chart: 'Generation (GWh)', year: 2026, decimals: 1, values: pad([24.6, 27.3, 38.9, 44.1, 49.8, 52.4, 41.7, 47.2]) },
@@ -445,8 +445,8 @@ const RIDGELINE = {
     sideTitle: 'Liquidity and Monitoring',
     sideWidth: 32,
     footer: 'Sources: Ridgeline monthly operating reports; 2026 EV Case model.  Fictional example data.',
-    lockup: 1.25,
-    dflt: 1.10,
+    lockup: 1.20,
+    dflt: 1.00,
   }),
   series: [
     { chart: 'Net generation (GWh)', component: 'Contracted', year: 2026, decimals: 0, values: pad([205, 188, 196, 112, 214, 231, 236, 228]) },
