@@ -1331,8 +1331,21 @@ function drawCoverageChart(svg, model, W, H) {
   svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const qs = dscr.shown;
   const g = svgEl('g', {}, svg);
-  const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
-  const dsColors = dsLines.map((_, i) => DS_COLORS[i % 3]);
+  // Debt service pieces for the stacked bar: up to 3 lines as-is; with more, the first two (usually
+  // principal and interest) plus one "Other debt service" piece (swap settlements, agency fees, ...).
+  // A net negative piece (e.g. a swap receipt) reduces the piece below it, so each bar always equals
+  // total debt service.  The cash flow table still lists every line.
+  const dsAll = dscr.lines.filter((l) => l.kind === 'ds');
+  const groups = dsAll.length <= 3
+    ? dsAll.map((l) => ({ name: l.name, lines: [l] }))
+    : [{ name: dsAll[0].name, lines: [dsAll[0]] }, { name: dsAll[1].name, lines: [dsAll[1]] }, { name: 'Other debt service', lines: dsAll.slice(2) }];
+  const dsColors = groups.map((_, i) => DS_COLORS[i]);
+  const segValues = (q) => {
+    const v = groups.map((gr) => gr.lines.reduce((a, l) => a + (l.vals[q.k] ?? 0), 0));
+    for (let i = v.length - 1; i > 0; i--) if (v[i] < 0) { v[i - 1] += v[i]; v[i] = 0; }
+    if (v[0] < 0) v[0] = 0;
+    return v;
+  };
   const headH = 22, labelPad = 14, xAxisH = 16, padX = 10, sep = 12;
 
   // DSCR panel domain: LTM values and covenant levels, padded; a line need not start at zero.
@@ -1407,7 +1420,7 @@ function drawCoverageChart(svg, model, W, H) {
   title(y2, `CFADS vs. Debt Service (${cfg.cfUnits})`);
   svgLegend(g, [
     { type: 'box', color: PALETTE[0], label: 'CFADS' },
-    ...dsLines.map((l, i) => ({ type: 'box', color: dsColors[i], label: l.name })),
+    ...groups.map((gr, i) => ({ type: 'box', color: dsColors[i], label: gr.name })),
   ], W - padX, y2 + 11);
   const negPad = blo < 0 ? 12 : 0;
   const t2 = y2 + headH + labelPad, b2 = y2 + h2 - xAxisH - negPad - 4;
@@ -1428,14 +1441,14 @@ function drawCoverageChart(svg, model, W, H) {
     tc.textContent = fmtNum(q.cfads, lblDec, cfg.negParen);
     const xd = cx + gap / 2;
     let acc = 0;
-    const segs = dsLines.map((l, li) => ({ v: l.vals[q.k] ?? 0, li })).filter((sg) => sg.v > 0);
+    const segs = segValues(q).map((v, li) => ({ v, li })).filter((sg) => sg.v > 0);
     segs.forEach((sg, si) => {
       const ybase = yb(acc), ye = yb(acc + sg.v);
       acc += sg.v;
       const base = si > 0 ? ybase - gap : ybase;
       if (ye >= base) return;
       const p = svgEl('path', { d: barPath(xd, bw, base, ye, si === segs.length - 1), fill: dsColors[sg.li] }, g);
-      svgEl('title', {}, p).textContent = `${q.label} ${dsLines[sg.li].name}: ${fmtNum(sg.v, cfg.cfDec, cfg.negParen)}`;
+      svgEl('title', {}, p).textContent = `${q.label} ${groups[sg.li].name}: ${fmtNum(sg.v, cfg.cfDec, cfg.negParen)}`;
       const str = fmtNum(sg.v, 1, cfg.negParen);
       if (base - ye >= 13 && textWidth(str, 8.5, 600) + 4 <= bw + 6) {
         const ink = luminance(dsColors[sg.li]) > 0.35 ? '#111827' : '#FFFFFF';
@@ -1504,7 +1517,6 @@ function dscrPageHtml(model, pageNo, pageCount) {
   const head = last.ltm !== null && last.ltm !== undefined
     ? `LTM DSCR at ${escHtml(last.label)}: ${fmtX(last.ltm)}${cfg.lockup !== null ? ` &nbsp;·&nbsp; Distribution lock-up ${fmtX(cfg.lockup)}` : ''}${cfg.dflt !== null ? ` &nbsp;·&nbsp; Default ${fmtX(cfg.dflt)}` : ''}`
     : '';
-  const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
 
   let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
   // Top row: the coverage chart, with reserves and notes beside it.  Bottom: the cash flow table at
