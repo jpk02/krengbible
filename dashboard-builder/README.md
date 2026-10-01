@@ -24,3 +24,7 @@ Only needed when changing the builder itself.  From `dashboard-builder/src`:
 node make_examples.js ..
 node build.js .. ../index.html ../Dashboard-Builder.html
 ```
+
+## Crowded pages
+
+Page 1 keeps every chart at least 85px tall.  When the table, footnotes and commentary would squeeze them, the builder first compacts the page (two-column footnotes, tighter table and text), then moves the chart footnotes, the side panel and the comparison table, in that order, to a continuation page 2.  The DSCR page follows as page 3.  The builder says what moved.

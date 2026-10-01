@@ -130,6 +130,21 @@
   .fnotes { flex: none; margin: 0 12px; padding: 4px 0 6px; border-top: 1px solid var(--hair); font-size: 9.5px; line-height: 1.35; color: var(--ink-2); }
   .fnotes sup { font-size: 7px; font-weight: 700; color: var(--ink); margin-right: 3px; }
   .fnotes b { font-weight: 600; color: var(--ink); }
+  .fnotes.fref { font-style: italic; }
+  .body.cont > .card { flex: none; }
+  .body.cont > .card .fnotes { margin: 0; padding: 0; border-top: 0; }
+  /* compact: used when page 1 is crowded */
+  .page.compact .fnotes { columns: 2; column-gap: 28px; }
+  .page.compact .fnotes > div { break-inside: avoid; }
+  .page.compact .fnotes.fref { columns: 1; }
+  .page.compact .card-b { padding: 6px 10px 8px; }
+  .page.compact table.cmp, .page.compact table.cf { font-size: 10.5px; }
+  .page.compact table.cmp td, .page.compact table.cf td { padding-top: 2px; padding-bottom: 2px; }
+  .page.compact table.side { font-size: 10px; }
+  .page.compact table.side td { padding-top: 2px; padding-bottom: 2px; }
+  .page.compact .cm-h { font-size: 10.5px; }
+  .page.compact .cm-t { font-size: 10px; }
+  .page.compact .cm-item { margin-bottom: 5px; }
   .bottom { flex: none; display: grid; gap: 12px; align-items: stretch; }
   .bottom.no-charts { flex: 1; }
 
@@ -1464,6 +1479,15 @@ function dscrPageHtml(model, pageNo, pageCount) {
   return html;
 }
 
+const bannerHtml = (cfg) => `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
+const footHtml = (cfg, n, of) => `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page ${n} of ${of}</span></footer>`;
+
+/* Page 1 protects its charts.  Layouts are tried in order until every chart keeps at least
+   MIN_PLOT px of drawing height and nothing overflows: normal, compact (two-column footnotes,
+   tighter table and text), then moving footnotes, the side panel and the table, in that
+   order, to a continuation page.  The DSCR page comes after the continuation page. */
+const MIN_PLOT = 85;  // px per chart plot, axis labels included (the examples run 91-122)
+
 function renderPage(model) {
   const { cfg, charts, table } = model;
   const container = document.getElementById('page');
@@ -1471,70 +1495,102 @@ function renderPage(model) {
   const pw = a4 ? '297mm' : '11in', ph = a4 ? '210mm' : '8.5in';
   document.getElementById('pageSizeRule').textContent = `@page { size: ${pw} ${ph}; margin: 0; }`;
   container.style.width = pw;
-  const pageCount = model.dscr ? 2 : 1;
-  container.innerHTML = Array.from({ length: pageCount }, () => '<div class="page"></div>').join('');
-  const pages = Array.from(container.children);
-  pages.forEach((pg) => {
-    pg.style.width = pw;
-    pg.style.height = `calc(${ph} - 1px)`;
-    pg.style.setProperty('--theme', cfg.color);
-  });
-  const page = pages[0];
+  document.getElementById('pageWrap').hidden = false;
 
   const sideBody = cfg.sideType === 'None' ? '' : sideHtml(model);
   const hasSide = sideBody !== '';
   const hasTable = table.length > 0;
+  const hasNotes = charts.length > 0 && model.footnotes.length > 0;
   const nCols = cfg.chartCols === 'Auto' ? (charts.length <= 3 ? 1 : 2) : Math.min(+cfg.chartCols, Math.max(1, charts.length));
 
-  let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
-  html += '<main class="body">';
-  if (charts.length) {
-    html += `<section class="card charts-card"><div class="card-h">${escHtml(cfg.chartTitle)}</div><div class="charts-grid" style="grid-template-columns:repeat(${nCols}, minmax(0, 1fr))">`;
+  const notesHtml = `<div class="fnotes">${model.footnotes.map((f) => `<div><sup>${f.num}</sup><b>${MONTHS[f.month]}${f.chart ? ', ' + escHtml(f.chart.name) : ''}:</b> ${escHtml(f.text)}</div>`).join('')}</div>`;
+  const chartsCard = (notesHere, contPage) => {
+    if (!charts.length) return '';
+    let h = `<section class="card charts-card"><div class="card-h">${escHtml(cfg.chartTitle)}</div><div class="charts-grid" style="grid-template-columns:repeat(${nCols}, minmax(0, 1fr))">`;
     charts.forEach((ch, i) => {
-      html += `<div class="chart"><div class="chart-head"><span class="chart-title">${escHtml(ch.name)}</span>${legendHtml(ch, cfg)}</div><div class="plot" data-i="${i}"><svg></svg></div></div>`;
+      h += `<div class="chart"><div class="chart-head"><span class="chart-title">${escHtml(ch.name)}</span>${legendHtml(ch, cfg)}</div><div class="plot" data-i="${i}"><svg></svg></div></div>`;
     });
-    html += '</div>';
-    if (model.footnotes.length) {
-      html += `<div class="fnotes">${model.footnotes.map((f) => `<div><sup>${f.num}</sup><b>${MONTHS[f.month]}${f.chart ? ', ' + escHtml(f.chart.name) : ''}:</b> ${escHtml(f.text)}</div>`).join('')}</div>`;
+    h += '</div>';
+    if (hasNotes) h += notesHere ? notesHtml : `<div class="fnotes fref">Chart footnotes are on page ${contPage}.</div>`;
+    return h + '</section>';
+  };
+  const tableCard = () => `<section class="card"><div class="card-h">${escHtml(cfg.tableTitle)}</div><div class="card-b">${tableHtml(model)}</div></section>`;
+  const sideCard = () => `<section class="card"><div class="card-h">${escHtml(cfg.sideTitle)}</div><div class="card-b side-b">${sideBody}</div></section>`;
+  const bottom = (withTable, withSide, extraCls) => {
+    if (!withTable && !withSide) return '';
+    const colsCss = withTable && withSide ? `grid-template-columns: minmax(0, 1fr) ${cfg.sideWidth}%` : 'grid-template-columns: 1fr';
+    return `<div class="bottom ${extraCls}" style="${colsCss}">${withTable ? tableCard() : ''}${withSide ? sideCard() : ''}</div>`;
+  };
+
+  const levels = [{ compact: false, move: [] }, { compact: true, move: [] }];
+  if (hasNotes) levels.push({ compact: true, move: ['notes'] });
+  if (hasSide) levels.push({ compact: true, move: ['notes', 'side'] });
+  if (hasTable) levels.push({ compact: true, move: ['notes', 'side', 'table'] });
+
+  let pages, chosen = null;
+  for (const lv of levels) {
+    const moved = (k) => lv.move.includes(k);
+    const hasCont = (hasNotes && moved('notes')) || (hasSide && moved('side')) || (hasTable && moved('table'));
+    const total = 1 + (hasCont ? 1 : 0) + (model.dscr ? 1 : 0);
+    container.innerHTML = Array.from({ length: total }, () => '<div class="page"></div>').join('');
+    pages = Array.from(container.children);
+    pages.forEach((pg) => {
+      pg.style.width = pw;
+      pg.style.height = `calc(${ph} - 1px)`;
+      pg.style.setProperty('--theme', cfg.color);
+      pg.classList.toggle('compact', lv.compact);
+    });
+    pages[0].innerHTML = bannerHtml(cfg)
+      + `<main class="body">${chartsCard(!moved('notes'), 2)}${bottom(hasTable && !moved('table'), hasSide && !moved('side'), charts.length ? '' : 'no-charts')}</main>`
+      + footHtml(cfg, 1, total);
+    if (hasCont) {
+      const notesCard = hasNotes && moved('notes') ? `<section class="card"><div class="card-h">${escHtml(cfg.chartTitle)} - Footnotes</div><div class="card-b">${notesHtml}</div></section>` : '';
+      pages[1].innerHTML = bannerHtml(cfg)
+        + `<main class="body cont">${notesCard}${bottom(hasTable && moved('table'), hasSide && moved('side'), '')}</main>`
+        + footHtml(cfg, 2, total);
     }
-    html += '</section>';
+    if (model.dscr) pages[total - 1].innerHTML = dscrPageHtml(model, total, total);
+
+    const body = pages[0].querySelector('.body');
+    const plotMin = Math.min(Infinity, ...Array.from(pages[0].querySelectorAll('.plot'), (pl) => pl.clientHeight));
+    const fits = body.scrollHeight <= body.clientHeight + 2 && plotMin >= MIN_PLOT;
+    chosen = { lv, hasCont };
+    if (fits) break;
   }
-  if (hasTable || hasSide) {
-    const colsCss = hasTable && hasSide ? `grid-template-columns: minmax(0, 1fr) ${cfg.sideWidth}%` : 'grid-template-columns: 1fr';
-    html += `<div class="bottom${charts.length ? '' : ' no-charts'}" style="${colsCss}">`;
-    if (hasTable) html += `<section class="card"><div class="card-h">${escHtml(cfg.tableTitle)}</div><div class="card-b">${tableHtml(model)}</div></section>`;
-    if (hasSide) html += `<section class="card"><div class="card-h">${escHtml(cfg.sideTitle)}</div><div class="card-b side-b">${sideBody}</div></section>`;
-    html += '</div>';
-  }
-  html += '</main>';
-  html += `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page 1 of ${pageCount}</span></footer>`;
-  page.innerHTML = html;
-  if (model.dscr) pages[1].innerHTML = dscrPageHtml(model, 2, pageCount);
-  document.getElementById('pageWrap').hidden = false;
 
   const layoutWarnings = [];
+  const { lv, hasCont } = chosen;
+  if (hasCont) {
+    const what = [hasNotes && lv.move.includes('notes') ? 'the chart footnotes' : null, hasSide && lv.move.includes('side') ? `"${cfg.sideTitle}"` : null, hasTable && lv.move.includes('table') ? 'the comparison table' : null].filter(Boolean);
+    layoutWarnings.push(`Page 1 was too full to keep the charts readable, so ${what.join(', ').replace(/, ([^,]*)$/, ' and $1')} moved to page 2.`);
+  }
+
+  // Draw page 1 charts at their final size.
   let smallest = Infinity;
-  page.querySelectorAll('.plot').forEach((plot) => {
+  pages[0].querySelectorAll('.plot').forEach((plot) => {
     const ch = charts[+plot.dataset.i];
-    const svg = plot.querySelector('svg');
     const notes = model.footnotes.filter((f) => f.chart === null || f.chart === ch);
-    const h = drawChart(svg, ch, cfg, plot.clientWidth, plot.clientHeight, notes);
+    const h = drawChart(plot.querySelector('svg'), ch, cfg, plot.clientWidth, plot.clientHeight, notes);
     smallest = Math.min(smallest, h === false ? 0 : h);
   });
   if (charts.length && smallest < 45) {
-    layoutWarnings.push('The page is crowded: the charts are very short.  Remove some table rows, shorten the commentary, or set "Chart columns" to 2.');
+    layoutWarnings.push('The charts are still very short.  Remove some charts or set "Chart columns" to 2 or 3.');
   }
+
+  // DSCR page: tighten it too if its own content overflows, then draw its charts.
   if (model.dscr) {
-    pages[1].querySelectorAll('.plot').forEach((plot) => {
-      const svg = plot.querySelector('svg');
+    const dp = pages[pages.length - 1];
+    const db = dp.querySelector('.body');
+    if (db.scrollHeight > db.clientHeight + 2) dp.classList.add('compact');
+    dp.querySelectorAll('.plot').forEach((plot) => {
       const fn = plot.dataset.dscr === 'cfads' ? drawCfadsChart : drawDscrChart;
-      if (fn(svg, model, plot.clientWidth, plot.clientHeight) === false) layoutWarnings.push('The DSCR page is crowded: its charts are very short.  Shorten the DSCR Notes or the Debt Service rows.');
+      if (fn(plot.querySelector('svg'), model, plot.clientWidth, plot.clientHeight) === false) layoutWarnings.push('The DSCR page is crowded: its charts are very short.  Shorten the DSCR Notes, the Reserves or the Debt Service rows.');
     });
   }
   pages.forEach((pg, i) => {
-    const body = pg.querySelector('.body');
-    if (body.scrollHeight > body.clientHeight + 2) {
-      layoutWarnings.push(`Some content does not fit on page ${i + 1} and is cut off at the bottom.  Remove table rows or shorten the commentary.`);
+    const b = pg.querySelector('.body');
+    if (b.scrollHeight > b.clientHeight + 2) {
+      layoutWarnings.push(`Some content does not fit on page ${i + 1} and is cut off at the bottom.  Remove table rows or shorten the commentary or notes.`);
     }
   });
   fitToScreen();
