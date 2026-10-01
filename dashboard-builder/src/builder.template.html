@@ -860,6 +860,7 @@ function buildModel(sheets) {
       const name = cellW(row, li);
       if (!name) return;
       const role = norm(cellW(row, rc));
+      if (/^(calc|total|cfads|dscr)/.test(role)) return;  // the workbook's own formula rows; recomputed here from the inputs
       const kind = role.startsWith('rev') ? 'rev' : role.startsWith('exp') ? 'exp' : role.startsWith('debt') ? 'ds' : null;
       if (!kind) { warnings.push(`Debt Service tab row ${ri + 1} (${name}): Role should be Revenue, Expense or Debt service; row skipped.`); return; }
       const vals = qCols.map((q) => {
@@ -1401,10 +1402,12 @@ function cfTableHtml(model) {
   let html = `<table class="cf"><thead><tr><th>${escHtml(cfg.cfUnits)}</th>${qs.map((q) => `<th>${escHtml(q.label)}</th>`).join('')}${hasLtm ? `<th class="ltm">LTM ${escHtml(last.label)}</th>` : ''}</tr></thead><tbody>`;
   dscr.lines.filter((l) => l.kind === 'rev').forEach((l) => { html += lineRow(l, false); });
   dscr.lines.filter((l) => l.kind === 'exp').forEach((l) => { html += lineRow(l, true); });
+  const opex = (q) => -dscr.lines.filter((l) => l.kind === 'exp').reduce((a, l) => a + (l.vals[q.k] ?? 0), 0);
+  html += `<tr class="total"><td>Total O&amp;M costs</td>${qs.map((q) => cell(opex(q))).join('')}${ltmCell(opex)}</tr>`;
   html += `<tr class="total"><td>CFADS</td>${qs.map((q) => cell(q.cfads)).join('')}${ltmCell((q) => q.cfads)}</tr>`;
   html += '<tr class="gap"><td colspan="99"></td></tr>';
   dscr.lines.filter((l) => l.kind === 'ds').forEach((l) => { html += lineRow(l, true); });
-  html += `<tr class="total"><td>Total debt service</td>${qs.map((q) => cell(q.ds)).join('')}${ltmCell((q) => q.ds)}</tr>`;
+  html += `<tr class="total"><td>Total debt service costs</td>${qs.map((q) => cell(q.ds)).join('')}${ltmCell((q) => q.ds)}</tr>`;
   html += '<tr class="gap"><td colspan="99"></td></tr>';
   html += `<tr class="ratio"><td>DSCR - quarter</td>${qs.map((q) => `<td>${fmtX(q.dscr)}</td>`).join('')}${hasLtm ? '<td class="ltm"></td>' : ''}</tr>`;
   html += `<tr class="ratio"><td>DSCR - LTM</td>${qs.map((q) => `<td class="${ratioCls(q.ltm ?? null)}">${q.ltm === null || q.ltm === undefined ? '–' : fmtX(q.ltm)}</td>`).join('')}${hasLtm ? `<td class="ltm ${ratioCls(last.ltm)}">${fmtX(last.ltm)}</td>` : ''}</tr>`;

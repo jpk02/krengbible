@@ -49,8 +49,10 @@ function instructionsSheet() {
     ['Commentary  -  Heading + Text pairs for the bottom-right box.'],
     ['Side Table  -  a free-form grid for the bottom-right box.  Row 1 = column headers.  Values print exactly as they appear in Excel.'],
     ['Debt Service  -  quarterly cash flow for page 2.  One column per quarter, oldest on the left.  Role: Revenue, Expense or Debt service.'],
-    ['               Enter expenses and debt service as positive numbers.  CFADS = Revenue - Expenses.  DSCR = CFADS / Debt service.'],
-    ['               LTM DSCR = last 4 quarters of CFADS / last 4 quarters of debt service.  Add any expense or debt service rows you need.'],
+    ['               Enter expenses and debt service as positive numbers.  The black "Calculated" rows do the math: Total O&M costs = all Expense'],
+    ['               rows; CFADS = Revenue - Total O&M costs; Total debt service costs = all Debt service rows; DSCR = CFADS / debt service;'],
+    ['               DSCR - LTM = last 4 quarters of CFADS / last 4 quarters of debt service.  To add a line (e.g. LC fees), insert a row'],
+    ['               anywhere and set its Role; the totals pick it up.  The PDF recalculates from the input rows, so it always matches.'],
     ['Reserves  -  one row per reserve account (DSR, O&M reserve, ...): Required balance and Balance available.  Shown on page 2 below the DSCR chart'],
     ['               with the % funded; anything under 100% is flagged.'],
     ['DSCR Notes  -  optional Heading + Text pairs shown on page 2 below the reserves.'],
@@ -231,13 +233,50 @@ function listsSheet() {
 }
 const CHART_NAMES = { name: 'ChartNames', ref: `OFFSET(Lists!$A$2,0,0,MAX(1,COUNTIF(Lists!$A$2:$A$${LIST_ROWS + 1},"?*")),1)` };
 
+// Debt Service tab: input rows (Revenue / Expense / Debt service) plus Calculated rows whose
+// formulas total by Role (SUMIF), so a row inserted anywhere with the right Role is included.
+const colLetter = (i) => String.fromCharCode(65 + i);  // i < 26 is plenty here
 function debtServiceSheet(d) {
+  const nq = d.quarters.length;
   const rows = [[h('Line item'), h('Role'), ...d.quarters.map(h)]];
-  for (const [name, role, vals] of d.lines) rows.push([inp(name), inp(role), ...vals.map((v) => ({ v, s: S.input2 }))]);
-  for (let i = 0; i < 2; i++) rows.push([inp(''), inp(''), ...d.quarters.map(() => ({ v: '', s: S.input2 }))]);
+  const by = (role) => d.lines.filter((l) => l[1] === role);
+  const inputRow = ([name, role, vals]) => rows.push([inp(name), inp(role), ...vals.map((v) => ({ v, s: S.input2 }))]);
+  const sumRole = (role, q) => by(role).reduce((a, l) => a + l[2][q], 0);
+  const round = (v) => Math.round(v * 1e6) / 1e6;
+  const sumif = (role, c) => `SUMIF($B$2:$B$200,"${role}",${c}$2:${c}$200)`;
+  const calcRow = (name, f, v, style) => {
+    rows.push([{ v: name, s: S.bold }, note('Calculated'), ...d.quarters.map((_, q) => {
+      const val = v(q);
+      return { f: f(colLetter(2 + q), q), v: val === null ? '' : round(val), s: style };
+    })]);
+    return rows.length;  // 1-based row number
+  };
+  const blank = () => rows.push([]);
+
+  by('Revenue').forEach(inputRow);
+  by('Expense').forEach(inputRow);
+  calcRow('Total O&M costs', (c) => sumif('Expense', c), (q) => sumRole('Expense', q), S.calc2b);
+  const cfadsRow = calcRow('CFADS', (c) => `${sumif('Revenue', c)}-${sumif('Expense', c)}`, (q) => sumRole('Revenue', q) - sumRole('Expense', q), S.calc2b);
+  blank();
+  by('Debt service').forEach(inputRow);
+  const dsRow = calcRow('Total debt service costs', (c) => sumif('Debt service', c), (q) => sumRole('Debt service', q), S.calc2b);
+  blank();
+  const cf = (q) => sumRole('Revenue', q) - sumRole('Expense', q);
+  const ds = (q) => sumRole('Debt service', q);
+  calcRow('DSCR - quarter', (c) => `IFERROR(${c}${cfadsRow}/${c}${dsRow},"")`, (q) => (ds(q) ? cf(q) / ds(q) : null), S.calcXb);
+  calcRow('DSCR - LTM', (c, q) => {
+    if (q < 3) return '""';
+    const a = colLetter(2 + q - 3);
+    return `IFERROR(SUM(${a}${cfadsRow}:${c}${cfadsRow})/SUM(${a}${dsRow}:${c}${dsRow}),"")`;
+  }, (q) => {
+    if (q < 3) return null;
+    let c = 0, dd = 0;
+    for (let k = q - 3; k <= q; k++) { c += cf(k); dd += ds(k); }
+    return dd ? c / dd : null;
+  }, S.calcXb);
   return {
     name: 'Debt Service', rows, widths: [26, 14, ...d.quarters.map(() => 11)], freezeRows: 1,
-    validations: [{ range: 'B2:B100', list: ['Revenue', 'Expense', 'Debt service'] }],
+    validations: [{ range: 'B2:B200', list: ['Revenue', 'Expense', 'Debt service', 'Calculated'] }],
   };
 }
 
