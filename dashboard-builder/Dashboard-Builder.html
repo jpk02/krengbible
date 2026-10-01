@@ -243,7 +243,10 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const FULL_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const PALETTE = ['#2F5D9E', '#2A9D8F', '#D98A2B', '#8E6BB0'];
 const PY_MIX = 0.55;              // how far prior-year bars are lightened toward white
-const YEAR_SOLID = '#4B5563';     // neutral legend swatches for "this year" / "prior year"
+const YEAR_SOLID = '#4B5563';
+// Debt service on page 2: neutral grays (principal, interest, then any third line) so CFADS blue
+// carries the emphasis; validated as distinct from the blue (normal-vision dE 15.5).
+const DS_COLORS = ['#7A7F87', '#C9CCD1', '#A2A7AE'];     // neutral legend swatches for "this year" / "prior year"
 
 /* ================= ZIP + DEFLATE ================= */
 
@@ -1310,7 +1313,7 @@ function drawCoverageChart(svg, model, W, H) {
   const qs = dscr.shown;
   const g = svgEl('g', {}, svg);
   const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
-  const dsColors = dsLines.map((_, i) => PALETTE[1 + (i % 3)]);
+  const dsColors = dsLines.map((_, i) => DS_COLORS[i % 3]);
   const xAxisH = 15, labelPad = 14;
 
   // DSCR section domain: LTM values and covenant levels, padded; a line need not start at zero.
@@ -1472,7 +1475,7 @@ function dscrPageHtml(model, pageNo, pageCount) {
     cfg.dflt !== null ? `<span><i style="background:${STATUS_CRIT};height:2px"></i>Default ${fmtX(cfg.dflt)}</span>` : '',
     '<span class="div"></span>',
     `<span><i style="background:${PALETTE[0]}"></i>CFADS</span>`,
-    ...dsLines.map((l, i) => `<span><i style="background:${PALETTE[1 + (i % 3)]}"></i>${escHtml(l.name)}</span>`),
+    ...dsLines.map((l, i) => `<span><i style="background:${DS_COLORS[i % 3]}"></i>${escHtml(l.name)}</span>`),
   ].join('');
   let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
   // Top row: the coverage chart, with reserves and notes beside it.  Bottom: the cash flow table at
