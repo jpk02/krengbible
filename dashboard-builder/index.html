@@ -1187,7 +1187,7 @@ function drawChart(svg, ch, cfg, W, H, notes) {
         if (stacked && Math.abs(yb - y0) > 0.5) segBase = v > 0 ? yb - gap : yb + gap;
         if ((v > 0 && ye >= segBase) || (v < 0 && ye <= segBase)) return;
         const fill = slot === 1 ? colors[ci] : mix(colors[ci], '#FFFFFF', PY_MIX);
-        const p = svgEl('path', { d: barPath(x, bw, segBase, ye, isEnd), fill }, g);
+        const p = svgEl('path', { d: barPath(x, bw, segBase, ye, isEnd && !stacked), fill }, g);  // stacked bars stay square-topped
         const tt = svgEl('title', {}, p);
         tt.textContent = `${MONTHS[m]} ${yearLabel[slot]}${stacked ? ' · ' + ch.comps[ci] : ''}: ${fmtNum(v, ch.dec, cfg.negParen)}`;
         // label inside a stacked segment, only when it fits with padding
@@ -1432,7 +1432,7 @@ function drawCoverageChart(svg, model, W, H) {
       acc += sg.v;
       const base = si > 0 ? ybase - gap : ybase;
       if (ye >= base) return;
-      const p = svgEl('path', { d: barPath(xd, bw, base, ye, si === segs.length - 1), fill: dsColors[sg.li] }, g);
+      const p = svgEl('path', { d: barPath(xd, bw, base, ye, false), fill: dsColors[sg.li] }, g);  // square top, like page 1 stacks
       svgEl('title', {}, p).textContent = `${q.label} ${dsLines[sg.li].name}: ${fmtNum(sg.v, cfg.cfDec, cfg.negParen)}`;
       const str = fmtNum(sg.v, 1, cfg.negParen);
       if (base - ye >= 13 && textWidth(str, 8.5, 600) + 4 <= bw + 6) {
