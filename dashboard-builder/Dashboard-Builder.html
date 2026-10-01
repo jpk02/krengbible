@@ -1304,9 +1304,26 @@ function niceTicks(lo, hi, n) {
   return { ticks, t0, t1, step };
 }
 
-/* One chart, two stacked sections on a shared quarter axis (never two y-scales on one plot):
-   top = LTM DSCR line with the distribution lock-up / default lines (unlabeled; the legend names
-   them), bottom = CFADS next to debt service stacked by line item. */
+/* Two framed panels on a shared quarter axis (never two y-scales on one plot): top = LTM DSCR line
+   with the distribution lock-up / default lines (unlabeled on the plot; the panel legend names
+   them), bottom = CFADS next to debt service stacked by line item.  Each panel has its own border,
+   title and legend so the two read as separate charts that line up quarter by quarter. */
+function svgLegend(g, items, xRight, y) {
+  let x = xRight;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    const tw = textWidth(it.label, 9.5);
+    x -= tw;
+    const t = svgEl('text', { x, y: y + 3.5, 'font-size': 9.5, fill: '#374151' }, g);
+    t.textContent = it.label;
+    x -= 14;
+    if (it.type === 'dot') svgEl('circle', { cx: x + 5, cy: y, r: 4, fill: it.color }, g);
+    else if (it.type === 'line') svgEl('line', { x1: x, x2: x + 10, y1: y + 0.5, y2: y + 0.5, stroke: it.color, 'stroke-width': 2 }, g);
+    else svgEl('rect', { x, y: y - 5, width: 10, height: 10, rx: 2, fill: it.color }, g);
+    x -= 12;
+  }
+}
+
 function drawCoverageChart(svg, model, W, H) {
   const { cfg, dscr } = model;
   svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -1314,9 +1331,9 @@ function drawCoverageChart(svg, model, W, H) {
   const g = svgEl('g', {}, svg);
   const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
   const dsColors = dsLines.map((_, i) => DS_COLORS[i % 3]);
-  const xAxisH = 15, labelPad = 14;
+  const headH = 22, labelPad = 14, xAxisH = 16, padX = 10, sep = 12;
 
-  // DSCR section domain: LTM values and covenant levels, padded; a line need not start at zero.
+  // DSCR panel domain: LTM values and covenant levels, padded; a line need not start at zero.
   const ltms = qs.map((q) => q.ltm).filter((v) => v !== null && v !== undefined && Number.isFinite(v));
   const refs = [cfg.lockup !== null ? { v: cfg.lockup, c: STATUS_WARN } : null, cfg.dflt !== null ? { v: cfg.dflt, c: STATUS_CRIT } : null].filter(Boolean);
   const hasTop = ltms.length > 0;
@@ -1327,7 +1344,6 @@ function drawCoverageChart(svg, model, W, H) {
     const pad = Math.max(0.1, (hi - lo) * 0.2);
     dT = niceTicks(Math.max(0, lo - pad), hi + pad, 3);
   }
-  // Bars section domain.
   let bhi = 0, blo = 0;
   qs.forEach((q) => { bhi = Math.max(bhi, q.cfads, q.ds); blo = Math.min(blo, q.cfads); });
   if (bhi === blo) bhi = blo + 1;
@@ -1337,29 +1353,35 @@ function drawCoverageChart(svg, model, W, H) {
   const dDec = dT && dT.step < 0.1 ? 2 : 1;
   const dText = (t) => `${t.toFixed(dDec)}x`;
 
+  // Both panels share one plotting width so the quarters line up exactly.
   const tickW = Math.max(...bT.ticks.map((t) => textWidth(bText(t), 9)), ...(dT ? dT.ticks.map((t) => textWidth(dText(t), 9)) : [0]));
-  const left = tickW + 8, right = 4;
-  const usable = H - xAxisH;
-  const topH = hasTop ? Math.round(usable * 0.36) : 0;
-  const sep = hasTop ? 12 : 0;
-  const t1 = labelPad, b1 = topH;                       // DSCR section
-  const negPad = blo < 0 ? 12 : 0;
-  const t2 = topH + sep + labelPad, b2 = usable - negPad; // bars section
-  if (b2 - t2 < 30 || (hasTop && b1 - t1 < 24)) return false;
-  const yb = (v) => t2 + (bT.t1 - v) / (bT.t1 - bT.t0) * (b2 - t2);
+  const left = padX + tickW + 8, right = padX;
   const band = (W - left - right) / qs.length;
   const cxOf = (i) => left + band * i + band / 2;
+  const frame = (y, h, fill) => svgEl('rect', { x: 0.5, y: y + 0.5, width: W - 1, height: h - 1, rx: 5, fill, stroke: '#CBD3E1', 'stroke-width': 1 }, g);
+  const title = (y, text) => { const t = svgEl('text', { x: padX, y: y + 15, 'font-size': 11, 'font-weight': 700, fill: '#111827' }, g); t.textContent = text; };
 
-  // DSCR section
+  const h1 = hasTop ? Math.round(H * 0.34) : 0;
+  const y2 = hasTop ? h1 + sep : 0;
+  const h2 = H - y2;
+
+  // ---- DSCR panel
   if (hasTop) {
+    frame(0, h1, '#F7F9FC');
+    title(0, 'LTM DSCR (x)');
+    svgLegend(g, [
+      { type: 'dot', color: '#1F2937', label: 'LTM DSCR' },
+      ...(cfg.lockup !== null ? [{ type: 'line', color: STATUS_WARN, label: `Distribution lock-up ${fmtX(cfg.lockup)}` }] : []),
+      ...(cfg.dflt !== null ? [{ type: 'line', color: STATUS_CRIT, label: `Default ${fmtX(cfg.dflt)}` }] : []),
+    ], W - padX, 11);
+    const t1 = headH + labelPad, b1 = h1 - 10;
+    if (b1 - t1 < 20) return false;
     const yd = (v) => t1 + (dT.t1 - v) / (dT.t1 - dT.t0) * (b1 - t1);
     yAxis(g, dT.ticks, yd, left, right, W, dText);
     for (const r of refs) {
       const yy = Math.round(yd(r.v)) + 0.5;
       svgEl('line', { x1: left, x2: W - right, y1: yy, y2: yy, stroke: r.c, 'stroke-width': 1.25 }, g);
     }
-    const pts = qs.map((q, i) => (q.ltm === null || q.ltm === undefined ? null : { x: cxOf(i), y: yd(q.ltm), q })).filter(Boolean);
-    // Line segments only between consecutive quarters that both have an LTM value.
     let d = '';
     qs.forEach((q, i) => {
       if (q.ltm === null || q.ltm === undefined) return;
@@ -1367,23 +1389,35 @@ function drawCoverageChart(svg, model, W, H) {
       d += `${prev && prev.ltm !== null && prev.ltm !== undefined ? 'L' : 'M'}${cxOf(i)},${yd(q.ltm)}`;
     });
     if (d) svgEl('path', { d, fill: 'none', stroke: '#1F2937', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, g);
-    for (const pt of pts) {
-      const c = svgEl('circle', { cx: pt.x, cy: pt.y, r: 4, fill: '#1F2937', stroke: '#FFFFFF', 'stroke-width': 2 }, g);
-      svgEl('title', {}, c).textContent = `${pt.q.label} LTM DSCR: ${fmtX(pt.q.ltm)}`;
-      const ly = pt.y - 8 < t1 - 4 ? pt.y + 15 : pt.y - 8;
-      const t = svgEl('text', { x: pt.x, y: ly, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: '#111827' }, g);
-      t.textContent = fmtX(pt.q.ltm);
-    }
+    qs.forEach((q, i) => {
+      if (q.ltm === null || q.ltm === undefined) return;
+      const x = cxOf(i), y = yd(q.ltm);
+      const c = svgEl('circle', { cx: x, cy: y, r: 4, fill: '#1F2937', stroke: '#F7F9FC', 'stroke-width': 2 }, g);
+      svgEl('title', {}, c).textContent = `${q.label} LTM DSCR: ${fmtX(q.ltm)}`;
+      const ly = y - 8 < t1 - 6 ? y + 15 : y - 8;
+      const t = svgEl('text', { x, y: ly, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: '#111827' }, g);
+      t.textContent = fmtX(q.ltm);
+    });
   }
 
-  // Bars section
+  // ---- CFADS vs. debt service panel
+  frame(y2, h2, '#FFFFFF');
+  title(y2, `CFADS vs. Debt Service (${cfg.cfUnits})`);
+  svgLegend(g, [
+    { type: 'box', color: PALETTE[0], label: 'CFADS' },
+    ...dsLines.map((l, i) => ({ type: 'box', color: dsColors[i], label: l.name })),
+  ], W - padX, y2 + 11);
+  const negPad = blo < 0 ? 12 : 0;
+  const t2 = y2 + headH + labelPad, b2 = y2 + h2 - xAxisH - negPad - 4;
+  if (b2 - t2 < 30) return false;
+  const yb = (v) => t2 + (bT.t1 - v) / (bT.t1 - bT.t0) * (b2 - t2);
   yAxis(g, bT.ticks, yb, left, right, W, bText);
   const bw = Math.min(24, band * 0.3), gap = 2;
   const y0 = yb(0);
   const lblDec = cfg.cfDec > 1 ? 1 : cfg.cfDec;
   qs.forEach((q, i) => {
     const cx = cxOf(i);
-    const lbl = svgEl('text', { x: cx, y: H - 3, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
+    const lbl = svgEl('text', { x: cx, y: y2 + h2 - 7, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
     lbl.textContent = q.label;
     const xc = cx - bw - gap / 2;
     const pc = svgEl('path', { d: barPath(xc, bw, y0, yb(q.cfads), true), fill: PALETTE[0] }, g);
@@ -1469,14 +1503,7 @@ function dscrPageHtml(model, pageNo, pageCount) {
     ? `LTM DSCR at ${escHtml(last.label)}: ${fmtX(last.ltm)}${cfg.lockup !== null ? ` &nbsp;·&nbsp; Distribution lock-up ${fmtX(cfg.lockup)}` : ''}${cfg.dflt !== null ? ` &nbsp;·&nbsp; Default ${fmtX(cfg.dflt)}` : ''}`
     : '';
   const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
-  const legend = [
-    '<span><i style="background:#1F2937;border-radius:50%"></i>LTM DSCR</span>',
-    cfg.lockup !== null ? `<span><i style="background:${STATUS_WARN};height:2px"></i>Distribution lock-up ${fmtX(cfg.lockup)}</span>` : '',
-    cfg.dflt !== null ? `<span><i style="background:${STATUS_CRIT};height:2px"></i>Default ${fmtX(cfg.dflt)}</span>` : '',
-    '<span class="div"></span>',
-    `<span><i style="background:${PALETTE[0]}"></i>CFADS</span>`,
-    ...dsLines.map((l, i) => `<span><i style="background:${DS_COLORS[i % 3]}"></i>${escHtml(l.name)}</span>`),
-  ].join('');
+
   let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
   // Top row: the coverage chart, with reserves and notes beside it.  Bottom: the cash flow table at
   // full width, since it carries up to 12 quarter columns plus LTM.
@@ -1488,7 +1515,7 @@ function dscrPageHtml(model, pageNo, pageCount) {
   html += `<div class="toprow" style="grid-template-columns:${sideBox ? `minmax(0, 1fr) ${Math.max(cfg.sideWidth, resBlock ? 32 : 0)}%` : 'minmax(0, 1fr)'}">`;
   html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span><span class="h-right">${head}</span></div>`;
   html += '<div class="charts-grid" style="grid-template-columns:minmax(0, 1fr)">';
-  html += `<div class="chart"><div class="chart-head stack"><span class="chart-title">LTM DSCR (x) and CFADS vs. Debt Service (${escHtml(cfg.cfUnits)})</span><div class="legend">${legend}</div></div><div class="plot" data-dscr="coverage"><svg></svg></div></div>`;
+  html += '<div class="chart"><div class="plot" data-dscr="coverage"><svg></svg></div></div>';
   html += `</div></section>${sideBox}</div>`;
   html += `<div class="bottom" style="grid-template-columns:1fr"><section class="card"><div class="card-h">Cash Flow Available for Debt Service</div><div class="card-b">${cfTableHtml(model)}</div></section></div>`;
   html += '</main>';
