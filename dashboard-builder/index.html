@@ -79,6 +79,7 @@
   table.cf td { text-align: right; padding: 3px 10px; white-space: nowrap; }
   table.cf td:first-child { color: var(--ink-2); }
   table.cf td.sub, table.cf th.sub { padding-left: 22px; }
+  table.cf tr.strong td { font-weight: 700; color: var(--ink); }
   table.cf tr.total td { font-weight: 700; color: var(--ink); border-top: 1px solid #AEB8C8; }
   table.cf tr.ratio td { font-weight: 700; color: var(--ink); background: var(--band); }
   table.cf tr.gap td { padding: 3px 0; }
@@ -1392,7 +1393,7 @@ function cfTableHtml(model) {
   const cell = (v, extra = '') => `<td class="${extra}">${f(v)}</td>`;
   const ltmCell = (fn) => (hasLtm ? `<td class="ltm">${f(win.reduce((a, q) => a + fn(q), 0))}</td>` : '');
   const lineVal = (l, q) => (l.vals[q.k] === null ? null : (l.kind === 'exp' ? -l.vals[q.k] : l.vals[q.k]));
-  const lineRow = (l, sub) => `<tr><td class="${sub ? 'sub' : ''}">${escHtml(l.kind === 'exp' ? 'Less: ' + l.name : l.name)}</td>${qs.map((q) => cell(lineVal(l, q))).join('')}${hasLtm ? `<td class="ltm">${f(win.reduce((a, q) => a + (lineVal(l, q) ?? 0), 0))}</td>` : ''}</tr>`;
+  const lineRow = (l, sub, cls = '') => `<tr class="${cls}"><td class="${sub ? 'sub' : ''}">${escHtml(l.kind === 'exp' ? 'Less: ' + l.name : l.name)}</td>${qs.map((q) => cell(lineVal(l, q))).join('')}${hasLtm ? `<td class="ltm">${f(win.reduce((a, q) => a + (lineVal(l, q) ?? 0), 0))}</td>` : ''}</tr>`;
   const ratioCls = (v) => {
     if (v === null) return '';
     if (cfg.dflt !== null && v < cfg.dflt) return 'below';
@@ -1400,7 +1401,7 @@ function cfTableHtml(model) {
     return '';
   };
   let html = `<table class="cf"><thead><tr><th>${escHtml(cfg.cfUnits)}</th>${qs.map((q) => `<th>${escHtml(q.label)}</th>`).join('')}${hasLtm ? `<th class="ltm">LTM ${escHtml(last.label)}</th>` : ''}</tr></thead><tbody>`;
-  dscr.lines.filter((l) => l.kind === 'rev').forEach((l) => { html += lineRow(l, false); });
+  dscr.lines.filter((l) => l.kind === 'rev').forEach((l) => { html += lineRow(l, false, 'strong'); });
   dscr.lines.filter((l) => l.kind === 'exp').forEach((l) => { html += lineRow(l, true); });
   const opex = (q) => -dscr.lines.filter((l) => l.kind === 'exp').reduce((a, l) => a + (l.vals[q.k] ?? 0), 0);
   html += `<tr class="total"><td>Total O&amp;M costs</td>${qs.map((q) => cell(opex(q))).join('')}${ltmCell(opex)}</tr>`;
