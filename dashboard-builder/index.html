@@ -759,6 +759,17 @@ function buildModel(sheets) {
     }
   }
 
+  // Blank inputs are not shown: a component with no values (for the two years on show, current
+  // year through the Current month) drops out of its stack and legend, and a chart with nothing
+  // left is not drawn.  The full chart list stays available for Table and Footnotes lookups.
+  const visibleVal = (r, v, m) => v !== null && (r.year === cfg.py || (r.year === cfg.cy && m <= cur));
+  for (const ch of charts) {
+    const live = ch.comps.filter((c) => ch.rows.some((r) => r.comp === c && r.values.some((v, m) => visibleVal(r, v, m))));
+    if (live.length && live.length < ch.comps.length) ch.comps = live;
+    ch.hasData = live.length > 0;
+  }
+  const shownCharts = charts.filter((ch) => ch.hasData);
+
   // ---- Table
   const table = [];
   const tg = findSheet(sheets, 'Table');
@@ -842,6 +853,8 @@ function buildModel(sheets) {
         };
         const mA = actual(H.mA, 'Month Actual', 'm');
         const yA = actual(H.yA, 'YTD Actual', 'y');
+        const mE = num(H.mE, 'Month EV Case'), yE = num(H.yE, 'YTD EV Case');
+        if (mA === null && yA === null && mE === null && yE === null) return;  // nothing entered: not shown
 
         table.push({
           metric,
@@ -851,8 +864,8 @@ function buildModel(sheets) {
           lowerBetter: norm(raw(H.better)) === 'lower',
           varAs,
           bold: ['y', 'yes', 'true', 'x'].includes(norm(raw(H.bold))),
-          m: [mA, num(H.mE, 'Month EV Case')],
-          y: [yA, num(H.yE, 'YTD EV Case')],
+          m: [mA, mE],
+          y: [yA, yE],
           evBasis: evBasisOf(raw(H.evBasis), line),
         });
       });
@@ -876,6 +889,7 @@ function buildModel(sheets) {
       if (cname) {
         chart = charts.find((c) => norm(c.name) === norm(cname)) || null;
         if (!chart) { warnings.push(`Footnotes tab row ${ri + 1}: Chart "${cname}" does not match any Chart name on the Charts tab; footnote skipped.`); return; }
+        if (!chart.hasData) return;  // that chart has no data, so it is not shown
       }
       footnotes.push({ num: footnotes.length + 1, month: m, chart, text });
     });
@@ -949,7 +963,9 @@ function buildModel(sheets) {
       });
       if (!lines.some((l) => l.kind === 'ds')) warnings.push('Debt Service tab: no rows with Role "Debt service", so DSCR cannot be calculated.');
       if (quarters.length < 4) warnings.push(`Debt Service tab: LTM DSCR needs 4 quarters of data; only ${quarters.length} available.`);
-      dscr = { lines, quarters, shown: quarters.slice(-cfg.dscrQuarters) };
+      // Line items with no values in any quarter on show (or feeding its LTM) are not shown.
+      const shownLines = lines.filter((l) => quarters.some((q) => l.vals[q.k] !== null));
+      dscr = { lines: shownLines, quarters, shown: quarters.slice(-cfg.dscrQuarters) };
     }
   }
   if (cfg.dscrInclude === 'Yes' && !dscr) warnings.push('Settings: Include DSCR page is Yes, but the Debt Service tab has no data.');
@@ -1016,7 +1032,7 @@ function buildModel(sheets) {
     });
   }
 
-  return { cfg, charts, table, footnotes, commentary, sideTable, dscr, dscrNotes, reserves, errors, warnings, infos };
+  return { cfg, charts: shownCharts, table, footnotes, commentary, sideTable, dscr, dscrNotes, reserves, errors, warnings, infos };
 }
 
 /* ================= FORMATTING ================= */
