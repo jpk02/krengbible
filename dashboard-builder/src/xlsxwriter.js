@@ -87,6 +87,7 @@ function colName(i) {
 const S = {
   text: 0, header: 1, note: 2, num1: 3, num2: 4, wrap: 5, bold: 6, title: 7,
   input: 8, input1: 9, input2: 10, section: 11,
+  calc0: 12, calc1: 13, calc2: 14,  // formula cells: black on white, bordered
 };
 
 const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -112,7 +113,7 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <border><left style="thin"><color rgb="FFD1D5DB"/></left><right style="thin"><color rgb="FFD1D5DB"/></right><top style="thin"><color rgb="FFD1D5DB"/></top><bottom style="thin"><color rgb="FFD1D5DB"/></bottom><diagonal/></border>
 </borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="12">
+<cellXfs count="15">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
 <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
 <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
@@ -125,6 +126,9 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xf numFmtId="164" fontId="5" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>
 <xf numFmtId="165" fontId="5" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>
 <xf numFmtId="0" fontId="3" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="3" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
@@ -154,7 +158,9 @@ function sheetXml(sh) {
       const ref = colName(ci) + (ri + 1);
       const sAttr = obj.s ? ` s="${obj.s}"` : '';
       if (obj.f) {
-        cells.push(`<c r="${ref}"${sAttr} t="str"><f>${esc(obj.f)}</f><v></v></c>`);
+        // Cached result so the value is readable before Excel recalculates.
+        if (typeof obj.v === 'number' && Number.isFinite(obj.v)) cells.push(`<c r="${ref}"${sAttr}><f>${esc(obj.f)}</f><v>${obj.v}</v></c>`);
+        else cells.push(`<c r="${ref}"${sAttr} t="str"><f>${esc(obj.f)}</f><v>${esc(obj.v ?? '')}</v></c>`);
       } else if (obj.v === null || obj.v === undefined || obj.v === '') {
         if (obj.s) cells.push(`<c r="${ref}"${sAttr}/>`);
       } else if (typeof obj.v === 'number') {

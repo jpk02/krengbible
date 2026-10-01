@@ -745,9 +745,11 @@ function buildModel(sheets) {
           varAs = suffix.trim() === '%' ? 'pts' : '%';
         }
 
-        // Actuals: pulled from the Charts tab when "From Chart" is filled in, otherwise typed.
-        let mA = null, yA = null;
+        // Actuals: the cell's value wins (a formula's result or a typed override).  When the cell
+        // is empty, not a number, or an Excel error, a row with "From Chart" falls back to
+        // computing the same thing from the Charts tab.
         const from = raw(H.from);
+        let fromVals = null;
         if (from) {
           const ch = charts.find((c) => norm(c.name) === norm(from));
           const comp = raw(H.fromComp);
@@ -761,16 +763,26 @@ function buildModel(sheets) {
           } else {
             const src = ch.rows.filter((r) => r.year === cfg.cy && (!comp || norm(r.comp) === norm(comp)));
             const monthVal = (m) => src.reduce((acc, r) => (r.values[m] === null ? acc : (acc ?? 0) + r.values[m]), null);
-            mA = monthVal(cfg.cur);
-            const vals = [];
-            for (let m = 0; m <= cfg.cur; m++) { const v = monthVal(m); if (v !== null) vals.push(v); }
-            if (vals.length) yA = vals.reduce((a, b) => a + b, 0) / (avg ? vals.length : 1);
-            if (mA === null) warnings.push(`${line}: "${from}" has no ${cfg.cy} value for ${MONTHS[cfg.cur]} on the Charts tab.`);
+            let ytd = null;
+            for (let m = 0; m <= cfg.cur; m++) { const v = monthVal(m); if (v !== null) ytd = (ytd ?? 0) + v; }
+            if (ytd !== null && avg) ytd /= cfg.cur + 1;
+            fromVals = { m: monthVal(cfg.cur), y: ytd };
           }
-        } else {
-          mA = num(H.mA, 'Month Actual');
-          yA = num(H.yA, 'YTD Actual');
         }
+        const actual = (names, label, key) => {
+          const c = col(names);
+          const n = c === undefined ? null : toNumber(row[c]);
+          if (n !== null && !Number.isNaN(n)) return n;
+          if (from) {
+            const v = fromVals ? fromVals[key] : null;
+            if (fromVals && v === null) warnings.push(`${line}: "${from}" has no ${cfg.cy} value for ${key === 'm' ? MONTHS[cfg.cur] : 'Jan-' + MONTHS[cfg.cur]} on the Charts tab.`);
+            return v;
+          }
+          if (Number.isNaN(n)) warnings.push(`${line}: "${cellW(row, c)}" in ${label} is not a number; shown as blank.`);
+          return null;
+        };
+        const mA = actual(H.mA, 'Month Actual', 'm');
+        const yA = actual(H.yA, 'YTD Actual', 'y');
 
         table.push({
           metric,

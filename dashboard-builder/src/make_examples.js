@@ -7,7 +7,6 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const h = (v) => ({ v, s: S.header });
 const note = (v) => ({ v, s: S.note });
 const inp = (v) => ({ v, s: S.input });
-const FROM_CHARTS = '(from Charts)';
 
 const LISTS = {
   'Current month': MONTHS,
@@ -39,8 +38,10 @@ function instructionsSheet() {
     ['Footnotes  -  explain a month on a chart.  Pick the chart from the dropdown, or leave "Chart" blank to mark that month on every chart.'],
     ['               The month label gets a small number and the note prints under the charts.'],
     ['Table  -  any number of rows.  The variance is calculated for you; "Better When" sets whether it shows green or red.'],
-    ['               Pick a chart in "From Chart" (dropdown) to fill Month Actual and YTD Actual from the Charts tab automatically'],
-    ['               (add a "From Component" to use just one component, e.g. Contracted).  Leave "From Chart" blank to type the actuals yourself.'],
+    ['               Month Actual and YTD Actual (black cells) are formulas: rows with a "From Chart" sum that chart on the Charts tab for the'],
+    ['               Current year, for the Current month and Jan through it (add a "From Component" to use one component, e.g. Contracted).'],
+    ['               O&M expense defaults to Revenue - Operating income.  Type a number over any formula to override it; the PDF uses the cell value.'],
+    ['               Rows with no "From Chart" and no formula: type the actuals yourself.'],
     ['               "YTD Method": Sum (default) adds the months up; Average averages them (use for percentages like capacity factor).'],
     ['               Month EV Case and YTD EV Case are always typed in.'],
     ['Commentary  -  Heading + Text pairs for the bottom-right box.'],
@@ -127,22 +128,80 @@ function footnotesSheet(items) {
   };
 }
 
-function tableSheet(items) {
+// Defined names the Table formulas use, pointing at the Settings rows.
+const MONTH_ARRAY = `{${MONTHS.map((m) => `"${m}"`).join(',')}}`;
+function calcNames(settings) {
+  const ref = (key) => `Settings!$B$${settings.findIndex(([k]) => k === key) + 2}`;
+  const cm = ref('Current month');
+  return [
+    { name: 'CurYear', ref: ref('Current year') },
+    { name: 'CurMonthNum', ref: `IF(ISNUMBER(${cm}),${cm},MATCH(LEFT(${cm},3),${MONTH_ARRAY},0))` },
+  ];
+}
+
+// Charts tab layout: A Chart, B Component, C Year, D Decimals, E..P = Jan..Dec.
+const monthFormula = (r) => {
+  const base = `INDEX(Charts!$E$2:$P$500,0,CurMonthNum),Charts!$A$2:$A$500,$B${r},Charts!$C$2:$C$500,CurYear`;
+  return `IF($C${r}="",SUMIFS(${base}),SUMIFS(${base},Charts!$B$2:$B$500,$C${r}))`;
+};
+const ytdFormula = (r) => `SUMPRODUCT((Charts!$A$2:$A$500=$B${r})*(Charts!$C$2:$C$500=CurYear)*((($C${r}="")+(Charts!$B$2:$B$500=$C${r}))>0)*(COLUMN(Charts!$E$1:$P$1)-COLUMN(Charts!$E$1)<CurMonthNum),Charts!$E$2:$P$500)/IF($D${r}="Average",CurMonthNum,1)`;
+
+// Same math in JS, for the cached values written alongside the formulas.
+function chartActuals(spec, t) {
+  const get = (k) => (spec.settings.find(([key]) => key === k) || [])[1];
+  const cy = get('Current year');
+  const cur = MONTHS.indexOf(String(get('Current month')).slice(0, 3));
+  const rows = spec.series.filter((r) => r.chart === t.from && r.year === cy && (!t.fromComp || r.component === t.fromComp));
+  const monthSum = (m) => rows.reduce((a, r) => a + (r.values[m] ?? 0), 0);
+  let ytd = 0;
+  for (let m = 0; m <= cur; m++) ytd += monthSum(m);
+  if (t.ytd === 'Average') ytd /= cur + 1;
+  const round = (v) => Math.round(v * 1e6) / 1e6;
+  return [round(monthSum(cur)), round(ytd)];
+}
+
+function tableSheet(spec) {
+  const items = spec.table;
   const rows = [[
     h('Metric'), h('From Chart'), h('From Component'), h('YTD Method'),
     h('Prefix'), h('Suffix'), h('Decimals'), h('Better When'), h('Variance As'), h('Bold'),
     h('Month Actual'), h('Month EV Case'), h('YTD Actual'), h('YTD EV Case'),
   ]];
-  for (const t of items) {
+  const rowOf = (metric) => items.findIndex((x) => x.metric === metric) + 2;
+  const values = new Map();
+  // Chart-linked rows first, so derived rows (e.g. O&M = Revenue - Operating income) can use their values.
+  items.forEach((t) => { if (t.from) values.set(t.metric, chartActuals(spec, t)); });
+  items.forEach((t) => {
+    if (t.derive) {
+      const [a, b] = t.derive.map((m) => values.get(m));
+      values.set(t.metric, [Math.round((a[0] - b[0]) * 1e6) / 1e6, Math.round((a[1] - b[1]) * 1e6) / 1e6]);
+    }
+  });
+  items.forEach((t, i) => {
+    const r = i + 2;
     const st = t.dec >= 2 ? S.input2 : S.input1;
-    const actual = (v) => (t.from ? note(FROM_CHARTS) : { v, s: st });
+    const calc = t.dec >= 2 ? S.calc2 : t.dec === 0 ? S.calc0 : S.calc1;
+    let mCell, yCell;
+    if (t.from) {
+      const [mv, yv] = values.get(t.metric);
+      mCell = { f: monthFormula(r), v: mv, s: calc };
+      yCell = { f: ytdFormula(r), v: yv, s: calc };
+    } else if (t.derive) {
+      const [mv, yv] = values.get(t.metric);
+      const [ra, rb] = t.derive.map(rowOf);
+      mCell = { f: `K${ra}-K${rb}`, v: mv, s: calc };
+      yCell = { f: `M${ra}-M${rb}`, v: yv, s: calc };
+    } else {
+      mCell = { v: t.m[0], s: st };
+      yCell = { v: t.y[0], s: st };
+    }
     rows.push([
       inp(t.metric), inp(t.from || ''), inp(t.fromComp || ''), inp(t.ytd || 'Sum'),
       inp(t.prefix || ''), inp(t.suffix || ''), inp(t.dec), inp(t.better || 'Higher'),
       inp(t.varAs || ''), inp(t.bold || ''),
-      actual(t.m && t.m[0]), { v: t.ev[0], s: st }, actual(t.y && t.y[0]), { v: t.ev[1], s: st },
+      mCell, { v: t.ev[0], s: st }, yCell, { v: t.ev[1], s: st },
     ]);
-  }
+  });
   const n = 200;
   return {
     name: 'Table', rows, widths: [26, 24, 16, 12, 8, 8, 10, 13, 13, 7, 14, 15, 13, 14], freezeRows: 1,
@@ -209,14 +268,14 @@ function build(spec) {
     settingsSheet(spec.settings),
     chartsSheet(spec.series),
     footnotesSheet(spec.footnotes),
-    tableSheet(spec.table),
+    tableSheet(spec),
     commentarySheet(spec.commentary),
     sideTableSheet(spec.sideTable),
     debtServiceSheet(spec.debt),
     reservesSheet(spec.reserves),
     dscrNotesSheet(spec.dscrNotes),
     listsSheet(),
-  ], { names: [CHART_NAMES] });
+  ], { names: [CHART_NAMES, ...calcNames(spec.settings)] });
 }
 
 const pad = (arr) => { const a = new Array(12).fill(null); arr.forEach((v, i) => { a[i] = v; }); return a; };
@@ -281,7 +340,7 @@ const BLUEFIELD = {
   table: [
     { metric: 'Generation', from: 'Generation (GWh)', suffix: ' GWh', dec: 1, ev: [50.6, 351.4] },
     { metric: 'Revenue', from: 'Revenue ($MM)', prefix: '$', suffix: 'MM', dec: 2, ev: [3.85, 25.30] },
-    { metric: 'O&M expense', prefix: '$', suffix: 'MM', dec: 2, better: 'Lower', varAs: 'Abs', m: [0.86], y: [6.12], ev: [0.74, 6.40] },
+    { metric: 'O&M expense', derive: ['Revenue', 'Operating income'], prefix: '$', suffix: 'MM', dec: 2, better: 'Lower', varAs: 'Abs', ev: [1.54, 13.68] },
     { metric: 'Operating income', from: 'Operating income ($MM)', prefix: '$', suffix: 'MM', dec: 2, bold: 'Y', ev: [2.31, 11.62] },
   ],
   commentary: [
