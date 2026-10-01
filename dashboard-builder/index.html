@@ -1076,11 +1076,12 @@ function svgEl(tag, attrs, parent) {
   return el;
 }
 
-/* Bar with a 4px rounded data end and a square baseline end. */
+/* Bar with an optional rounded data end (BAR_RADIUS; 0 = square, the house style) and a square baseline end. */
+const BAR_RADIUS = 0;
 function barPath(x, w, yBase, yEnd, roundEnd) {
   const up = yEnd < yBase;
   const h = Math.abs(yBase - yEnd);
-  const r = roundEnd ? Math.min(4, h, w / 2) : 0;
+  const r = roundEnd ? Math.min(BAR_RADIUS, h, w / 2) : 0;
   if (up) {
     return `M${x},${yBase}V${yEnd + r}Q${x},${yEnd} ${x + r},${yEnd}H${x + w - r}Q${x + w},${yEnd} ${x + w},${yEnd + r}V${yBase}Z`;
   }
