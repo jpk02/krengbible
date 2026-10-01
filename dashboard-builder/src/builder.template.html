@@ -72,6 +72,10 @@
   /* ---------- the dashboard page(s) ---------- */
   #page > .page { box-shadow: 0 2px 14px rgba(15, 23, 42, .18); margin-bottom: 24px; }
   #page > .page:last-child { margin-bottom: 0; }
+  .toprow { flex: 1; min-height: 0; display: grid; gap: 12px; }
+  .toprow > .card { min-height: 0; }
+  table.cf.wide { font-size: 10.5px; }
+  table.cf.wide th, table.cf.wide td { padding-left: 6px; padding-right: 6px; }
   .card-h { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
   .card-h .h-right { font-weight: 600; font-size: 11.5px; opacity: .95; white-space: nowrap; }
   table.cf { width: 100%; border-collapse: collapse; font-size: 11.5px; font-variant-numeric: tabular-nums; }
@@ -124,6 +128,8 @@
   .legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
   .legend .div { width: 1px; height: 10px; background: var(--hair); }
+  .chart-head.stack { flex-direction: column; align-items: flex-start; gap: 3px; }
+  .chart-head.stack .legend { justify-content: flex-start; }
   .plot { flex: 1; min-height: 0; position: relative; }
   .plot svg { position: absolute; inset: 0; display: block; overflow: visible; }
   .plot text { font-family: var(--font); }
@@ -640,7 +646,7 @@ function buildModel(sheets) {
     pageSize: sChoice('Page size', ['Letter', 'A4'], 'Letter'),
     dscrInclude: sChoice('Include DSCR page', ['Auto', 'Yes', 'No'], 'Auto'),
     dscrTitle: sText('DSCR page title', 'Debt Service Coverage - LTM Basis'),
-    dscrQuarters: Math.max(1, Math.min(8, Math.round(sNum('Quarters shown', 4)))),
+    dscrQuarters: Math.max(1, Math.min(12, Math.round(sNum('Quarters shown', 8)))),
     lockup: sNum('Distribution lock-up DSCR', sNum('Lock-up DSCR', null)),
     resTitle: sText('Reserves title', 'DSR and O&M Reserves'),
     dflt: sNum('Default DSCR', null),
@@ -1295,125 +1301,112 @@ function niceTicks(lo, hi, n) {
   return { ticks, t0, t1, step };
 }
 
-/* CFADS (one bar) next to debt service (stacked by line item), per quarter. */
-function drawCfadsChart(svg, model, W, H) {
+/* One chart, two stacked sections on a shared quarter axis (never two y-scales on one plot):
+   top = LTM DSCR line with the distribution lock-up / default lines (unlabeled; the legend names
+   them), bottom = CFADS next to debt service stacked by line item. */
+function drawCoverageChart(svg, model, W, H) {
   const { cfg, dscr } = model;
   svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const qs = dscr.shown;
+  const g = svgEl('g', {}, svg);
   const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
   const dsColors = dsLines.map((_, i) => PALETTE[1 + (i % 3)]);
-  let hi = 0, lo = 0;
-  qs.forEach((q) => { hi = Math.max(hi, q.cfads, q.ds); lo = Math.min(lo, q.cfads); });
-  if (hi === lo) hi = lo + 1;
-  const { ticks, t0, t1, step } = niceTicks(lo, hi, 3);
-  const dec = step < 1 ? Math.ceil(-Math.log10(step) - 1e-9) : 0;
-  const tickText = (t) => fmtNum(t, dec, cfg.negParen);
-  const left = Math.max(...ticks.map((t) => textWidth(tickText(t), 9))) + 8, right = 4, top = 15, xAxisH = 15;
-  const negPad = lo < 0 ? 12 : 0;
-  const bottom = H - xAxisH - negPad;
-  if (bottom - top < 20) return false;
-  const y = (v) => top + (t1 - v) / (t1 - t0) * (bottom - top);
-  const g = svgEl('g', {}, svg);
-  yAxis(g, ticks, y, left, right, W, tickText);
+  const xAxisH = 15, labelPad = 14;
+
+  // DSCR section domain: LTM values and covenant levels, padded; a line need not start at zero.
+  const ltms = qs.map((q) => q.ltm).filter((v) => v !== null && v !== undefined && Number.isFinite(v));
+  const refs = [cfg.lockup !== null ? { v: cfg.lockup, c: STATUS_WARN } : null, cfg.dflt !== null ? { v: cfg.dflt, c: STATUS_CRIT } : null].filter(Boolean);
+  const hasTop = ltms.length > 0;
+  let dT = null;
+  if (hasTop) {
+    const all = ltms.concat(refs.map((r) => r.v));
+    const lo = Math.min(...all), hi = Math.max(...all);
+    const pad = Math.max(0.1, (hi - lo) * 0.2);
+    dT = niceTicks(Math.max(0, lo - pad), hi + pad, 3);
+  }
+  // Bars section domain.
+  let bhi = 0, blo = 0;
+  qs.forEach((q) => { bhi = Math.max(bhi, q.cfads, q.ds); blo = Math.min(blo, q.cfads); });
+  if (bhi === blo) bhi = blo + 1;
+  const bT = niceTicks(blo, bhi, 3);
+  const bDec = bT.step < 1 ? Math.ceil(-Math.log10(bT.step) - 1e-9) : 0;
+  const bText = (t) => fmtNum(t, bDec, cfg.negParen);
+  const dDec = dT && dT.step < 0.1 ? 2 : 1;
+  const dText = (t) => `${t.toFixed(dDec)}x`;
+
+  const tickW = Math.max(...bT.ticks.map((t) => textWidth(bText(t), 9)), ...(dT ? dT.ticks.map((t) => textWidth(dText(t), 9)) : [0]));
+  const left = tickW + 8, right = 4;
+  const usable = H - xAxisH;
+  const topH = hasTop ? Math.round(usable * 0.36) : 0;
+  const sep = hasTop ? 12 : 0;
+  const t1 = labelPad, b1 = topH;                       // DSCR section
+  const negPad = blo < 0 ? 12 : 0;
+  const t2 = topH + sep + labelPad, b2 = usable - negPad; // bars section
+  if (b2 - t2 < 30 || (hasTop && b1 - t1 < 24)) return false;
+  const yb = (v) => t2 + (bT.t1 - v) / (bT.t1 - bT.t0) * (b2 - t2);
   const band = (W - left - right) / qs.length;
+  const cxOf = (i) => left + band * i + band / 2;
+
+  // DSCR section
+  if (hasTop) {
+    const yd = (v) => t1 + (dT.t1 - v) / (dT.t1 - dT.t0) * (b1 - t1);
+    yAxis(g, dT.ticks, yd, left, right, W, dText);
+    for (const r of refs) {
+      const yy = Math.round(yd(r.v)) + 0.5;
+      svgEl('line', { x1: left, x2: W - right, y1: yy, y2: yy, stroke: r.c, 'stroke-width': 1.25 }, g);
+    }
+    const pts = qs.map((q, i) => (q.ltm === null || q.ltm === undefined ? null : { x: cxOf(i), y: yd(q.ltm), q })).filter(Boolean);
+    // Line segments only between consecutive quarters that both have an LTM value.
+    let d = '';
+    qs.forEach((q, i) => {
+      if (q.ltm === null || q.ltm === undefined) return;
+      const prev = qs[i - 1];
+      d += `${prev && prev.ltm !== null && prev.ltm !== undefined ? 'L' : 'M'}${cxOf(i)},${yd(q.ltm)}`;
+    });
+    if (d) svgEl('path', { d, fill: 'none', stroke: '#1F2937', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, g);
+    for (const pt of pts) {
+      const c = svgEl('circle', { cx: pt.x, cy: pt.y, r: 4, fill: '#1F2937', stroke: '#FFFFFF', 'stroke-width': 2 }, g);
+      svgEl('title', {}, c).textContent = `${pt.q.label} LTM DSCR: ${fmtX(pt.q.ltm)}`;
+      const ly = pt.y - 8 < t1 - 4 ? pt.y + 15 : pt.y - 8;
+      const t = svgEl('text', { x: pt.x, y: ly, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: '#111827' }, g);
+      t.textContent = fmtX(pt.q.ltm);
+    }
+  }
+
+  // Bars section
+  yAxis(g, bT.ticks, yb, left, right, W, bText);
   const bw = Math.min(24, band * 0.3), gap = 2;
-  const y0 = y(0);
+  const y0 = yb(0);
+  const lblDec = cfg.cfDec > 1 ? 1 : cfg.cfDec;
   qs.forEach((q, i) => {
-    const cx = left + band * i + band / 2;
+    const cx = cxOf(i);
     const lbl = svgEl('text', { x: cx, y: H - 3, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
     lbl.textContent = q.label;
-    // CFADS
     const xc = cx - bw - gap / 2;
-    const pc = svgEl('path', { d: barPath(xc, bw, y0, y(q.cfads), true), fill: PALETTE[0] }, g);
+    const pc = svgEl('path', { d: barPath(xc, bw, y0, yb(q.cfads), true), fill: PALETTE[0] }, g);
     svgEl('title', {}, pc).textContent = `${q.label} CFADS: ${fmtNum(q.cfads, cfg.cfDec, cfg.negParen)}`;
-    const tc = svgEl('text', { x: xc + bw / 2, y: q.cfads >= 0 ? y(q.cfads) - 4 : y(q.cfads) + 11, 'text-anchor': 'middle', 'font-size': 9, 'font-weight': 600, fill: '#111827' }, g);
-    tc.textContent = fmtNum(q.cfads, cfg.cfDec > 1 ? 1 : cfg.cfDec, cfg.negParen);
-    // Debt service stack
+    const tc = svgEl('text', { x: xc + bw / 2, y: q.cfads >= 0 ? yb(q.cfads) - 4 : yb(q.cfads) + 11, 'text-anchor': 'middle', 'font-size': 9, 'font-weight': 600, fill: '#111827' }, g);
+    tc.textContent = fmtNum(q.cfads, lblDec, cfg.negParen);
     const xd = cx + gap / 2;
     let acc = 0;
     const segs = dsLines.map((l, li) => ({ v: l.vals[q.k] ?? 0, li })).filter((sg) => sg.v > 0);
     segs.forEach((sg, si) => {
-      const yb = y(acc), ye = y(acc + sg.v);
+      const ybase = yb(acc), ye = yb(acc + sg.v);
       acc += sg.v;
-      const base = si > 0 ? yb - gap : yb;
+      const base = si > 0 ? ybase - gap : ybase;
       if (ye >= base) return;
       const p = svgEl('path', { d: barPath(xd, bw, base, ye, si === segs.length - 1), fill: dsColors[sg.li] }, g);
       svgEl('title', {}, p).textContent = `${q.label} ${dsLines[sg.li].name}: ${fmtNum(sg.v, cfg.cfDec, cfg.negParen)}`;
-      const s = fmtNum(sg.v, 1, cfg.negParen);
-      if (base - ye >= 13 && textWidth(s, 8.5, 600) + 4 <= bw + 6) {
+      const str = fmtNum(sg.v, 1, cfg.negParen);
+      if (base - ye >= 13 && textWidth(str, 8.5, 600) + 4 <= bw + 6) {
         const ink = luminance(dsColors[sg.li]) > 0.35 ? '#111827' : '#FFFFFF';
         const t = svgEl('text', { x: xd + bw / 2, y: (base + ye) / 2 + 3, 'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 600, fill: ink }, g);
-        t.textContent = s;
+        t.textContent = str;
       }
     });
-    const td = svgEl('text', { x: xd + bw / 2, y: y(q.ds) - 4, 'text-anchor': 'middle', 'font-size': 9, 'font-weight': 600, fill: '#111827' }, g);
-    td.textContent = fmtNum(q.ds, cfg.cfDec > 1 ? 1 : cfg.cfDec, cfg.negParen);
+    const td = svgEl('text', { x: xd + bw / 2, y: yb(q.ds) - 4, 'text-anchor': 'middle', 'font-size': 9, 'font-weight': 600, fill: '#111827' }, g);
+    td.textContent = fmtNum(q.ds, lblDec, cfg.negParen);
   });
-  return true;
-}
-
-/* Quarterly DSCR as bars, LTM DSCR as a line with markers, covenant levels as reference lines. */
-function drawDscrChart(svg, model, W, H) {
-  const { cfg, dscr } = model;
-  svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  const qs = dscr.shown;
-  const vals = qs.flatMap((q) => [q.dscr, q.ltm]).filter((v) => v !== null && Number.isFinite(v));
-  const refs = [cfg.lockup !== null ? { v: cfg.lockup, name: 'Distribution lock-up', c: STATUS_WARN } : null, cfg.dflt !== null ? { v: cfg.dflt, name: 'Default', c: STATUS_CRIT } : null].filter(Boolean);
-  const hi = Math.max(1, ...vals, ...refs.map((r) => r.v)) * 1.1;
-  const { ticks, t0, t1 } = niceTicks(0, hi, 4);
-  const tickText = (t) => `${t.toFixed(t % 1 ? 1 : 0)}x`;
-  const refLabelW = refs.length ? Math.max(...refs.map((r) => textWidth(`${r.name} ${fmtX(r.v)}`, 8.5, 600))) + 6 : 0;
-  const left = Math.max(...ticks.map((t) => textWidth(tickText(t), 9))) + 8, right = 4 + refLabelW, top = 15, xAxisH = 15;
-  const bottom = H - xAxisH;
-  if (bottom - top < 20) return false;
-  const y = (v) => top + (t1 - v) / (t1 - t0) * (bottom - top);
-  const g = svgEl('g', {}, svg);
-  yAxis(g, ticks, y, left, right, W, tickText);
-  const band = (W - left - right) / qs.length;
-  const bw = Math.min(24, band * 0.3);
-  const barFill = mix(PALETTE[0], '#FFFFFF', PY_MIX);
-  const y0 = y(0);
-  const pts = [];
-  const placed = [];
-  qs.forEach((q, i) => {
-    const cx = left + band * i + band / 2;
-    const lbl = svgEl('text', { x: cx, y: H - 3, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
-    lbl.textContent = q.label;
-    if (q.dscr !== null && q.dscr > 0) {
-      const p = svgEl('path', { d: barPath(cx - bw / 2, bw, y0, y(q.dscr), true), fill: barFill }, g);
-      svgEl('title', {}, p).textContent = `${q.label} quarterly DSCR: ${fmtX(q.dscr)}`;
-      const ty = y0 - 5;  // quarterly label sits at the bar's base, clear of the LTM line
-      if (y0 - y(q.dscr) >= 15) {
-        const t = svgEl('text', { x: cx, y: ty, 'text-anchor': 'middle', 'font-size': 8.5, fill: '#1F2937' }, g);
-        t.textContent = fmtX(q.dscr);
-        const w = textWidth(fmtX(q.dscr), 8.5);
-        placed.push({ x0: cx - w / 2, x1: cx + w / 2, y0: ty - 9, y1: ty });
-      }
-    }
-    if (q.ltm !== null && q.ltm !== undefined) pts.push({ x: cx, y: y(q.ltm), q });
-  });
-  // covenant reference lines
-  for (const r of refs) {
-    const yy = Math.round(y(r.v)) + 0.5;
-    svgEl('line', { x1: left, x2: W - refLabelW, y1: yy, y2: yy, stroke: r.c, 'stroke-width': 1 }, g);
-    const t = svgEl('text', { x: W - refLabelW + 4, y: yy + 3, 'font-size': 8.5, 'font-weight': 600, fill: r.c }, g);
-    t.textContent = `${r.name} ${fmtX(r.v)}`;
-  }
-  // LTM line + markers + labels
-  if (pts.length > 1) {
-    svgEl('path', { d: pts.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(''), fill: 'none', stroke: '#1F2937', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, g);
-  }
-  for (const p of pts) {
-    const c = svgEl('circle', { cx: p.x, cy: p.y, r: 4, fill: '#1F2937', stroke: '#FFFFFF', 'stroke-width': 2 }, g);
-    svgEl('title', {}, c).textContent = `${p.q.label} LTM DSCR: ${fmtX(p.q.ltm)}`;
-    const s = fmtX(p.q.ltm);
-    const w = textWidth(s, 9.5, 700);
-    let ly = p.y - 8;
-    const hit = (yy) => placed.some((b) => p.x - w / 2 < b.x1 && p.x + w / 2 > b.x0 && yy - 10 < b.y1 && yy > b.y0);
-    if (ly - 10 < 0 || hit(ly)) ly = p.y + 16;
-    const t = svgEl('text', { x: p.x, y: ly, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: '#111827' }, g);
-    t.textContent = s;
-  }
   return true;
 }
 
@@ -1435,7 +1428,7 @@ function cfTableHtml(model) {
     if (cfg.lockup !== null && v < cfg.lockup) return 'warn';
     return '';
   };
-  let html = `<table class="cf"><thead><tr><th>${escHtml(cfg.cfUnits)}</th>${qs.map((q) => `<th>${escHtml(q.label)}</th>`).join('')}${hasLtm ? `<th class="ltm">LTM ${escHtml(last.label)}</th>` : ''}</tr></thead><tbody>`;
+  let html = `<table class="cf${qs.length > 8 ? ' wide' : ''}"><thead><tr><th>${escHtml(cfg.cfUnits)}</th>${qs.map((q) => `<th>${escHtml(q.label)}</th>`).join('')}${hasLtm ? `<th class="ltm">LTM ${escHtml(last.label)}</th>` : ''}</tr></thead><tbody>`;
   dscr.lines.filter((l) => l.kind === 'rev').forEach((l) => { html += lineRow(l, false, 'strong'); });
   dscr.lines.filter((l) => l.kind === 'exp').forEach((l) => { html += lineRow(l, true); });
   const opex = (q) => -dscr.lines.filter((l) => l.kind === 'exp').reduce((a, l) => a + (l.vals[q.k] ?? 0), 0);
@@ -1473,27 +1466,28 @@ function dscrPageHtml(model, pageNo, pageCount) {
     ? `LTM DSCR at ${escHtml(last.label)}: ${fmtX(last.ltm)}${cfg.lockup !== null ? ` &nbsp;·&nbsp; Distribution lock-up ${fmtX(cfg.lockup)}` : ''}${cfg.dflt !== null ? ` &nbsp;·&nbsp; Default ${fmtX(cfg.dflt)}` : ''}`
     : '';
   const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
-  const legend1 = [`<span><i style="background:${PALETTE[0]}"></i>CFADS</span>`]
-    .concat(dsLines.map((l, i) => `<span><i style="background:${PALETTE[1 + (i % 3)]}"></i>${escHtml(l.name)}</span>`)).join('');
-  const legend2 = [
-    `<span><i style="background:${mix(PALETTE[0], '#FFFFFF', PY_MIX)}"></i>Quarterly</span>`,
-    '<span><i style="background:#1F2937;border-radius:50%"></i>LTM</span>',
-    cfg.lockup !== null ? `<span><i style="background:${STATUS_WARN};height:2px"></i>Distribution lock-up</span>` : '',
-    cfg.dflt !== null ? `<span><i style="background:${STATUS_CRIT};height:2px"></i>Default</span>` : '',
+  const legend = [
+    '<span><i style="background:#1F2937;border-radius:50%"></i>LTM DSCR</span>',
+    cfg.lockup !== null ? `<span><i style="background:${STATUS_WARN};height:2px"></i>Distribution lock-up ${fmtX(cfg.lockup)}</span>` : '',
+    cfg.dflt !== null ? `<span><i style="background:${STATUS_CRIT};height:2px"></i>Default ${fmtX(cfg.dflt)}</span>` : '',
+    '<span class="div"></span>',
+    `<span><i style="background:${PALETTE[0]}"></i>CFADS</span>`,
+    ...dsLines.map((l, i) => `<span><i style="background:${PALETTE[1 + (i % 3)]}"></i>${escHtml(l.name)}</span>`),
   ].join('');
   let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
-  html += '<main class="body">';
-  html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span><span class="h-right">${head}</span></div>`;
-  html += '<div class="charts-grid" style="grid-template-columns:repeat(2, minmax(0, 1fr))">';
-  html += `<div class="chart"><div class="chart-head"><span class="chart-title">CFADS vs. Debt Service (${escHtml(cfg.cfUnits)})</span><div class="legend">${legend1}</div></div><div class="plot" data-dscr="cfads"><svg></svg></div></div>`;
-  html += `<div class="chart"><div class="chart-head"><span class="chart-title">DSCR (x)</span><div class="legend">${legend2}</div></div><div class="plot" data-dscr="ratio"><svg></svg></div></div>`;
-  html += '</div></section>';
+  // Top row: the coverage chart, with reserves and notes beside it.  Bottom: the cash flow table at
+  // full width, since it carries up to 12 quarter columns plus LTM.
   const notesBlock = dscrNotes.length ? `<div class="cm-block">${dscrNotes.map((c) => `<div class="cm-item">${c.heading ? `<div class="cm-h">${escHtml(c.heading)}</div>` : ''}${c.text ? `<div class="cm-t">${escHtml(c.text)}</div>` : ''}</div>`).join('')}</div>` : '';
   const resBlock = model.reserves.length ? reservesHtml(model) : '';
   const boxTitle = resBlock ? `${escHtml(cfg.resTitle)} (${escHtml(cfg.cfUnits)})` : 'DSCR Notes';
-  const notes = resBlock || notesBlock ? `<section class="card"><div class="card-h">${boxTitle}</div><div class="card-b side-b">${resBlock}${notesBlock}</div></section>` : '';
-  html += `<div class="bottom" style="grid-template-columns:${notes ? `minmax(0, 1fr) ${Math.max(cfg.sideWidth, resBlock ? 38 : 0)}%` : '1fr'}">`;
-  html += `<section class="card"><div class="card-h">Cash Flow Available for Debt Service</div><div class="card-b">${cfTableHtml(model)}</div></section>${notes}</div>`;
+  const sideBox = resBlock || notesBlock ? `<section class="card"><div class="card-h">${boxTitle}</div><div class="card-b side-b">${resBlock}${notesBlock}</div></section>` : '';
+  html += '<main class="body">';
+  html += `<div class="toprow" style="grid-template-columns:${sideBox ? `minmax(0, 1fr) ${Math.max(cfg.sideWidth, resBlock ? 32 : 0)}%` : 'minmax(0, 1fr)'}">`;
+  html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span><span class="h-right">${head}</span></div>`;
+  html += '<div class="charts-grid" style="grid-template-columns:minmax(0, 1fr)">';
+  html += `<div class="chart"><div class="chart-head stack"><span class="chart-title">LTM DSCR (x) and CFADS vs. Debt Service (${escHtml(cfg.cfUnits)})</span><div class="legend">${legend}</div></div><div class="plot" data-dscr="coverage"><svg></svg></div></div>`;
+  html += `</div></section>${sideBox}</div>`;
+  html += `<div class="bottom" style="grid-template-columns:1fr"><section class="card"><div class="card-h">Cash Flow Available for Debt Service</div><div class="card-b">${cfTableHtml(model)}</div></section></div>`;
   html += '</main>';
   html += `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page ${pageNo} of ${pageCount}</span></footer>`;
   return html;
@@ -1603,8 +1597,7 @@ function renderPage(model) {
     const db = dp.querySelector('.body');
     if (db.scrollHeight > db.clientHeight + 2) dp.classList.add('compact');
     dp.querySelectorAll('.plot').forEach((plot) => {
-      const fn = plot.dataset.dscr === 'cfads' ? drawCfadsChart : drawDscrChart;
-      if (fn(plot.querySelector('svg'), model, plot.clientWidth, plot.clientHeight) === false) layoutWarnings.push('The DSCR page is crowded: its charts are very short.  Shorten the DSCR Notes, the Reserves or the Debt Service rows.');
+      if (drawCoverageChart(plot.querySelector('svg'), model, plot.clientWidth, plot.clientHeight) === false) layoutWarnings.push('The DSCR page is crowded: its charts are very short.  Shorten the DSCR Notes, the Reserves or the Debt Service rows.');
     });
   }
   pages.forEach((pg, i) => {
