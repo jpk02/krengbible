@@ -111,12 +111,11 @@ function settingsSheet(settings) {
   return { name: 'Settings', rows, widths: [24, 70, 90], freezeRows: 1, validations };
 }
 
-const decimalsIn = (vals) => Math.max(0, ...vals.filter((v) => v !== null).map((v) => (String(v).split('.')[1] || '').length));
 
 function chartsSheet(series) {
   const rows = [[h('Chart'), h('Component'), h('Year'), h('Decimals'), ...MONTHS.map(h)]];
   for (const s of series) {
-    const style = decimalsIn(s.values) >= 2 ? S.input2 : S.input1;
+    const style = S.input1;  // every Charts value displays with 1 decimal (full precision is kept)
     rows.push([
       inp(s.chart), inp(s.component || ''), inp(s.year), inp(s.decimals),
       ...MONTHS.map((_, i) => (s.values[i] === undefined || s.values[i] === null ? { v: '', s: style } : { v: s.values[i], s: style })),
