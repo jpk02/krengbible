@@ -85,6 +85,13 @@
   table.cf .ltm { background: #EEF2F8; }
   table.cf tr.ratio td.ltm { background: #E1E8F3; }
   table.cf td.below { color: var(--bad); }
+  table.cf td.warn { color: #B7791F; }
+  table.res td:nth-child(n+2), table.res th:nth-child(n+2) { text-align: right; }
+  table.res tr.total td { font-weight: 700; color: var(--ink); border-top: 1px solid #AEB8C8; border-bottom: 0; }
+  .meter { display: inline-block; width: 28px; height: 6px; border-radius: 3px; background: #E5E7EB; vertical-align: middle; margin-right: 5px; overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 3px; }
+  td.short { color: var(--bad); font-weight: 600; }
+  .side-b .sub-h { font-size: 11px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
   .page {
     --theme: #1F3B6E;
     width: 11in; height: calc(8.5in - 1px);
@@ -613,7 +620,8 @@ function buildModel(sheets) {
     dscrInclude: sChoice('Include DSCR page', ['Auto', 'Yes', 'No'], 'Auto'),
     dscrTitle: sText('DSCR page title', 'Debt Service Coverage - LTM Basis'),
     dscrQuarters: Math.max(1, Math.min(8, Math.round(sNum('Quarters shown', 4)))),
-    lockup: sNum('Lock-up DSCR', null),
+    lockup: sNum('Distribution lock-up DSCR', sNum('Lock-up DSCR', null)),
+    resTitle: sText('Reserves title', 'DSR and O&M Reserves'),
     dflt: sNum('Default DSCR', null),
     cfUnits: sText('Cash flow units', '$MM'),
     cfDec: Math.max(0, Math.min(4, Math.round(sNum('Cash flow decimals', 2)))),
@@ -882,7 +890,29 @@ function buildModel(sheets) {
     warnings.push(`Side panel type is "${cfg.sideType}" but the Side Table tab has no data rows below the header.`);
   }
 
-    const dscrNotes = [];
+    const reserves = [];
+  const rsg = findSheet(sheets, 'Reserves');
+  if (rsg && rsg[0]) {
+    const hm = headerMap(rsg[0]);
+    const nc = hm['reserve'] ?? 0;
+    const rq = hm['required'] ?? hm['required balance'];
+    const av = hm['balance available'] ?? hm['available'] ?? hm['balance'];
+    if (av === undefined) warnings.push('Reserves tab: row 1 needs a "Balance available" column header.');
+    else rsg.forEach((row, ri) => {
+      if (ri === 0 || isBlankRow(row)) return;
+      const name = cellW(row, nc);
+      if (!name) return;
+      const num = (c, label) => {
+        if (c === undefined) return null;
+        const n = toNumber(row[c]);
+        if (Number.isNaN(n)) { warnings.push(`Reserves tab row ${ri + 1}: "${cellW(row, c)}" in ${label} is not a number; shown as blank.`); return null; }
+        return n;
+      };
+      reserves.push({ name, required: num(rq, 'Required'), available: num(av, 'Balance available') });
+    });
+  }
+
+  const dscrNotes = [];
   const dng = findSheet(sheets, 'DSCR Notes');
   if (dng) {
     const hm = headerMap(dng[0]);
@@ -894,7 +924,7 @@ function buildModel(sheets) {
     });
   }
 
-  return { cfg, charts, table, footnotes, commentary, sideTable, dscr, dscrNotes, errors, warnings };
+  return { cfg, charts, table, footnotes, commentary, sideTable, dscr, dscrNotes, reserves, errors, warnings };
 }
 
 /* ================= FORMATTING ================= */
@@ -1252,7 +1282,7 @@ function drawDscrChart(svg, model, W, H) {
   svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const qs = dscr.shown;
   const vals = qs.flatMap((q) => [q.dscr, q.ltm]).filter((v) => v !== null && Number.isFinite(v));
-  const refs = [cfg.lockup !== null ? { v: cfg.lockup, name: 'Lock-up', c: STATUS_WARN } : null, cfg.dflt !== null ? { v: cfg.dflt, name: 'Default', c: STATUS_CRIT } : null].filter(Boolean);
+  const refs = [cfg.lockup !== null ? { v: cfg.lockup, name: 'Distribution lock-up', c: STATUS_WARN } : null, cfg.dflt !== null ? { v: cfg.dflt, name: 'Default', c: STATUS_CRIT } : null].filter(Boolean);
   const hi = Math.max(1, ...vals, ...refs.map((r) => r.v)) * 1.1;
   const { ticks, t0, t1 } = niceTicks(0, hi, 4);
   const tickText = (t) => `${t.toFixed(t % 1 ? 1 : 0)}x`;
@@ -1323,7 +1353,12 @@ function cfTableHtml(model) {
   const ltmCell = (fn) => (hasLtm ? `<td class="ltm">${f(win.reduce((a, q) => a + fn(q), 0))}</td>` : '');
   const lineVal = (l, q) => (l.vals[q.k] === null ? null : (l.kind === 'exp' ? -l.vals[q.k] : l.vals[q.k]));
   const lineRow = (l, sub) => `<tr><td class="${sub ? 'sub' : ''}">${escHtml(l.kind === 'exp' ? 'Less: ' + l.name : l.name)}</td>${qs.map((q) => cell(lineVal(l, q))).join('')}${hasLtm ? `<td class="ltm">${f(win.reduce((a, q) => a + (lineVal(l, q) ?? 0), 0))}</td>` : ''}</tr>`;
-  const ratioCls = (v) => (v !== null && cfg.lockup !== null && v < cfg.lockup ? 'below' : '');
+  const ratioCls = (v) => {
+    if (v === null) return '';
+    if (cfg.dflt !== null && v < cfg.dflt) return 'below';
+    if (cfg.lockup !== null && v < cfg.lockup) return 'warn';
+    return '';
+  };
   let html = `<table class="cf"><thead><tr><th>${escHtml(cfg.cfUnits)}</th>${qs.map((q) => `<th>${escHtml(q.label)}</th>`).join('')}${hasLtm ? `<th class="ltm">LTM ${escHtml(last.label)}</th>` : ''}</tr></thead><tbody>`;
   dscr.lines.filter((l) => l.kind === 'rev').forEach((l) => { html += lineRow(l, false); });
   dscr.lines.filter((l) => l.kind === 'exp').forEach((l) => { html += lineRow(l, true); });
@@ -1338,11 +1373,26 @@ function cfTableHtml(model) {
   return html;
 }
 
+function reservesHtml(model) {
+  const { cfg, reserves } = model;
+  const f = (v) => (v === null ? '–' : fmtNum(v, cfg.cfDec, cfg.negParen));
+  const rows = reserves.map((r) => {
+    const pct = r.required && r.available !== null ? r.available / r.required : null;
+    const meter = pct === null ? '–' : `<span class="meter"><i style="width:${Math.max(0, Math.min(100, pct * 100)).toFixed(0)}%;background:${pct >= 0.995 ? PALETTE[0] : STATUS_WARN}"></i></span>${Math.round(pct * 100)}%`;
+    return `<tr><td>${escHtml(r.name)}</td><td>${f(r.required)}</td><td>${f(r.available)}</td><td class="${pct !== null && pct < 0.995 ? 'short' : ''}">${meter}</td></tr>`;
+  });
+  if (reserves.length > 1) {
+    const tot = (k) => (reserves.some((r) => r[k] !== null) ? reserves.reduce((a, r) => a + (r[k] ?? 0), 0) : null);
+    rows.push(`<tr class="total"><td>Total</td><td>${f(tot('required'))}</td><td>${f(tot('available'))}</td><td></td></tr>`);
+  }
+  return `<table class="side res"><thead><tr><th>Reserve</th><th>Required</th><th>Available</th><th>Funded</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
 function dscrPageHtml(model, pageNo, pageCount) {
   const { cfg, dscr, dscrNotes } = model;
   const last = dscr.shown[dscr.shown.length - 1];
   const head = last.ltm !== null && last.ltm !== undefined
-    ? `LTM DSCR at ${escHtml(last.label)}: ${fmtX(last.ltm)}${cfg.lockup !== null ? ` &nbsp;·&nbsp; Lock-up ${fmtX(cfg.lockup)}` : ''}`
+    ? `LTM DSCR at ${escHtml(last.label)}: ${fmtX(last.ltm)}${cfg.lockup !== null ? ` &nbsp;·&nbsp; Distribution lock-up ${fmtX(cfg.lockup)}` : ''}${cfg.dflt !== null ? ` &nbsp;·&nbsp; Default ${fmtX(cfg.dflt)}` : ''}`
     : '';
   const dsLines = dscr.lines.filter((l) => l.kind === 'ds');
   const legend1 = [`<span><i style="background:${PALETTE[0]}"></i>CFADS</span>`]
@@ -1350,7 +1400,7 @@ function dscrPageHtml(model, pageNo, pageCount) {
   const legend2 = [
     `<span><i style="background:${mix(PALETTE[0], '#FFFFFF', PY_MIX)}"></i>Quarterly</span>`,
     '<span><i style="background:#1F2937;border-radius:50%"></i>LTM</span>',
-    cfg.lockup !== null ? `<span><i style="background:${STATUS_WARN};height:2px"></i>Lock-up</span>` : '',
+    cfg.lockup !== null ? `<span><i style="background:${STATUS_WARN};height:2px"></i>Distribution lock-up</span>` : '',
     cfg.dflt !== null ? `<span><i style="background:${STATUS_CRIT};height:2px"></i>Default</span>` : '',
   ].join('');
   let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
@@ -1360,8 +1410,11 @@ function dscrPageHtml(model, pageNo, pageCount) {
   html += `<div class="chart"><div class="chart-head"><span class="chart-title">CFADS vs. debt service (${escHtml(cfg.cfUnits)})</span><div class="legend">${legend1}</div></div><div class="plot" data-dscr="cfads"><svg></svg></div></div>`;
   html += `<div class="chart"><div class="chart-head"><span class="chart-title">DSCR (x)</span><div class="legend">${legend2}</div></div><div class="plot" data-dscr="ratio"><svg></svg></div></div>`;
   html += '</div></section>';
-  const notes = dscrNotes.length ? `<section class="card"><div class="card-h">DSCR Notes</div><div class="card-b side-b"><div class="cm-block">${dscrNotes.map((c) => `<div class="cm-item">${c.heading ? `<div class="cm-h">${escHtml(c.heading)}</div>` : ''}${c.text ? `<div class="cm-t">${escHtml(c.text)}</div>` : ''}</div>`).join('')}</div></div></section>` : '';
-  html += `<div class="bottom" style="grid-template-columns:${notes ? `minmax(0, 1fr) ${cfg.sideWidth}%` : '1fr'}">`;
+  const notesBlock = dscrNotes.length ? `<div class="cm-block">${dscrNotes.map((c) => `<div class="cm-item">${c.heading ? `<div class="cm-h">${escHtml(c.heading)}</div>` : ''}${c.text ? `<div class="cm-t">${escHtml(c.text)}</div>` : ''}</div>`).join('')}</div>` : '';
+  const resBlock = model.reserves.length ? reservesHtml(model) : '';
+  const boxTitle = resBlock ? `${escHtml(cfg.resTitle)} (${escHtml(cfg.cfUnits)})` : 'DSCR Notes';
+  const notes = resBlock || notesBlock ? `<section class="card"><div class="card-h">${boxTitle}</div><div class="card-b side-b">${resBlock}${notesBlock}</div></section>` : '';
+  html += `<div class="bottom" style="grid-template-columns:${notes ? `minmax(0, 1fr) ${Math.max(cfg.sideWidth, resBlock ? 38 : 0)}%` : '1fr'}">`;
   html += `<section class="card"><div class="card-h">Cash Flow Available for Debt Service</div><div class="card-b">${cfTableHtml(model)}</div></section>${notes}</div>`;
   html += '</main>';
   html += `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page ${pageNo} of ${pageCount}</span></footer>`;

@@ -14,7 +14,7 @@ Nothing to install: open the page (or the downloaded `Dashboard-Builder.html`) i
 - **Current month** (Settings) sets the reporting month: the table's month and YTD columns, the default headings, and the cutoff for current-year bars.
 - **Footnotes** tab: a note for any month on one chart, or on every chart when Chart is blank.  The month label gets a superscript number and the notes print under the charts.
 - **Table** rows can pull Month Actual and YTD Actual from the Charts tab via "From Chart" (and optionally "From Component"), with a YTD Method of Sum or Average.  Month EV Case and YTD EV Case are typed.
-- **Debt Service** tab (optional) adds page 2, "Debt Service Coverage": quarterly Revenue less expenses (O&M, property and other taxes, or any rows you add) gives CFADS; principal plus interest gives debt service.  Page 2 shows CFADS against stacked debt service, quarterly and LTM DSCR against the lock-up and default covenant lines, and the full cash flow table with an LTM column.  **DSCR Notes** adds a notes box beside the table.
+- **Debt Service** tab (optional) adds page 2, "Debt Service Coverage": quarterly Revenue less expenses (O&M, property and other taxes, or any rows you add) gives CFADS; principal plus interest gives debt service.  Page 2 shows CFADS against stacked debt service, quarterly and LTM DSCR against the distribution lock-up and default covenant lines, and the full cash flow table with an LTM column.  **Reserves** lists each reserve account's required balance and balance available (with % funded) below the DSCR chart, and **DSCR Notes** adds notes beneath it.  The distribution lock-up and default DSCR covenant lines only appear when those settings are filled in.
 
 ## Rebuilding from source
 

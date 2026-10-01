@@ -48,7 +48,9 @@ function instructionsSheet() {
     ['Debt Service  -  quarterly cash flow for page 2.  One column per quarter, oldest on the left.  Role: Revenue, Expense or Debt service.'],
     ['               Enter expenses and debt service as positive numbers.  CFADS = Revenue - Expenses.  DSCR = CFADS / Debt service.'],
     ['               LTM DSCR = last 4 quarters of CFADS / last 4 quarters of debt service.  Add any expense or debt service rows you need.'],
-    ['DSCR Notes  -  optional Heading + Text pairs shown beside the cash flow table on page 2.'],
+    ['Reserves  -  one row per reserve account (DSR, O&M reserve, ...): Required balance and Balance available.  Shown on page 2 below the DSCR chart'],
+    ['               with the % funded; anything under 100% is flagged.'],
+    ['DSCR Notes  -  optional Heading + Text pairs shown on page 2 below the reserves.'],
     [],
     [{ v: 'Tips', s: S.bold }],
     ['-  Do not rename the tabs or the column headers in row 1.  You can add, delete or reorder rows freely.'],
@@ -86,8 +88,9 @@ function settingsSheet(settings) {
     'Include DSCR page': 'Auto = add page 2 (Debt Service Coverage) when the Debt Service tab has data.  Yes / No to force it.',
     'DSCR page title': 'Header above the DSCR charts on page 2.',
     'Quarters shown': 'How many of the most recent quarters page 2 shows (1-8).  Enter 3 extra older quarters to show an LTM DSCR for every quarter shown.',
-    'Lock-up DSCR': 'Distribution lock-up covenant, e.g. 1.20.  Drawn as a reference line; leave blank for none.',
-    'Default DSCR': 'Default covenant, e.g. 1.10.  Drawn as a reference line; leave blank for none.',
+    'Distribution lock-up DSCR': 'Distribution lock-up covenant, e.g. 1.20.  Drawn as a reference line.  Leave blank and it does not appear anywhere.',
+    'Default DSCR': 'Default covenant, e.g. 1.10.  Drawn as a reference line.  Leave blank and it does not appear anywhere.',
+    'Reserves title': 'Header of the reserves box on page 2 (below the DSCR chart).',
     'Cash flow units': 'Units label for page 2, e.g. $MM or $000s.',
     'Cash flow decimals': 'Decimals in the page 2 cash flow table.',
   };
@@ -175,6 +178,13 @@ function debtServiceSheet(d) {
   };
 }
 
+function reservesSheet(items) {
+  const rows = [[h('Reserve'), h('Required'), h('Balance available')]];
+  for (const [n, rq, av] of items) rows.push([inp(n), { v: rq, s: S.input2 }, { v: av, s: S.input2 }]);
+  for (let i = 0; i < 2; i++) rows.push([inp(''), { v: '', s: S.input2 }, { v: '', s: S.input2 }]);
+  return { name: 'Reserves', rows, widths: [28, 14, 18], freezeRows: 1 };
+}
+
 function dscrNotesSheet(items) {
   const rows = [[h('Heading'), h('Text')]];
   for (const [a, b] of items) rows.push([inp(a), inp(b)]);
@@ -203,6 +213,7 @@ function build(spec) {
     commentarySheet(spec.commentary),
     sideTableSheet(spec.sideTable),
     debtServiceSheet(spec.debt),
+    reservesSheet(spec.reserves),
     dscrNotesSheet(spec.dscrNotes),
     listsSheet(),
   ], { names: [CHART_NAMES] });
@@ -236,8 +247,9 @@ const COMMON = (o) => [
   ['Include DSCR page', 'Auto'],
   ['DSCR page title', 'Debt Service Coverage - LTM Basis'],
   ['Quarters shown', 4],
-  ['Lock-up DSCR', o.lockup],
+  ['Distribution lock-up DSCR', o.lockup],
   ['Default DSCR', o.dflt],
+  ['Reserves title', 'DSR and O&M Reserves'],
   ['Cash flow units', '$MM'],
   ['Cash flow decimals', 2],
 ];
@@ -289,6 +301,10 @@ const BLUEFIELD = {
       ['Interest', 'Debt service', [1.91, 1.86, 1.81, 1.76, 1.70, 1.65, 1.60]],
     ],
   },
+  reserves: [
+    ['Debt service reserve', 8.55, 8.62],
+    ['O&M reserve', 2.10, 1.85],
+  ],
   dscrNotes: [
     ['Seasonality', 'Q1 and Q4 coverage falls below 1.0x on a stand-alone basis every year; the covenants test on an LTM basis.'],
     ['Next test', 'Q3 2026 test at September 30, 2026.  Distributions require 1.20x LTM.'],
@@ -341,7 +357,7 @@ const RIDGELINE = {
     ['Item', 'Balance', 'MoM'],
     ['Unrestricted cash', '$3.4MM', '-$0.6MM'],
     ['O&M reserve', '$4.10MM', '+$0.05MM'],
-    ['Debt service reserve', '$12.25MM', 'Flat'],
+    ['Debt service reserve', '$15.80MM', 'Flat'],
     ['Term loan', '$182.4MM', '-$1.8MM'],
     ['Revolver', '$0.0MM', 'Flat'],
   ],
@@ -356,6 +372,11 @@ const RIDGELINE = {
       ['Interest', 'Debt service', [3.31, 3.25, 3.20, 3.15, 3.10, 3.05, 3.00]],
     ],
   },
+  reserves: [
+    ['Debt service reserve', 15.80, 15.80],
+    ['O&M reserve', 4.10, 4.10],
+    ['Major maintenance reserve', 6.00, 5.20],
+  ],
   dscrNotes: [
     ['Q2 2026', 'The April planned outage on Unit 1 reduced revenue and added O&M; LTM coverage stays well above lock-up.'],
   ],
