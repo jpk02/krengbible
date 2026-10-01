@@ -53,16 +53,15 @@
    *
    * WHY THIS EXACT RATIO, AND WHY THERE IS NO SINGLE RIGHT ONE.
    *
-   * The card is `min(screenWidth - 40, 420)` wide by 420 tall,
+   * The card is `min(screenWidth - 40, 420)` wide by `max(420, content)` tall,
    * so the crop depends on the phone: about 0.80 on an SE, 0.93 on a Pro Max.
    * 362/420 is an iPhone 16 Pro (402pt wide, less the 20pt page padding on each
    * side), which is what this was checked against.  Nudge it if the reference
    * device changes;  every preview here follows this one value.
    *
-   * The height is fixed too:  a long verse shrinks to fit the card in the app
-   * as it does here (see fitVerse), so the crop a preview shows is the crop
-   * the reader gets.  That is the point:  it stops a photo being chosen whose
-   * subject the crop cuts through. */
+   * The height moves too — the card grows past 420 when a verse runs long — so
+   * a preview can be close but never exact.  Close is the point: it exists to
+   * stop a photo being chosen whose subject the crop cuts through. */
   :root{--votd-crop:362/420}
 
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;
@@ -89,8 +88,9 @@
       overflow:hidden;background:var(--line);--u:calc(100cqw / 362)}
   .ph img{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;border-radius:0}
   /* --t is a TEXT point:  the tile's point (--u) times --fit, which is 1 unless
-   * the verse is too long for the card.  A long verse shrinks, all of it
-   * together, until it fits, as it does on the app's card.  See fitVerse. */
+   * the verse is too long for the tile.  The app's card grows taller for a
+   * long verse;  a preview here is a fixed crop, so it shrinks the text
+   * instead, all of it together, until it fits.  See fitVerse below. */
   .ov{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;
       --t:calc(var(--u) * var(--fit, 1));
       padding:calc(22 * var(--u));color:#fff;pointer-events:none;text-align:left;
@@ -1004,11 +1004,12 @@ document.getElementById('reportBtn').addEventListener('click', (e) => showReport
 
 /* FIT EACH PREVIEW'S VERSE TO ITS TILE.
  *
- * A tile is a fixed crop of the photo, as the app's card is, and a long verse
- * spilled out of the top of it, cut off mid-word.  So any tile whose text does
- * not fit shrinks it, every line of it by the same factor, to the largest size
- * that does fit, the same rule the app's card follows (VotdCard's PhotoCard).
- * The photo, which is what a tile is for judging, stays as it is.
+ * A preview is the app's card at its usual size, but the app's card grows
+ * taller when a verse runs long, and a tile here cannot:  it is a fixed crop
+ * of the photo.  A long verse spilled out of the top of the tile, cut off
+ * mid-word.  So any tile whose text does not fit shrinks it, every line of it
+ * by the same factor, to the largest size that does fit.  The photo, which is
+ * what a tile is for judging, stays as it is.
  *
  * Automatic, for every tile however it got onto the page:  each overlay is
  * watched for size changes, which covers a tile being added, the page being
