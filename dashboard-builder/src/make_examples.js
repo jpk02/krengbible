@@ -35,10 +35,10 @@ function instructionsSheet() {
     ['               Each distinct "Chart" name becomes its own chart.  Rows with a "Component" (e.g. Contracted, Merchant) are stacked.'],
     ['               Every chart shows the Prior year and Current year from Settings side by side, month by month.'],
     ['               Enter full precision here (e.g. 3.92); the Decimals column only controls how the chart labels are rounded.'],
-    ['Footnotes  -  explain a month on a chart.  Leave "Chart" blank to mark that month on every chart.'],
+    ['Footnotes  -  explain a month on a chart.  Pick the chart from the dropdown, or leave "Chart" blank to mark that month on every chart.'],
     ['               The month label gets a small number and the note prints under the charts.'],
     ['Table  -  any number of rows.  The variance is calculated for you; "Better When" sets whether it shows green or red.'],
-    ['               Put a chart name in "From Chart" to fill Month Actual and YTD Actual from the Charts tab automatically'],
+    ['               Pick a chart in "From Chart" (dropdown) to fill Month Actual and YTD Actual from the Charts tab automatically'],
     ['               (add a "From Component" to use just one component, e.g. Contracted).  Leave "From Chart" blank to type the actuals yourself.'],
     ['               "YTD Method": Sum (default) adds the months up; Average averages them (use for percentages like capacity factor).'],
     ['               Month EV Case and YTD EV Case are always typed in.'],
@@ -48,6 +48,7 @@ function instructionsSheet() {
     [{ v: 'Tips', s: S.bold }],
     ['-  Do not rename the tabs or the column headers in row 1.  You can add, delete or reorder rows freely.'],
     ['-  Copy this workbook for each asset (one workbook = one dashboard).'],
+    ['-  The Chart dropdowns list the names on the Charts tab automatically (from a hidden "Lists" tab).  Add a chart there and it appears in the dropdowns.'],
     ['-  Your data never leaves your computer: the builder page reads the file locally in the browser.'],
   ];
   return { name: 'Instructions', rows: lines, widths: [140] };
@@ -107,7 +108,7 @@ function footnotesSheet(items) {
   for (let i = 0; i < 3; i++) rows.push([inp(''), inp(''), inp('')]);
   return {
     name: 'Footnotes', rows, widths: [28, 10, 100], freezeRows: 1,
-    validations: [{ range: 'B2:B200', list: MONTHS }],
+    validations: [{ range: 'A2:A200', formula: 'ChartNames' }, { range: 'B2:B200', list: MONTHS }],
   };
 }
 
@@ -131,6 +132,7 @@ function tableSheet(items) {
   return {
     name: 'Table', rows, widths: [26, 24, 16, 12, 8, 8, 10, 13, 13, 7, 14, 15, 13, 14], freezeRows: 1,
     validations: [
+      { range: `B2:B${n}`, formula: 'ChartNames' },
       { range: `D2:D${n}`, list: ['Sum', 'Average'] },
       { range: `H2:H${n}`, list: ['Higher', 'Lower'] },
       { range: `I2:I${n}`, list: ['%', 'Abs', 'Pts'] },
@@ -138,6 +140,18 @@ function tableSheet(items) {
     ],
   };
 }
+
+// Hidden helper: the distinct Chart names from the Charts tab, for dropdowns.
+// Classic (non-array) unique-list formula so it works in every Excel version.
+const LIST_ROWS = 100;
+function listsSheet() {
+  const rows = [['Chart names']];
+  for (let r = 2; r <= LIST_ROWS + 1; r++) {
+    rows.push([{ f: `IFERROR(INDEX(Charts!$A$2:$A$500,MATCH(0,INDEX(COUNTIF($A$1:A${r - 1},Charts!$A$2:$A$500)+(Charts!$A$2:$A$500=""),0),0)),"")` }]);
+  }
+  return { name: 'Lists', rows, widths: [30], hidden: true };
+}
+const CHART_NAMES = { name: 'ChartNames', ref: `OFFSET(Lists!$A$2,0,0,MAX(1,COUNTIF(Lists!$A$2:$A$${LIST_ROWS + 1},"?*")),1)` };
 
 function commentarySheet(items) {
   const rows = [[h('Heading'), h('Text')]];
@@ -160,7 +174,8 @@ function build(spec) {
     tableSheet(spec.table),
     commentarySheet(spec.commentary),
     sideTableSheet(spec.sideTable),
-  ]);
+    listsSheet(),
+  ], { names: [CHART_NAMES] });
 }
 
 const pad = (arr) => { const a = new Array(12).fill(null); arr.forEach((v, i) => { a[i] = v; }); return a; };

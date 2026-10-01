@@ -153,7 +153,9 @@ function sheetXml(sh) {
       const obj = typeof cell === 'object' ? cell : { v: cell };
       const ref = colName(ci) + (ri + 1);
       const sAttr = obj.s ? ` s="${obj.s}"` : '';
-      if (obj.v === null || obj.v === undefined || obj.v === '') {
+      if (obj.f) {
+        cells.push(`<c r="${ref}"${sAttr} t="str"><f>${esc(obj.f)}</f><v></v></c>`);
+      } else if (obj.v === null || obj.v === undefined || obj.v === '') {
         if (obj.s) cells.push(`<c r="${ref}"${sAttr}/>`);
       } else if (typeof obj.v === 'number') {
         cells.push(`<c r="${ref}"${sAttr}><v>${obj.v}</v></c>`);
@@ -168,7 +170,8 @@ function sheetXml(sh) {
   if (sh.validations && sh.validations.length) {
     out.push(`<dataValidations count="${sh.validations.length}">`);
     for (const dv of sh.validations) {
-      out.push(`<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="${dv.range}"><formula1>"${esc(dv.list.join(','))}"</formula1></dataValidation>`);
+      const f1 = dv.formula ? esc(dv.formula) : `"${esc(dv.list.join(','))}"`;
+      out.push(`<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="${dv.range}"><formula1>${f1}</formula1></dataValidation>`);
     }
     out.push('</dataValidations>');
   }
@@ -177,14 +180,15 @@ function sheetXml(sh) {
   return out.join('');
 }
 
-function workbook(sheets) {
+// opts.names: [{ name, ref }] workbook-level defined names.
+function workbook(sheets, opts = {}) {
   const files = [];
   files.push(['[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`]);
   files.push(['_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`]);
   files.push(['xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets>${sheets.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`]);
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets>${sheets.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}"${s.hidden ? ' state="hidden"' : ''} r:id="rId${i + 1}"/>`).join('')}</sheets>${(opts.names || []).length ? `<definedNames>${opts.names.map((n) => `<definedName name="${esc(n.name)}">${esc(n.ref)}</definedName>`).join('')}</definedNames>` : ''}<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`]);
   files.push(['xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`]);
   files.push(['xl/styles.xml', STYLES]);
