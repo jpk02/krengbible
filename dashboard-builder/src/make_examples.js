@@ -254,6 +254,7 @@ function debtServiceSheet(d) {
   const blank = () => rows.push([]);
 
   by('Revenue').forEach(inputRow);
+  blank();
   by('Expense').forEach(inputRow);
   calcRow('Total O&M costs', (c) => sumif('Expense', c), (q) => sumRole('Expense', q), S.calc2b);
   const cfadsRow = calcRow('CFADS', (c) => `${sumif('Revenue', c)}-${sumif('Expense', c)}`, (q) => sumRole('Revenue', q) - sumRole('Expense', q), S.calc2b);
