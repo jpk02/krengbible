@@ -9,11 +9,13 @@ const note = (v) => ({ v, s: S.note });
 const inp = (v) => ({ v, s: S.input });
 
 const LISTS = {
-  'Data labels': ['This year', 'Both years', 'None'],
+  'Current month': MONTHS,
+  'Data labels': ['Both years', 'This year', 'None'],
   'Chart columns': ['Auto', '1', '2', '3'],
   'Negative numbers': ['Parentheses', 'Minus sign'],
   'Side panel type': ['Commentary', 'Table', 'Table + Commentary', 'None'],
   'Page size': ['Letter', 'A4'],
+  'Include DSCR page': ['Auto', 'Yes', 'No'],
 };
 
 function instructionsSheet() {
@@ -21,26 +23,49 @@ function instructionsSheet() {
     [{ v: 'Monthly Dashboard Inputs', s: S.title }],
     [],
     [{ v: 'How to use', s: S.bold }],
-    ['1.  Fill in the Settings, Charts, Table, Commentary and Side Table tabs.  Blue text on yellow = inputs.'],
+    ['1.  Fill in the Settings, Charts, Footnotes, Table, Commentary and Side Table tabs.  Blue text on yellow = inputs.'],
     ['2.  Save this workbook.'],
-    ['3.  Open "Dashboard Builder.html" in Edge or Chrome and drag this workbook onto the page.'],
+    ['3.  Open the Dashboard Builder page in Edge or Chrome and drag this workbook onto it.'],
     ['4.  Click "Save as PDF" (or press Ctrl+P), choose "Save as PDF", and save.'],
     [],
     [{ v: 'Tabs', s: S.bold }],
     ['Settings  -  titles, labels, footer, and layout options.  The Notes column explains each one.'],
+    ['               "Current month" drives the month and YTD columns of the table.  Current-year chart values after it are not shown.'],
     ['Charts  -  one row per chart / component / year with Jan-Dec values.  Leave months blank where there is no data yet.'],
     ['               Each distinct "Chart" name becomes its own chart.  Rows with a "Component" (e.g. Contracted, Merchant) are stacked.'],
-    ['               Every chart shows the Current year and Prior year from Settings side by side, month by month.'],
+    ['               Every chart shows the Prior year and Current year from Settings side by side, month by month.'],
+    ['               Enter full precision here (e.g. 3.92); the Decimals column only controls how the chart labels are rounded.'],
+    ['Footnotes  -  explain a month on a chart.  Pick the chart from the dropdown, or leave "Chart" blank to mark that month on every chart.'],
+    ['               The month label gets a small number and the note prints under the charts.'],
     ['Table  -  any number of rows.  The variance is calculated for you; "Better When" sets whether it shows green or red.'],
+    ['               Month Actual and YTD Actual (black cells) are formulas: rows with a "From Chart" sum that chart on the Charts tab for the'],
+    ['               Current year, for the Current month and Jan through it (add a "From Component" to use one component, e.g. Contracted).'],
+    ['               O&M expense defaults to Revenue - Operating income.  Type a number over any formula to override it; the PDF uses the cell value.'],
+    ['               Rows with no "From Chart" and no formula: type the actuals yourself.'],
+    ['               "EV Basis": if the EV Case values were pro-rated from quarterly, semi-annual or annual figures, pick that here.  The EV Case'],
+    ['               values get a small letter (a, b, ...) and a footnote under the table explains it.  Monthly (the default) adds nothing.'],
+    ['               "YTD Method": Sum (default) adds the months up; Average averages them (use for percentages like capacity factor).'],
+    ['               Month EV Case and YTD EV Case are always typed in.'],
     ['Commentary  -  Heading + Text pairs for the bottom-right box.'],
     ['Side Table  -  a free-form grid for the bottom-right box.  Row 1 = column headers.  Values print exactly as they appear in Excel.'],
+    ['Debt Service  -  a running quarterly history for page 2: one column per quarter (Q1 2024 to Q4 2027).  Fill in each quarter when it closes;'],
+    ['               nothing ever needs shifting.  Page 2 shows the last completed quarter before the Current month\'s quarter and the 3 before it'],
+    ['               (Current month Aug -> through Q2; Dec -> through Q3).  Add more quarters by adding columns with labels like "Q1 2028".'],
+    ['               Role: Revenue, Expense or Debt service.  Enter expenses and debt service as positive numbers.  The black "Calculated'],
+    ['               rows do the math: Total O&M costs, CFADS = Revenue - Total O&M costs, Total debt service costs, DSCR, and DSCR - LTM'],
+    ['               (last 4 quarters of CFADS / last 4 quarters of debt service).  To add a line (e.g. LC fees), insert the row between two'],
+    ['               rows of the same block so the totals\' ranges grow to include it.  The PDF recalculates from the input rows.'],
+    ['Reserves  -  one row per reserve account (DSR, O&M reserve, ...): Required balance and Balance available.  Shown on page 2 below the DSCR chart'],
+    ['               with the % funded; anything under 100% is flagged.'],
+    ['DSCR Notes  -  optional Heading + Text pairs shown on page 2 below the reserves.'],
     [],
     [{ v: 'Tips', s: S.bold }],
     ['-  Do not rename the tabs or the column headers in row 1.  You can add, delete or reorder rows freely.'],
     ['-  Copy this workbook for each asset (one workbook = one dashboard).'],
+    ['-  The Chart dropdowns list the names on the Charts tab automatically (from a hidden "Lists" tab).  Add a chart there and it appears in the dropdowns.'],
     ['-  Your data never leaves your computer: the builder page reads the file locally in the browser.'],
   ];
-  return { name: 'Instructions', rows: lines, widths: [130] };
+  return { name: 'Instructions', rows: lines, widths: [140] };
 }
 
 function settingsSheet(settings) {
@@ -51,12 +76,13 @@ function settingsSheet(settings) {
     'Header color': 'Hex color for the banner and section headers, e.g. #1F3B6E.',
     'Current year': 'Year whose values are the solid bars.',
     'Prior year': 'Year whose values are the lighter bars next to them.',
+    'Current month': 'The month being reported.  Drives Month Actual and YTD (Jan through this month) in the table.',
     'Chart section title': 'Header above the charts.',
-    'Data labels': 'Which bars get value labels: This year / Both years / None.',
+    'Data labels': 'Which bars get value labels: Both years / This year / None.',
     'Chart columns': 'Auto = 1 column for up to 3 charts, 2 columns for more.',
     'Table title': 'Header above the comparison table.',
-    'Month heading': 'Heading over the monthly columns, e.g. August.',
-    'YTD heading': 'Heading over the year-to-date columns.',
+    'Month heading': 'Heading over the monthly columns.  Leave blank to use the Current month (e.g. August).',
+    'YTD heading': 'Heading over the year-to-date columns.  Leave blank for "YTD Through August".',
     'Actual label': 'Column label for actual values.',
     'Comparison label': 'Column label for the comparison case (EV Case, Budget, Forecast...).',
     'Variance label': 'Column label for the variance.',
@@ -66,6 +92,15 @@ function settingsSheet(settings) {
     'Side panel width %': 'Width of the bottom-right box as a share of the page (15-50).',
     'Footer': 'Sources line at the bottom of the page.',
     'Page size': 'Letter or A4 (always landscape).',
+    'Include DSCR page': 'Auto = add page 2 (Debt Service Coverage) when the Debt Service tab has data.  Yes / No to force it.',
+    'DSCR page title': 'Header above the DSCR charts on page 2.',
+    'Quarters shown': 'How many of the most recent quarters page 2 shows (1-12), as far as the Debt Service tab has data.  LTM DSCR needs the 3 quarters before each one.',
+    'Distribution lock-up DSCR': 'Distribution lock-up covenant, e.g. 1.20.  Drawn as a reference line.  Leave blank and it does not appear anywhere.',
+    'Default DSCR': 'Default covenant, e.g. 1.10.  Drawn as a reference line.  Leave blank and it does not appear anywhere.',
+    'Pro-rated note': 'Optional wording for the EV Basis footnote under the table.  Blank = "EV Case pro-rated from quarterly figures on a straight-line monthly basis; it does not reflect seasonality within the quarter."  You can use {basis} (quarterly / semi-annual / annual), {period} (quarter / half-year / year) and {comparison} (the Comparison label).',
+    'Reserves title': 'Header of the reserves box on page 2 (below the DSCR chart).',
+    'Cash flow units': 'Units label for page 2, e.g. $MM or $000s.',
+    'Cash flow decimals': 'Decimals in the page 2 cash flow table and reserves (default 1).',
   };
   const rows = [[h('Setting'), h('Value'), h('Notes')]];
   const validations = [];
@@ -73,45 +108,211 @@ function settingsSheet(settings) {
     rows.push([{ v: k, s: S.bold }, inp(v), note(notes[k] || '')]);
     if (LISTS[k]) validations.push({ range: `B${rows.length}`, list: LISTS[k] });
   }
-  return { name: 'Settings', rows, widths: [24, 70, 70], freezeRows: 1, validations };
+  return { name: 'Settings', rows, widths: [24, 70, 90], freezeRows: 1, validations };
 }
+
 
 function chartsSheet(series) {
   const rows = [[h('Chart'), h('Component'), h('Year'), h('Decimals'), ...MONTHS.map(h)]];
   for (const s of series) {
-    const style = s.decimals >= 2 ? S.input2 : S.input1;
+    const style = S.input1;  // every Charts value displays with 1 decimal (full precision is kept)
     rows.push([
       inp(s.chart), inp(s.component || ''), inp(s.year), inp(s.decimals),
       ...MONTHS.map((_, i) => (s.values[i] === undefined || s.values[i] === null ? { v: '', s: style } : { v: s.values[i], s: style })),
     ]);
   }
+  return { name: 'Charts', rows, widths: [26, 16, 8, 10, ...MONTHS.map(() => 8)], freezeRows: 1 };
+}
+
+function footnotesSheet(items) {
+  const rows = [[h('Chart'), h('Month'), h('Note')]];
+  for (const [c, m, t] of items) rows.push([inp(c), inp(m), inp(t)]);
+  for (let i = 0; i < 3; i++) rows.push([inp(''), inp(''), inp('')]);
   return {
-    name: 'Charts', rows, widths: [26, 16, 8, 10, ...MONTHS.map(() => 8)], freezeRows: 1,
+    name: 'Footnotes', rows, widths: [28, 10, 100], freezeRows: 1,
+    validations: [{ range: 'A2:A200', formula: 'ChartNames' }, { range: 'B2:B200', list: MONTHS }],
   };
 }
 
-function tableSheet(items) {
+// Defined names the Table formulas use, pointing at the Settings rows.
+const MONTH_ARRAY = `{${MONTHS.map((m) => `"${m}"`).join(',')}}`;
+function calcNames(settings) {
+  const ref = (key) => `Settings!$B$${settings.findIndex(([k]) => k === key) + 2}`;
+  const cm = ref('Current month');
+  return [
+    { name: 'CurYear', ref: ref('Current year') },
+    { name: 'CurMonthNum', ref: `IF(ISNUMBER(${cm}),${cm},MATCH(LEFT(${cm},3),${MONTH_ARRAY},0))` },
+  ];
+}
+
+// Charts tab layout: A Chart, B Component, C Year, D Decimals, E..P = Jan..Dec.
+const monthFormula = (r) => {
+  const base = `INDEX(Charts!$E$2:$P$500,0,CurMonthNum),Charts!$A$2:$A$500,$B${r},Charts!$C$2:$C$500,CurYear`;
+  return `IF($C${r}="",SUMIFS(${base}),SUMIFS(${base},Charts!$B$2:$B$500,$C${r}))`;
+};
+const ytdFormula = (r) => `SUMPRODUCT((Charts!$A$2:$A$500=$B${r})*(Charts!$C$2:$C$500=CurYear)*((($C${r}="")+(Charts!$B$2:$B$500=$C${r}))>0)*(COLUMN(Charts!$E$1:$P$1)-COLUMN(Charts!$E$1)<CurMonthNum),Charts!$E$2:$P$500)/IF($D${r}="Average",CurMonthNum,1)`;
+
+// Same math in JS, for the cached values written alongside the formulas.
+function chartActuals(spec, t) {
+  const get = (k) => (spec.settings.find(([key]) => key === k) || [])[1];
+  const cy = get('Current year');
+  const cur = MONTHS.indexOf(String(get('Current month')).slice(0, 3));
+  const rows = spec.series.filter((r) => r.chart === t.from && r.year === cy && (!t.fromComp || r.component === t.fromComp));
+  const monthSum = (m) => rows.reduce((a, r) => a + (r.values[m] ?? 0), 0);
+  let ytd = 0;
+  for (let m = 0; m <= cur; m++) ytd += monthSum(m);
+  if (t.ytd === 'Average') ytd /= cur + 1;
+  const round = (v) => Math.round(v * 1e6) / 1e6;
+  return [round(monthSum(cur)), round(ytd)];
+}
+
+function tableSheet(spec) {
+  const items = spec.table;
   const rows = [[
-    h('Metric'), h('Prefix'), h('Suffix'), h('Decimals'), h('Better When'), h('Variance As'), h('Bold'),
-    h('Month Actual'), h('Month Comparison'), h('YTD Actual'), h('YTD Comparison'),
+    h('Metric'), h('From Chart'), h('From Component'), h('YTD Method'),
+    h('Prefix'), h('Suffix'), h('Decimals'), h('Better When'), h('Variance As'), h('Bold'),
+    h('Month Actual'), h('Month EV Case'), h('YTD Actual'), h('YTD EV Case'), h('EV Basis'),
   ]];
-  for (const t of items) {
+  const rowOf = (metric) => items.findIndex((x) => x.metric === metric) + 2;
+  const values = new Map();
+  // Chart-linked rows first, so derived rows (e.g. O&M = Revenue - Operating income) can use their values.
+  items.forEach((t) => { if (t.from) values.set(t.metric, chartActuals(spec, t)); });
+  items.forEach((t) => {
+    if (t.derive) {
+      const [a, b] = t.derive.map((m) => values.get(m));
+      values.set(t.metric, [Math.round((a[0] - b[0]) * 1e6) / 1e6, Math.round((a[1] - b[1]) * 1e6) / 1e6]);
+    }
+  });
+  items.forEach((t, i) => {
+    const r = i + 2;
     const st = t.dec >= 2 ? S.input2 : S.input1;
+    const calc = t.dec >= 2 ? S.calc2 : t.dec === 0 ? S.calc0 : S.calc1;
+    let mCell, yCell;
+    if (t.from) {
+      const [mv, yv] = values.get(t.metric);
+      mCell = { f: monthFormula(r), v: mv, s: calc };
+      yCell = { f: ytdFormula(r), v: yv, s: calc };
+    } else if (t.derive) {
+      const [mv, yv] = values.get(t.metric);
+      const [ra, rb] = t.derive.map(rowOf);
+      mCell = { f: `K${ra}-K${rb}`, v: mv, s: calc };
+      yCell = { f: `M${ra}-M${rb}`, v: yv, s: calc };
+    } else {
+      mCell = { v: t.m[0], s: st };
+      yCell = { v: t.y[0], s: st };
+    }
     rows.push([
-      inp(t.metric), inp(t.prefix || ''), inp(t.suffix || ''), inp(t.dec), inp(t.better || 'Higher'),
+      inp(t.metric), inp(t.from || ''), inp(t.fromComp || ''), inp(t.ytd || 'Sum'),
+      inp(t.prefix || ''), inp(t.suffix || ''), inp(t.dec), inp(t.better || 'Higher'),
       inp(t.varAs || ''), inp(t.bold || ''),
-      { v: t.m[0], s: st }, { v: t.m[1], s: st }, { v: t.y[0], s: st }, { v: t.y[1], s: st },
+      mCell, { v: t.ev[0], s: st }, yCell, { v: t.ev[1], s: st }, inp(t.evBasis || 'Monthly'),
     ]);
-  }
+  });
   const n = 200;
   return {
-    name: 'Table', rows, widths: [26, 8, 8, 10, 13, 13, 7, 14, 18, 12, 16], freezeRows: 1,
+    name: 'Table', rows, widths: [26, 24, 16, 12, 8, 8, 10, 13, 13, 7, 14, 15, 13, 14, 22], freezeRows: 1,
     validations: [
-      { range: `E2:E${n}`, list: ['Higher', 'Lower'] },
-      { range: `F2:F${n}`, list: ['%', 'Abs', 'Pts'] },
-      { range: `G2:G${n}`, list: ['Y', 'N'] },
+      { range: `B2:B${n}`, formula: 'ChartNames' },
+      { range: `D2:D${n}`, list: ['Sum', 'Average'] },
+      { range: `H2:H${n}`, list: ['Higher', 'Lower'] },
+      { range: `I2:I${n}`, list: ['%', 'Abs', 'Pts'] },
+      { range: `J2:J${n}`, list: ['Y', 'N'] },
+      { range: `O2:O${n}`, list: ['Monthly', 'Pro-rated quarterly', 'Pro-rated semi-annual', 'Pro-rated annual'] },
     ],
   };
+}
+
+// Hidden helper: the distinct Chart names from the Charts tab, for dropdowns.
+// Classic (non-array) unique-list formula so it works in every Excel version.
+const LIST_ROWS = 100;
+function listsSheet() {
+  const rows = [['Chart names']];
+  for (let r = 2; r <= LIST_ROWS + 1; r++) {
+    rows.push([{ f: `IFERROR(INDEX(Charts!$A$2:$A$500,MATCH(0,INDEX(COUNTIF($A$1:A${r - 1},Charts!$A$2:$A$500)+(Charts!$A$2:$A$500=""),0),0)),"")` }]);
+  }
+  return { name: 'Lists', rows, widths: [30], hidden: true };
+}
+const CHART_NAMES = { name: 'ChartNames', ref: `OFFSET(Lists!$A$2,0,0,MAX(1,COUNTIF(Lists!$A$2:$A$${LIST_ROWS + 1},"?*")),1)` };
+
+// Debt Service tab: a running quarterly history (fixed headers, filled in as quarters close).
+// Input rows by Role, then Calculated rows.  Each total sums only its own block of input rows, so
+// no formula's range includes itself (a whole-column SUMIF would be a circular reference).
+const HISTORY = ['2024', '2025', '2026', '2027'].flatMap((y) => [1, 2, 3, 4].map((q) => `Q${q} ${y}`));
+const colLetter = (i) => (i < 26 ? String.fromCharCode(65 + i) : String.fromCharCode(64 + Math.floor(i / 26)) + String.fromCharCode(65 + (i % 26)));
+function debtServiceSheet(d) {
+  const nq = HISTORY.length;
+  const valsFor = (vals) => HISTORY.map((label) => { const i = d.quarters.indexOf(label); return i < 0 ? null : vals[i]; });
+  const lines = d.lines.map(([name, role, vals]) => [name, role, valsFor(vals)]);
+  const by = (role) => lines.filter((l) => l[1] === role);
+  const rows = [[h('Line item'), h('Role'), ...HISTORY.map(h)]];
+  const round = (v) => Math.round(v * 1e6) / 1e6;
+  const block = (role) => {
+    const first = rows.length + 1;
+    by(role).forEach(([name, r, vals]) => rows.push([inp(name), inp(r), ...vals.map((v) => ({ v: v === null ? '' : v, s: S.input2 }))]));
+    return [first, rows.length];
+  };
+  const blank = () => rows.push([]);
+  const hasData = (q) => lines.some((l) => l[2][q] !== null);
+  const sumRole = (role, q) => by(role).reduce((a, l) => a + (l[2][q] ?? 0), 0);
+  const calcRow = (name, f, v, style) => {
+    rows.push([{ v: name, s: S.bold }, note('Calculated'), ...HISTORY.map((_, q) => {
+      const val = hasData(q) ? v(q) : null;
+      return { f: f(colLetter(2 + q), q), v: val === null || val === undefined ? '' : round(val), s: style };
+    })]);
+    return rows.length;
+  };
+
+  const [r1, rN] = block('Revenue');
+  blank();
+  const [e1, eN] = block('Expense');
+  const rng = (c, a, b) => `${c}${a}:${c}${b}`;
+  // Debt rows are added below; their range is known after, so empty-column checks use a placeholder.
+  const EMPTY = '@@EMPTY@@';
+  const omRow = calcRow('Total O&M costs', (c) => `IF(${EMPTY}${c},"",SUM(${rng(c, e1, eN)}))`, (q) => sumRole('Expense', q), S.calc2b);
+  const cfRow = calcRow('CFADS', (c) => `IF(${EMPTY}${c},"",SUM(${rng(c, r1, rN + 1)})-${c}${omRow})`, (q) => sumRole('Revenue', q) - sumRole('Expense', q), S.calc2b);
+  blank();
+  const [d1, dN] = block('Debt service');
+  const dsRow = calcRow('Total debt service costs', (c) => `IF(${EMPTY}${c},"",SUM(${rng(c, d1, dN)}))`, (q) => sumRole('Debt service', q), S.calc2b);
+  blank();
+  const cf = (q) => sumRole('Revenue', q) - sumRole('Expense', q);
+  const ds = (q) => sumRole('Debt service', q);
+  calcRow('DSCR - quarter', (c) => `IFERROR(${c}${cfRow}/${c}${dsRow},"")`, (q) => (ds(q) ? cf(q) / ds(q) : null), S.calcXb);
+  calcRow('DSCR - LTM', (c, q) => {
+    if (q < 3) return '""';
+    const a = colLetter(2 + q - 3);
+    return `IF(COUNT(${a}${cfRow}:${c}${cfRow})<4,"",IFERROR(SUM(${a}${cfRow}:${c}${cfRow})/SUM(${a}${dsRow}:${c}${dsRow}),""))`;
+  }, (q) => {
+    if (q < 3 || ![0, 1, 2, 3].every((k) => hasData(q - k))) return null;
+    let c = 0, dd = 0;
+    for (let k = q - 3; k <= q; k++) { c += cf(k); dd += ds(k); }
+    return dd ? c / dd : null;
+  }, S.calcXb);
+
+  // Fill in the "no inputs in this column" test now that every block's rows are known.
+  const emptyTest = (c) => `COUNT(${rng(c, r1, rN + 1)},${rng(c, e1, eN)},${rng(c, d1, dN)})=0,`;
+  rows.forEach((row) => row.forEach((cell) => {
+    if (cell && cell.f && cell.f.includes(EMPTY)) {
+      const c = cell.f.match(/@@EMPTY@@([A-Z]+)/)[1];
+      cell.f = cell.f.replace(`${EMPTY}${c},`, emptyTest(c));
+    }
+  }));
+  return {
+    name: 'Debt Service', rows, widths: [26, 14, ...HISTORY.map(() => 10)], freezeRows: 1,
+    validations: [{ range: 'B2:B200', list: ['Revenue', 'Expense', 'Debt service', 'Calculated'] }],
+  };
+}
+
+function reservesSheet(items) {
+  const rows = [[h('Reserve'), h('Required'), h('Balance available')]];
+  for (const [n, rq, av] of items) rows.push([inp(n), { v: rq, s: S.input2 }, { v: av, s: S.input2 }]);
+  for (let i = 0; i < 2; i++) rows.push([inp(''), { v: '', s: S.input2 }, { v: '', s: S.input2 }]);
+  return { name: 'Reserves', rows, widths: [28, 14, 18], freezeRows: 1 };
+}
+
+function dscrNotesSheet(items) {
+  const rows = [[h('Heading'), h('Text')]];
+  for (const [a, b] of items) rows.push([inp(a), inp(b)]);
+  return { name: 'DSCR Notes', rows, widths: [30, 90], freezeRows: 1 };
 }
 
 function commentarySheet(items) {
@@ -131,14 +332,18 @@ function build(spec) {
     instructionsSheet(),
     settingsSheet(spec.settings),
     chartsSheet(spec.series),
-    tableSheet(spec.table),
+    footnotesSheet(spec.footnotes),
+    tableSheet(spec),
     commentarySheet(spec.commentary),
     sideTableSheet(spec.sideTable),
-  ]);
+    debtServiceSheet(spec.debt),
+    reservesSheet(spec.reserves),
+    dscrNotesSheet(spec.dscrNotes),
+    listsSheet(),
+  ], { names: [CHART_NAMES, ...calcNames(spec.settings)] });
 }
 
 const pad = (arr) => { const a = new Array(12).fill(null); arr.forEach((v, i) => { a[i] = v; }); return a; };
-const at = (map) => { const a = new Array(12).fill(null); for (const [m, v] of Object.entries(map)) a[MONTHS.indexOf(m)] = v; return a; };
 
 const COMMON = (o) => [
   ['Title', o.title],
@@ -147,14 +352,15 @@ const COMMON = (o) => [
   ['Header color', '#1F3B6E'],
   ['Current year', 2026],
   ['Prior year', 2025],
+  ['Current month', 'Aug'],
   ['Chart section title', 'Monthly Performance - 2026 vs. 2025'],
-  ['Data labels', 'This year'],
+  ['Data labels', 'Both years'],
   ['Chart columns', 'Auto'],
   ['Table title', o.tableTitle],
-  ['Month heading', 'August'],
-  ['YTD heading', 'YTD Through August'],
+  ['Month heading', ''],
+  ['YTD heading', ''],
   ['Actual label', 'Actual'],
-  ['Comparison label', 'Budget'],
+  ['Comparison label', 'EV Case'],
   ['Variance label', 'Variance'],
   ['Negative numbers', 'Parentheses'],
   ['Side panel type', o.sideType],
@@ -162,71 +368,119 @@ const COMMON = (o) => [
   ['Side panel width %', o.sideWidth],
   ['Footer', o.footer],
   ['Page size', 'Letter'],
+  ['Pro-rated note', ''],
+  ['Include DSCR page', 'Auto'],
+  ['DSCR page title', 'Debt Service Coverage - LTM Basis'],
+  ['Quarters shown', 8],
+  ['Distribution lock-up DSCR', o.lockup],
+  ['Default DSCR', o.dflt],
+  ['Reserves title', 'DSR and O&M Reserves'],
+  ['Cash flow units', '$MM'],
+  ['Cash flow decimals', 1],
 ];
 
 // Fictional example: plain bars + commentary side panel.
 const BLUEFIELD = {
   settings: COMMON({
     title: 'BLUEFIELD SOLAR HOLDINGS',
-    tableTitle: 'Operating and Financial Performance vs. Budget - Monthly & YTD',
+    tableTitle: 'Operating and Financial Performance vs. EV Case - Monthly & YTD',
     sideType: 'Commentary',
     sideTitle: 'Maintenance Commentary',
     sideWidth: 30,
-    footer: 'Sources: Bluefield monthly operating reports; 2026 budget model.  Fictional example data.',
+    footer: 'Sources: Bluefield monthly operating reports; 2026 EV Case model.  Fictional example data.',
+    lockup: 1.20,
+    dflt: 1.00,
   }),
   series: [
-    { chart: 'Generation (GWh)', year: 2026, decimals: 1, values: pad([24.6, 27.3, 38.9, 44.1, 49.8, 52.4, 51.7, 47.2]) },
+    { chart: 'Generation (GWh)', year: 2026, decimals: 1, values: pad([24.6, 27.3, 38.9, 44.1, 49.8, 52.4, 41.7, 47.2]) },
     { chart: 'Generation (GWh)', year: 2025, decimals: 1, values: pad([22.9, 26.1, 36.4, 42.7, 47.5, 50.9, 49.6, 45.8, 39.2, 31.5, 25.4, 21.8]) },
-    { chart: 'Revenue ($MM)', year: 2026, decimals: 1, values: pad([1.6, 1.8, 2.6, 3.0, 3.4, 4.1, 4.3, 3.9]) },
+    { chart: 'Revenue ($MM)', year: 2026, decimals: 1, values: pad([1.62, 1.84, 2.57, 3.03, 3.41, 4.12, 3.46, 3.92]) },
     { chart: 'Revenue ($MM)', year: 2025, decimals: 1, values: pad([1.5, 1.7, 2.4, 2.8, 3.2, 3.9, 4.0, 3.7, 2.9, 2.2, 1.7, 1.4]) },
-    { chart: 'Operating income ($MM)', year: 2026, decimals: 1, values: pad([-0.4, 0.1, 0.9, 1.3, 1.7, 2.3, 2.5, 2.1]) },
+    { chart: 'Operating income ($MM)', year: 2026, decimals: 1, values: pad([-0.41, 0.12, 0.88, 1.31, 1.69, 2.27, 1.66, 2.07]) },
     { chart: 'Operating income ($MM)', year: 2025, decimals: 1, values: pad([-0.6, -0.2, 0.7, 1.1, 1.5, 2.0, 2.2, 1.9, 1.2, 0.5, -0.1, -0.5]) },
   ],
+  footnotes: [
+    ['', 'Jul', 'Plant shut down July 13-17 for a utility transformer replacement at the point of interconnection.'],
+    ['Operating income ($MM)', 'Jan', 'Annual property insurance premium expensed in January.'],
+  ],
   table: [
-    { metric: 'Generation', suffix: ' GWh', dec: 1, m: [47.2, 50.6], y: [336.0, 351.4] },
-    { metric: 'Revenue', prefix: '$', suffix: 'MM', dec: 2, m: [3.92, 3.85], y: [24.71, 25.30] },
-    { metric: 'O&M expense', prefix: '$', suffix: 'MM', dec: 2, better: 'Lower', varAs: 'Abs', m: [0.86, 0.74], y: [6.12, 6.40] },
-    { metric: 'Operating income', prefix: '$', suffix: 'MM', dec: 2, bold: 'Y', m: [2.07, 2.31], y: [10.48, 11.62] },
+    { metric: 'Generation', from: 'Generation (GWh)', suffix: ' GWh', dec: 1, ev: [50.6, 351.4] },
+    { metric: 'Revenue', from: 'Revenue ($MM)', prefix: '$', suffix: 'MM', dec: 2, ev: [3.85, 25.30] },
+    { metric: 'O&M expense', derive: ['Revenue', 'Operating income'], prefix: '$', suffix: 'MM', dec: 2, better: 'Lower', varAs: 'Abs', ev: [1.54, 13.68], evBasis: 'Pro-rated annual' },
+    { metric: 'Operating income', from: 'Operating income ($MM)', prefix: '$', suffix: 'MM', dec: 2, bold: 'Y', ev: [2.31, 11.62] },
   ],
   commentary: [
-    ['Inverter block 3', 'Two central inverters offline August 4-9 for warranty replacement of power modules.'],
+    ['Interconnection', 'Utility replaced the POI transformer July 13-17; the plant was offline for the full outage.'],
     ['Tracker controls', 'Firmware update completed across all rows; stow logic retested and passed.'],
     ['Portfolio', 'Routine preventive maintenance continued; no safety or environmental events.'],
   ],
-  sideTable: [['Item', 'Value']],
+  sideTable: [
+    ['Item', 'Balance', 'MoM'],
+    ['Unrestricted cash', '$1.2MM', '-$0.3MM'],
+    ['O&M reserve', '$1.85MM', '+$0.05MM'],
+    ['Debt service reserve', '$8.62MM', 'Flat'],
+    ['Term loan', '$96.4MM', '-$0.9MM'],
+    ['Revolver', '$0.0MM', 'Flat'],
+  ],
+  debt: {
+    quarters: ['Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026', 'Q2 2026', 'Q3 2026'],
+    lines: [
+      ['Revenue', 'Revenue', [5.42, 9.78, 10.21, 5.31, 5.62, 10.04, 10.52, 5.93, 6.08, 10.61, 10.94]],
+      ['O&M', 'Expense', [1.85, 1.95, 2.05, 1.92, 2.01, 2.08, 2.17, 2.03, 2.11, 2.19, 2.24]],
+      ['Property and Other Expenses', 'Expense', [0.48, 0.55, 0.58, 0.51, 0.49, 0.58, 0.61, 0.52, 0.53, 0.64, 0.67]],
+      ['Principal', 'Debt service', [2.30, 2.33, 2.37, 2.40, 2.42, 2.48, 2.51, 2.57, 2.62, 2.68, 2.74]],
+      ['Interest', 'Debt service', [2.05, 2.00, 1.95, 1.91, 1.86, 1.81, 1.76, 1.70, 1.65, 1.60, 1.55]],
+      ['Interest rate swap settlements', 'Debt service', [0.06, 0.05, 0.04, 0.03, 0.02, 0.01, -0.01, -0.02, -0.03, -0.02, -0.03]],
+      ['Agency fees', 'Debt service', [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02]],
+    ],
+  },
+  reserves: [
+    ['Debt service reserve', 8.55, 8.62],
+    ['O&M reserve', 2.10, 1.85],
+  ],
+  dscrNotes: [
+    ['Seasonality', 'Q1 and Q4 coverage falls below 1.0x on a stand-alone basis every year; the covenants test on an LTM basis.'],
+    ['Next test', 'Q3 2026 test at September 30, 2026.  Distributions require 1.20x LTM.'],
+  ],
 };
 
 // Fictional example: stacked contracted/merchant bars + table and commentary side panel.
 const RIDGELINE = {
   settings: COMMON({
     title: 'RIDGELINE POWER PARTNERS',
-    tableTitle: 'Operating Metrics vs. Budget - Monthly & YTD',
+    tableTitle: 'Operating Metrics vs. EV Case - Monthly & YTD',
     sideType: 'Table + Commentary',
     sideTitle: 'Liquidity and Monitoring',
     sideWidth: 32,
-    footer: 'Sources: Ridgeline monthly operating reports; 2026 budget model.  Fictional example data.',
+    footer: 'Sources: Ridgeline monthly operating reports; 2026 EV Case model.  Fictional example data.',
+    lockup: 1.20,
+    dflt: 1.00,
   }),
   series: [
-    { chart: 'Net generation (GWh)', component: 'Contracted', year: 2026, decimals: 0, values: pad([205, 188, 196, 172, 214, 231, 236, 228]) },
-    { chart: 'Net generation (GWh)', component: 'Merchant', year: 2026, decimals: 0, values: pad([48, 35, 52, 61, 44, 73, 81, 57]) },
+    { chart: 'Net generation (GWh)', component: 'Contracted', year: 2026, decimals: 0, values: pad([205, 188, 196, 112, 214, 231, 236, 228]) },
+    { chart: 'Net generation (GWh)', component: 'Merchant', year: 2026, decimals: 0, values: pad([48, 35, 52, 21, 44, 73, 81, 57]) },
     { chart: 'Net generation (GWh)', component: 'Contracted', year: 2025, decimals: 0, values: pad([198, 182, 190, 168, 207, 224, 229, 221, 201, 186, 192, 203]) },
     { chart: 'Net generation (GWh)', component: 'Merchant', year: 2025, decimals: 0, values: pad([66, 51, 58, 72, 60, 88, 94, 79, 55, 47, 53, 62]) },
-    { chart: 'Gross margin ($MM)', component: 'Contracted', year: 2026, decimals: 1, values: pad([5.0, 4.6, 4.8, 4.3, 5.2, 5.6, 5.7, 5.5]) },
-    { chart: 'Gross margin ($MM)', component: 'Merchant', year: 2026, decimals: 1, values: pad([0.6, 0.4, 0.7, 0.9, 0.5, 1.4, 1.7, 0.8]) },
+    { chart: 'Gross margin ($MM)', component: 'Contracted', year: 2026, decimals: 1, values: pad([5.02, 4.61, 4.83, 3.12, 5.18, 5.64, 5.71, 5.49]) },
+    { chart: 'Gross margin ($MM)', component: 'Merchant', year: 2026, decimals: 1, values: pad([0.58, 0.41, 0.66, 0.22, 0.53, 1.38, 1.74, 0.82]) },
     { chart: 'Gross margin ($MM)', component: 'Contracted', year: 2025, decimals: 1, values: pad([4.8, 4.4, 4.6, 4.1, 5.0, 5.4, 5.5, 5.3, 4.9, 4.5, 4.7, 4.9]) },
     { chart: 'Gross margin ($MM)', component: 'Merchant', year: 2025, decimals: 1, values: pad([0.9, 0.6, 0.8, 1.1, 0.8, 1.8, 2.1, 1.2, 0.7, 0.5, 0.6, 0.8]) },
-    { chart: 'EBITDA ($MM)', year: 2026, decimals: 1, values: pad([4.1, 3.6, 4.0, 3.7, 4.2, 5.4, 5.8, 4.8]) },
+    { chart: 'EBITDA ($MM)', year: 2026, decimals: 1, values: pad([4.12, 3.58, 3.97, 2.21, 4.23, 5.41, 5.83, 4.79]) },
     { chart: 'EBITDA ($MM)', year: 2025, decimals: 1, values: pad([4.2, 3.6, 3.9, 3.7, 4.3, 5.7, 6.0, 5.0, 4.1, 3.5, 3.8, 4.2]) },
   ],
+  footnotes: [
+    ['', 'Apr', 'Unit 1 planned major outage April 6-24.'],
+    ['Gross margin ($MM)', 'Jul', 'Merchant margin lifted by the July 14-22 heat wave price spike.'],
+  ],
   table: [
-    { metric: 'Capacity factor', suffix: '%', dec: 1, varAs: 'Pts', m: [88.4, 93.0], y: [86.7, 85.2] },
-    { metric: 'Contracted generation', suffix: ' GWh', dec: 0, m: [228, 241], y: [1670, 1712] },
-    { metric: 'Merchant generation', suffix: ' GWh', dec: 0, m: [57, 50], y: [451, 398] },
-    { metric: 'Net generation', suffix: ' GWh', dec: 0, bold: 'Y', m: [285, 291], y: [2121, 2110] },
-    { metric: 'Contracted gross margin', prefix: '$', suffix: 'MM', dec: 1, m: [5.5, 5.6], y: [40.7, 41.3] },
-    { metric: 'Merchant gross margin', prefix: '$', suffix: 'MM', dec: 1, m: [0.8, 0.9], y: [7.0, 6.2] },
-    { metric: 'Total gross margin', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', m: [6.3, 6.5], y: [47.7, 47.5] },
-    { metric: 'EBITDA', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', m: [4.8, 5.1], y: [35.6, 36.0] },
+    { metric: 'Capacity factor', suffix: '%', dec: 1, varAs: 'Pts', ytd: 'Average', m: [88.4], y: [84.9], ev: [93.0, 85.2] },
+    { metric: 'Contracted generation', from: 'Net generation (GWh)', fromComp: 'Contracted', suffix: ' GWh', dec: 0, ev: [241, 1712] },
+    { metric: 'Merchant generation', from: 'Net generation (GWh)', fromComp: 'Merchant', suffix: ' GWh', dec: 0, ev: [50, 398] },
+    { metric: 'Net generation', from: 'Net generation (GWh)', suffix: ' GWh', dec: 0, bold: 'Y', ev: [291, 2110] },
+    { metric: 'Contracted gross margin', from: 'Gross margin ($MM)', fromComp: 'Contracted', prefix: '$', suffix: 'MM', dec: 1, ev: [5.6, 41.3], evBasis: 'Pro-rated quarterly' },
+    { metric: 'Merchant gross margin', from: 'Gross margin ($MM)', fromComp: 'Merchant', prefix: '$', suffix: 'MM', dec: 1, ev: [0.9, 6.2], evBasis: 'Pro-rated quarterly' },
+    { metric: 'Total gross margin', from: 'Gross margin ($MM)', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', ev: [6.5, 47.5], evBasis: 'Pro-rated quarterly' },
+    { metric: 'EBITDA', from: 'EBITDA ($MM)', prefix: '$', suffix: 'MM', dec: 1, bold: 'Y', ev: [5.1, 36.0], evBasis: 'Pro-rated annual' },
   ],
   commentary: [
     ['Status', 'No forced outages, safety incidents, or environmental events.'],
@@ -236,9 +490,29 @@ const RIDGELINE = {
     ['Item', 'Balance', 'MoM'],
     ['Unrestricted cash', '$3.4MM', '-$0.6MM'],
     ['O&M reserve', '$4.10MM', '+$0.05MM'],
-    ['Debt service reserve', '$12.25MM', 'Flat'],
+    ['Debt service reserve', '$15.80MM', 'Flat'],
     ['Term loan', '$182.4MM', '-$1.8MM'],
     ['Revolver', '$0.0MM', 'Flat'],
+  ],
+  debt: {
+    quarters: ['Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026', 'Q2 2026', 'Q3 2026'],
+    lines: [
+      ['Revenue', 'Revenue', [29.48, 26.83, 34.92, 28.41, 30.12, 27.23, 35.64, 29.02, 31.27, 24.81, 36.10]],
+      ['O&M', 'Expense', [9.02, 8.91, 10.08, 9.18, 9.51, 9.09, 10.42, 9.33, 9.61, 11.84, 10.55]],
+      ['Property and Other Expenses', 'Expense', [1.65, 1.73, 1.85, 1.72, 1.68, 1.81, 1.93, 1.75, 1.72, 1.66, 1.95]],
+      ['Principal', 'Debt service', [4.20, 4.30, 4.30, 4.40, 4.50, 4.60, 4.60, 4.70, 4.80, 4.90, 4.90]],
+      ['Interest', 'Debt service', [3.45, 3.40, 3.35, 3.31, 3.25, 3.20, 3.15, 3.10, 3.05, 3.00, 2.95]],
+      ['Interest rate swap settlements', 'Debt service', [0.15, 0.13, 0.11, 0.09, 0.06, 0.04, 0.02, -0.01, -0.03, -0.05, -0.04]],
+      ['Agency fees', 'Debt service', [0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04]],
+    ],
+  },
+  reserves: [
+    ['Debt service reserve', 15.80, 15.80],
+    ['O&M reserve', 4.10, 4.10],
+    ['Major maintenance reserve', 6.00, 5.20],
+  ],
+  dscrNotes: [
+    ['Q2 2026', 'The April planned outage on Unit 1 reduced revenue and added O&M; LTM coverage stays well above lock-up.'],
   ],
 };
 

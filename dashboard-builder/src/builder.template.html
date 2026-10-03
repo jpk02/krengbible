@@ -47,6 +47,7 @@
   .msg { font-size: 13px; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; line-height: 1.4; }
   .msg.error { background: #FDECEA; color: #8A1C12; border: 1px solid #F5C2BC; }
   .msg.warn { background: #FFF7E0; color: #7A5300; border: 1px solid #F1DB9C; }
+  .msg.info { background: #EEF3FB; color: #1E3A68; border: 1px solid #C9D6EC; }
   .msg.ok { background: #EAF6EF; color: #14532D; border: 1px solid #BFE3CC; }
 
   #empty {
@@ -64,11 +65,39 @@
   #dropOverlay.on { display: flex; }
 
   #stage { padding: 20px 16px 40px; }
-  #pageWrap { margin: 0 auto; box-shadow: 0 2px 14px rgba(15, 23, 42, .18); background: #fff; overflow: hidden; }
+  #pageWrap { margin: 0 auto; overflow: hidden; }
   #pageWrap[hidden] { display: none; }
   #page { transform-origin: top left; }
 
-  /* ---------- the dashboard page ---------- */
+  /* ---------- the dashboard page(s) ---------- */
+  #page > .page { box-shadow: 0 2px 14px rgba(15, 23, 42, .18); margin-bottom: 24px; }
+  #page > .page:last-child { margin-bottom: 0; }
+  .toprow { flex: 1; min-height: 0; display: grid; gap: 12px; }
+  .toprow > .card { min-height: 0; }
+  table.cf.wide { font-size: 10.5px; }
+  table.cf.wide th, table.cf.wide td { padding-left: 6px; padding-right: 6px; }
+  .card-h { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+  .card-h .h-right { font-weight: 600; font-size: 11.5px; opacity: .95; white-space: nowrap; }
+  table.cf { width: 100%; border-collapse: collapse; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  table.cf th { font-weight: 600; color: var(--ink-2); text-align: right; padding: 3px 10px; border-bottom: 1px solid #AEB8C8; white-space: nowrap; }
+  table.cf th:first-child, table.cf td:first-child { text-align: left; }
+  table.cf td { text-align: right; padding: 3px 10px; white-space: nowrap; }
+  table.cf td:first-child { color: var(--ink-2); }
+  table.cf td.sub, table.cf th.sub { padding-left: 22px; }
+  table.cf tr.strong td { font-weight: 700; color: var(--ink); }
+  table.cf tr.total td { font-weight: 700; color: var(--ink); border-top: 1px solid #AEB8C8; }
+  table.cf tr.ratio td { font-weight: 700; color: var(--ink); background: var(--band); }
+  table.cf tr.gap td { padding: 3px 0; }
+  table.cf .ltm { background: #EEF2F8; }
+  table.cf tr.ratio td.ltm { background: #E1E8F3; }
+  table.cf td.below { color: var(--bad); }
+  table.cf td.warn { color: #B7791F; }
+  table.res td:nth-child(n+2), table.res th:nth-child(n+2) { text-align: right; }
+  table.res tr.total td { font-weight: 700; color: var(--ink); border-top: 1px solid #AEB8C8; border-bottom: 0; }
+  .meter { display: inline-block; width: 28px; height: 6px; border-radius: 3px; background: #E5E7EB; vertical-align: middle; margin-right: 5px; overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 3px; }
+  td.short { color: var(--bad); font-weight: 600; }
+  .side-b .sub-h { font-size: 11px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
   .page {
     --theme: #1F3B6E;
     width: 11in; height: calc(8.5in - 1px);
@@ -98,11 +127,32 @@
   .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; font-size: 10px; color: var(--ink-2); }
   .legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+  .legend .lg-year { font-weight: 700; color: var(--ink); margin-right: -6px; }
   .legend .div { width: 1px; height: 10px; background: var(--hair); }
+  .chart-head.stack { flex-direction: column; align-items: flex-start; gap: 3px; }
+  .chart-head.stack .legend { justify-content: flex-start; }
   .plot { flex: 1; min-height: 0; position: relative; }
   .plot svg { position: absolute; inset: 0; display: block; overflow: visible; }
   .plot text { font-family: var(--font); }
 
+  .fnotes { flex: none; margin: 0 12px; padding: 4px 0 6px; border-top: 1px solid var(--hair); font-size: 9.5px; line-height: 1.35; color: var(--ink-2); }
+  .fnotes sup { font-size: 7px; font-weight: 700; color: var(--ink); margin-right: 3px; }
+  .fnotes b { font-weight: 600; color: var(--ink); }
+  .fnotes.fref { font-style: italic; }
+  .body.cont > .card { flex: none; }
+  .body.cont > .card .fnotes { margin: 0; padding: 0; border-top: 0; }
+  /* compact: used when page 1 is crowded */
+  .page.compact .fnotes { columns: 2; column-gap: 28px; }
+  .page.compact .fnotes > div { break-inside: avoid; }
+  .page.compact .fnotes.fref { columns: 1; }
+  .page.compact .card-b { padding: 6px 10px 8px; }
+  .page.compact table.cmp, .page.compact table.cf { font-size: 10.5px; }
+  .page.compact table.cmp td, .page.compact table.cf td { padding-top: 2px; padding-bottom: 2px; }
+  .page.compact table.side { font-size: 10px; }
+  .page.compact table.side td { padding-top: 2px; padding-bottom: 2px; }
+  .page.compact .cm-h { font-size: 10.5px; }
+  .page.compact .cm-t { font-size: 10px; }
+  .page.compact .cm-item { margin-bottom: 5px; }
   .bottom { flex: none; display: grid; gap: 12px; align-items: stretch; }
   .bottom.no-charts { flex: 1; }
 
@@ -121,6 +171,10 @@
   table.cmp td.var.good { color: var(--good); }
   table.cmp td.var.bad { color: var(--bad); }
   table.cmp.dense td { padding-top: 2px; padding-bottom: 2px; }
+  table.cmp td.ev { position: relative; }
+  table.cmp sup.evn { position: absolute; right: 1px; top: 2px; font-size: 7.5px; font-weight: 700; color: var(--ink-2); }
+  .tnotes { margin-top: 8px; padding-top: 5px; border-top: 1px solid var(--hair); font-size: 9.5px; line-height: 1.35; color: var(--ink-2); }
+  .tnotes sup { font-size: 7.5px; font-weight: 700; color: var(--ink); margin-right: 3px; }
 
   .side-b { display: flex; flex-direction: column; gap: 10px; }
   table.side { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
@@ -145,8 +199,10 @@
     html, body { background: #fff; }
     .no-print { display: none !important; }
     #stage { padding: 0; }
-    #pageWrap { width: auto !important; height: auto !important; box-shadow: none; margin: 0; overflow: visible; }
-    #page { transform: none !important; }
+    #pageWrap { width: auto !important; height: auto !important; margin: 0; overflow: visible; }
+    #page { transform: none !important; width: auto !important; }
+    #page > .page { box-shadow: none; margin: 0; break-after: page; page-break-after: always; }
+    #page > .page:last-child { break-after: auto; page-break-after: auto; }
   }
 </style>
 </head>
@@ -175,7 +231,7 @@
     <li>Click <b>Save as PDF</b>.</li>
   </ol>
 </div>
-<div id="stage"><div id="pageWrap" hidden><div id="page" class="page"></div></div></div>
+<div id="stage"><div id="pageWrap" hidden><div id="page"></div></div></div>
 <div id="dropOverlay" class="no-print">Drop the workbook to build the dashboard</div>
 
 <script>
@@ -188,7 +244,27 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const FULL_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const PALETTE = ['#2F5D9E', '#2A9D8F', '#D98A2B', '#8E6BB0'];
 const PY_MIX = 0.55;              // how far prior-year bars are lightened toward white
-const YEAR_SOLID = '#4B5563';     // neutral legend swatches for "this year" / "prior year"
+const YEAR_SOLID = '#4B5563';
+// Stacked components: one blue, dark to light (ordinal ramp, validated: monotone lightness, single hue),
+// so the parts of a stack blend instead of contrasting.  The first matches single-series bars.
+const STACK_RAMPS = {
+  1: ['#2F5D9E'],
+  2: ['#2F5D9E', '#8AAEDD'],
+  3: ['#244C86', '#4F7DBF', '#8AAEDD'],
+  4: ['#244C86', '#4F7DBF', '#8AAEDD', '#B9CFEC'],
+};
+const stackColors = (n) => STACK_RAMPS[Math.max(1, Math.min(4, n))];
+// Prior year is gray (hue = year, shade = component): the same dark-to-light steps in neutral gray.
+const PY_RAMPS = {
+  1: ['#A9AFB8'],
+  2: ['#959CA6', '#CBD0D6'],
+  3: ['#868D98', '#A9AFB8', '#CED2D8'],
+  4: ['#7D848F', '#9CA3AD', '#BCC1C8', '#DADDE1'],
+};
+const pyColors = (n) => PY_RAMPS[Math.max(1, Math.min(4, n))];
+// Debt service on page 2: neutral grays (principal, interest, then any third line) so CFADS blue
+// carries the emphasis; validated as distinct from the blue (normal-vision dE 15.5).
+const DS_COLORS = ['#7A7F87', '#C9CCD1', '#A2A7AE'];     // neutral legend swatches for "this year" / "prior year"
 
 /* ================= ZIP + DEFLATE ================= */
 
@@ -516,6 +592,22 @@ function toNumber(c) {
   return Number.isFinite(n) ? (neg ? -n : n) : NaN;
 }
 
+const capWord = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/* Month from a cell: "Aug", "August", "Sept", 8, or an Excel date.  null = blank, NaN = unreadable. */
+function parseMonth(c) {
+  if (!c || c.v === null) return null;
+  if (typeof c.v === 'number') {
+    if (Number.isInteger(c.v) && c.v >= 1 && c.v <= 12) return c.v - 1;
+    if (c.v > 31) return new Date(Date.UTC(1899, 11, 30) + Math.round(c.v) * 864e5).getUTCMonth();
+    return NaN;
+  }
+  const tok = norm(c.v).split(/[\s\-\/,.]+/)[0];
+  if (tok.length < 3) return NaN;
+  const i = FULL_MONTHS.findIndex((f) => f.startsWith(tok));
+  return i >= 0 ? i : NaN;
+}
+
 function findSheet(sheets, name) {
   const key = Object.keys(sheets).find((k) => norm(k) === norm(name));
   return key ? sheets[key] : null;
@@ -528,7 +620,7 @@ function headerMap(row) {
 }
 
 function buildModel(sheets) {
-  const errors = [], warnings = [];
+  const errors = [], warnings = [], infos = [];
 
   // ---- Settings
   const S = {};
@@ -561,13 +653,11 @@ function buildModel(sheets) {
     period: sText('Period label'),
     color,
     chartTitle: sText('Chart section title', 'Monthly Performance'),
-    labels: sChoice('Data labels', ['This year', 'Both years', 'None'], 'This year'),
+    labels: sChoice('Data labels', ['Both years', 'This year', 'None'], 'Both years'),
     chartCols: sChoice('Chart columns', ['Auto', '1', '2', '3'], 'Auto'),
-    tableTitle: sText('Table title', 'Performance vs. Plan - Monthly & YTD'),
-    monthHead: sText('Month heading', 'Month'),
-    ytdHead: sText('YTD heading', 'Year to Date'),
+    tableTitle: sText('Table title', 'Performance vs. EV Case - Monthly & YTD'),
     actual: sText('Actual label', 'Actual'),
-    comp: sText('Comparison label', 'Plan'),
+    comp: sText('Comparison label', 'EV Case'),
     variance: sText('Variance label', 'Variance'),
     negParen: sChoice('Negative numbers', ['Parentheses', 'Minus sign'], 'Parentheses') === 'Parentheses',
     sideType: sChoice('Side panel type', ['Commentary', 'Table', 'Table + Commentary', 'None'], 'Commentary'),
@@ -575,6 +665,15 @@ function buildModel(sheets) {
     sideWidth: Math.min(50, Math.max(15, sNum('Side panel width %', 30))),
     footer: sText('Footer'),
     pageSize: sChoice('Page size', ['Letter', 'A4'], 'Letter'),
+    dscrInclude: sChoice('Include DSCR page', ['Auto', 'Yes', 'No'], 'Auto'),
+    dscrTitle: sText('DSCR page title', 'Debt Service Coverage - LTM Basis'),
+    dscrQuarters: Math.max(1, Math.min(12, Math.round(sNum('Quarters shown', 8)))),
+    lockup: sNum('Distribution lock-up DSCR', sNum('Lock-up DSCR', null)),
+    resTitle: sText('Reserves title', 'DSR and O&M Reserves'),
+    dflt: sNum('Default DSCR', null),
+    cfUnits: sText('Cash flow units', '$MM'),
+    cfDec: Math.max(0, Math.min(4, Math.round(sNum('Cash flow decimals', 1)))),
+    proNote: sText('Pro-rated note', ''),
   };
 
   // ---- Charts
@@ -635,6 +734,22 @@ function buildModel(sheets) {
   for (const y of sortedYears) {
     if (y !== cfg.cy && y !== cfg.py) warnings.push(`Charts tab: rows for ${y} are ignored (Settings shows ${cfg.cy} vs. ${cfg.py}).`);
   }
+  let cur = S['current month'] ? parseMonth(S['current month']) : null;
+  if (Number.isNaN(cur)) {
+    warnings.push(`Settings: Current month "${sText('Current month')}" is not a month like Aug or August.  Using the last month with ${cfg.cy} data instead.`);
+    cur = null;
+  }
+  if (cur === null) {
+    cur = -1;
+    for (const ch of charts) for (const r of ch.rows) if (r.year === cfg.cy) r.values.forEach((v, m) => { if (v !== null) cur = Math.max(cur, m); });
+    if (cur < 0) cur = 11;
+  }
+  cfg.cur = cur;
+  cfg.monthHead = sText('Month heading', '') || capWord(FULL_MONTHS[cur]);
+  cfg.ytdHead = sText('YTD heading', '') || `YTD Through ${capWord(FULL_MONTHS[cur])}`;
+  const hiddenLater = charts.some((ch) => ch.rows.some((r) => r.year === cfg.cy && r.values.some((v, m) => v !== null && m > cur)));
+  if (hiddenLater) warnings.push(`Charts tab: ${cfg.cy} values after ${MONTHS[cur]} are not shown, because Current month is ${MONTHS[cur]}.`);
+
   for (const ch of charts) {
     const dup = new Set();
     for (const r of ch.rows) {
@@ -644,47 +759,217 @@ function buildModel(sheets) {
     }
   }
 
+  // Blank inputs are not shown: a component with no values (for the two years on show, current
+  // year through the Current month) drops out of its stack and legend, and a chart with nothing
+  // left is not drawn.  The full chart list stays available for Table and Footnotes lookups.
+  const visibleVal = (r, v, m) => v !== null && (r.year === cfg.py || (r.year === cfg.cy && m <= cur));
+  for (const ch of charts) {
+    const live = ch.comps.filter((c) => ch.rows.some((r) => r.comp === c && r.values.some((v, m) => visibleVal(r, v, m))));
+    if (live.length && live.length < ch.comps.length) ch.comps = live;
+    ch.hasData = live.length > 0;
+  }
+  const shownCharts = charts.filter((ch) => ch.hasData);
+
   // ---- Table
   const table = [];
   const tg = findSheet(sheets, 'Table');
   if (tg) {
     const hm = headerMap(tg[0]);
-    const col = (n) => hm[n];
-    if (col('metric') === undefined) errors.push('Table tab: row 1 must contain a "Metric" column header.');
+    const col = (names) => { for (const n of [].concat(names)) if (hm[n] !== undefined) return hm[n]; return undefined; };
+    const H = {
+      metric: 'metric', from: 'from chart', fromComp: 'from component', ytdMethod: 'ytd method',
+      prefix: 'prefix', suffix: 'suffix', dec: 'decimals', better: 'better when', varAs: 'variance as', bold: 'bold',
+      mA: 'month actual', mE: ['month ev case', 'month comparison', 'month budget', 'month plan'],
+      yA: 'ytd actual', yE: ['ytd ev case', 'ytd comparison', 'ytd budget', 'ytd plan'],
+      evBasis: ['ev basis', 'comparison basis'],
+    };
+    if (col(H.metric) === undefined) errors.push('Table tab: row 1 must contain a "Metric" column header.');
     else {
       tg.forEach((row, ri) => {
         if (ri === 0 || isBlankRow(row)) return;
-        const metric = cellW(row, col('metric'));
+        const metric = cellW(row, col(H.metric));
         if (!metric) return;
-        const num = (name) => {
-          if (col(name) === undefined) return null;
-          const n = toNumber(row[col(name)]);
-          if (Number.isNaN(n)) { warnings.push(`Table tab row ${ri + 1}: "${cellW(row, col(name))}" in "${name}" is not a number; shown as blank.`); return null; }
+        const line = `Table tab row ${ri + 1} (${metric})`;
+        const num = (names, label) => {
+          const c = col(names);
+          if (c === undefined) return null;
+          const n = toNumber(row[c]);
+          if (Number.isNaN(n)) { warnings.push(`${line}: "${cellW(row, c)}" in ${label} is not a number; shown as blank.`); return null; }
           return n;
         };
-        const raw = (name) => (col(name) === undefined || !row[col(name)] ? '' : String(row[col(name)].v ?? ''));
-        const dec = num('decimals');
-        const suffix = raw('suffix');
-        let varAs = norm(raw('variance as'));
+        const raw = (names) => { const c = col(names); return c === undefined || !row[c] ? '' : String(row[c].v ?? '').trim(); };
+        const dec = num(H.dec, 'Decimals');
+        const suffix = raw(H.suffix);
+        let varAs = norm(raw(H.varAs));
         if (!['%', 'abs', 'pts'].includes(varAs)) {
-          if (varAs) warnings.push(`Table tab row ${ri + 1}: Variance As "${raw('variance as')}" should be %, Abs or Pts.`);
+          if (varAs) warnings.push(`${line}: Variance As "${raw(H.varAs)}" should be %, Abs or Pts.`);
           varAs = suffix.trim() === '%' ? 'pts' : '%';
         }
-        const better = norm(raw('better when'));
+
+        // Actuals: the cell's value wins (a formula's result or a typed override).  When the cell
+        // is empty, not a number, or an Excel error, a row with "From Chart" falls back to
+        // computing the same thing from the Charts tab.
+        const from = raw(H.from);
+        let fromVals = null;
+        if (from) {
+          const ch = charts.find((c) => norm(c.name) === norm(from));
+          const comp = raw(H.fromComp);
+          const avg = norm(raw(H.ytdMethod)) === 'average';
+          if (!ch) {
+            warnings.push(`${line}: From Chart "${from}" does not match any Chart name on the Charts tab.`);
+          } else if (comp && !ch.comps.some((c) => norm(c) === norm(comp))) {
+            warnings.push(ch.comps.filter(Boolean).length
+              ? `${line}: "${from}" has no component called "${comp}".  Its components are: ${ch.comps.filter(Boolean).join(', ')}.`
+              : `${line}: "${from}" is not a stacked chart, so leave From Component blank.`);
+          } else {
+            const src = ch.rows.filter((r) => r.year === cfg.cy && (!comp || norm(r.comp) === norm(comp)));
+            const monthVal = (m) => src.reduce((acc, r) => (r.values[m] === null ? acc : (acc ?? 0) + r.values[m]), null);
+            let ytd = null;
+            for (let m = 0; m <= cfg.cur; m++) { const v = monthVal(m); if (v !== null) ytd = (ytd ?? 0) + v; }
+            if (ytd !== null && avg) ytd /= cfg.cur + 1;
+            fromVals = { m: monthVal(cfg.cur), y: ytd };
+          }
+        }
+        const actual = (names, label, key) => {
+          const c = col(names);
+          const n = c === undefined ? null : toNumber(row[c]);
+          if (n !== null && !Number.isNaN(n)) return n;
+          if (from) {
+            const v = fromVals ? fromVals[key] : null;
+            if (fromVals && v === null) warnings.push(`${line}: "${from}" has no ${cfg.cy} value for ${key === 'm' ? MONTHS[cfg.cur] : 'Jan-' + MONTHS[cfg.cur]} on the Charts tab.`);
+            return v;
+          }
+          if (Number.isNaN(n)) warnings.push(`${line}: "${cellW(row, c)}" in ${label} is not a number; shown as blank.`);
+          return null;
+        };
+        const evBasisOf = (v, where) => {
+          const b = norm(v);
+          if (!b || b === 'monthly') return null;
+          if (/semi|half/.test(b)) return 'semi-annual';
+          if (/quarter/.test(b)) return 'quarterly';
+          if (/annual|year/.test(b)) return 'annual';
+          warnings.push(`${where}: EV Basis "${v}" should be Monthly, Pro-rated quarterly, Pro-rated semi-annual or Pro-rated annual.`);
+          return null;
+        };
+        const mA = actual(H.mA, 'Month Actual', 'm');
+        const yA = actual(H.yA, 'YTD Actual', 'y');
+        const mE = num(H.mE, 'Month EV Case'), yE = num(H.yE, 'YTD EV Case');
+        if (mA === null && yA === null && mE === null && yE === null) return;  // nothing entered: not shown
+
         table.push({
           metric,
-          prefix: raw('prefix'),
-          suffix,
+          prefix: raw(H.prefix),
+          suffix: col(H.suffix) === undefined || !row[col(H.suffix)] ? '' : String(row[col(H.suffix)].v ?? ''),
           dec: dec === null ? 1 : Math.max(0, Math.min(4, Math.round(dec))),
-          lowerBetter: better === 'lower',
+          lowerBetter: norm(raw(H.better)) === 'lower',
           varAs,
-          bold: ['y', 'yes', 'true', 'x'].includes(norm(raw('bold'))),
-          m: [num('month actual'), num('month comparison')],
-          y: [num('ytd actual'), num('ytd comparison')],
+          bold: ['y', 'yes', 'true', 'x'].includes(norm(raw(H.bold))),
+          m: [mA, mE],
+          y: [yA, yE],
+          evBasis: evBasisOf(raw(H.evBasis), line),
         });
       });
     }
   }
+
+  // ---- Footnotes
+  const footnotes = [];
+  const fg = findSheet(sheets, 'Footnotes');
+  if (fg) {
+    const hm = headerMap(fg[0]);
+    const cc = hm['chart'] ?? 0, mc = hm['month'] ?? 1, nc = hm['note'] ?? 2;
+    fg.forEach((row, ri) => {
+      if (ri === 0 || isBlankRow(row)) return;
+      const text = cellW(row, nc);
+      if (!text) return;
+      const m = parseMonth(row && row[mc]);
+      if (m === null || Number.isNaN(m)) { warnings.push(`Footnotes tab row ${ri + 1}: "${cellW(row, mc)}" is not a month like Jul or July; footnote skipped.`); return; }
+      const cname = cellW(row, cc);
+      let chart = null;
+      if (cname) {
+        chart = charts.find((c) => norm(c.name) === norm(cname)) || null;
+        if (!chart) { warnings.push(`Footnotes tab row ${ri + 1}: Chart "${cname}" does not match any Chart name on the Charts tab; footnote skipped.`); return; }
+        if (!chart.hasData) return;  // that chart has no data, so it is not shown
+      }
+      footnotes.push({ num: footnotes.length + 1, month: m, chart, text });
+    });
+  }
+
+  // ---- Debt service (quarterly cash flow -> CFADS -> DSCR)
+  let dscr = null;
+  const dg = findSheet(sheets, 'Debt Service');
+  if (dg && dg[0]) {
+    const hdr = dg[0];
+    const hm = headerMap(hdr);
+    const li = hm['line item'] ?? 0, rc = hm['role'] ?? 1;
+    const qCols = [];
+    hdr.forEach((c, i) => {
+      if (i === li || i === rc || !c || c.v === null) return;
+      let label = c.w.trim();
+      if (typeof c.v === 'number' && c.v > 20000) {
+        const d = new Date(Date.UTC(1899, 11, 30) + Math.round(c.v) * 864e5);
+        label = `Q${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`;
+      }
+      if (label) qCols.push({ i, label });
+    });
+    const lines = [];
+    dg.forEach((row, ri) => {
+      if (ri === 0 || isBlankRow(row)) return;
+      const name = cellW(row, li);
+      if (!name) return;
+      const role = norm(cellW(row, rc));
+      if (/^(calc|total|cfads|dscr)/.test(role)) return;  // the workbook's own formula rows; recomputed here from the inputs
+      const kind = role.startsWith('rev') ? 'rev' : role.startsWith('exp') ? 'exp' : role.startsWith('debt') ? 'ds' : null;
+      if (!kind) { warnings.push(`Debt Service tab row ${ri + 1} (${name}): Role should be Revenue, Expense or Debt service; row skipped.`); return; }
+      const vals = qCols.map((q) => {
+        const n = toNumber(row[q.i]);
+        if (Number.isNaN(n)) { warnings.push(`Debt Service tab row ${ri + 1}, ${q.label}: "${cellW(row, q.i)}" is not a number; treated as blank.`); return null; }
+        return n;
+      });
+      lines.push({ name, kind, vals });
+    });
+    // Quarter columns hold a running history.  Each label ("Q3 2026", "3Q26", ...) is placed on a
+    // timeline; page 2 ends at the last completed quarter before the Current month's quarter
+    // (Aug -> Q2, Dec -> Q3), so new columns can be filled in ahead of time and nothing shifts.
+    const qIndex = (label) => {
+      const m = label.match(/Q\s*([1-4])\D*(\d{4}|\d{2})\b/i) || label.match(/\b([1-4])\s*Q\D*(\d{4}|\d{2})\b/i);
+      if (!m) return null;
+      const y = m[2].length === 2 ? 2000 + +m[2] : +m[2];
+      return y * 4 + (+m[1] - 1);
+    };
+    const lastDone = cfg.cy * 4 + Math.floor(cfg.cur / 3) - 1;
+    const qLabel = (i) => `Q${(i % 4) + 1} ${Math.floor(i / 4)}`;
+    let used = qCols.map((q, k) => ({ ...q, k, qi: qIndex(q.label) })).filter((q) => lines.some((l) => l.vals[q.k] !== null));
+    const dated = used.length > 0 && used.every((q) => q.qi !== null);
+    if (dated) {
+      const later = used.filter((q) => q.qi > lastDone);
+      used = used.filter((q) => q.qi <= lastDone).sort((a, b) => a.qi - b.qi);
+      if (later.length) infos.push(`Debt Service tab: ${later.map((q) => q.label).join(', ')} not shown yet; with Current month ${MONTHS[cfg.cur]} ${cfg.cy}, page 2 runs through ${qLabel(lastDone)}.`);
+      if (used.length && used[used.length - 1].qi < lastDone) warnings.push(`Debt Service tab: no data yet for ${qLabel(lastDone)}, so page 2 ends at ${used[used.length - 1].label}.`);
+    }
+    if (lines.length && used.length) {
+      const sum = (kind, k) => lines.filter((l) => l.kind === kind).reduce((a, l) => a + (l.vals[k] ?? 0), 0);
+      const quarters = used.map((q) => {
+        const rev = sum('rev', q.k), exp = sum('exp', q.k), ds = sum('ds', q.k);
+        return { label: q.label, k: q.k, qi: q.qi, cfads: rev - exp, ds, dscr: ds > 0 ? (rev - exp) / ds : null };
+      });
+      quarters.forEach((q, i) => {
+        q.ltm = null;
+        if (i < 3) return;
+        const win = quarters.slice(i - 3, i + 1);
+        if (dated && win[3].qi - win[0].qi !== 3) return;  // a gap in the history: no true LTM
+        const c = win.reduce((a, w) => a + w.cfads, 0), d = win.reduce((a, w) => a + w.ds, 0);
+        q.ltmCfads = c; q.ltmDs = d; q.ltm = d > 0 ? c / d : null;
+      });
+      if (!lines.some((l) => l.kind === 'ds')) warnings.push('Debt Service tab: no rows with Role "Debt service", so DSCR cannot be calculated.');
+      if (quarters.length < 4) warnings.push(`Debt Service tab: LTM DSCR needs 4 quarters of data; only ${quarters.length} available.`);
+      // Line items with no values in any quarter on show (or feeding its LTM) are not shown.
+      const shownLines = lines.filter((l) => quarters.some((q) => l.vals[q.k] !== null));
+      dscr = { lines: shownLines, quarters, shown: quarters.slice(-cfg.dscrQuarters) };
+    }
+  }
+  if (cfg.dscrInclude === 'Yes' && !dscr) warnings.push('Settings: Include DSCR page is Yes, but the Debt Service tab has no data.');
+  if (cfg.dscrInclude === 'No') dscr = null;
 
   // ---- Side panel
   const commentary = [];
@@ -713,7 +998,41 @@ function buildModel(sheets) {
     warnings.push(`Side panel type is "${cfg.sideType}" but the Side Table tab has no data rows below the header.`);
   }
 
-  return { cfg, charts, table, commentary, sideTable, errors, warnings };
+    const reserves = [];
+  const rsg = findSheet(sheets, 'Reserves');
+  if (rsg && rsg[0]) {
+    const hm = headerMap(rsg[0]);
+    const nc = hm['reserve'] ?? 0;
+    const rq = hm['required'] ?? hm['required balance'];
+    const av = hm['balance available'] ?? hm['available'] ?? hm['balance'];
+    if (av === undefined) warnings.push('Reserves tab: row 1 needs a "Balance available" column header.');
+    else rsg.forEach((row, ri) => {
+      if (ri === 0 || isBlankRow(row)) return;
+      const name = cellW(row, nc);
+      if (!name) return;
+      const num = (c, label) => {
+        if (c === undefined) return null;
+        const n = toNumber(row[c]);
+        if (Number.isNaN(n)) { warnings.push(`Reserves tab row ${ri + 1}: "${cellW(row, c)}" in ${label} is not a number; shown as blank.`); return null; }
+        return n;
+      };
+      reserves.push({ name, required: num(rq, 'Required'), available: num(av, 'Balance available') });
+    });
+  }
+
+  const dscrNotes = [];
+  const dng = findSheet(sheets, 'DSCR Notes');
+  if (dng) {
+    const hm = headerMap(dng[0]);
+    const hc = hm['heading'] ?? 0, tc = hm['text'] ?? 1;
+    dng.forEach((row, ri) => {
+      if (ri === 0 || isBlankRow(row)) return;
+      const hd = cellW(row, hc), tx = cellW(row, tc);
+      if (hd || tx) dscrNotes.push({ heading: hd, text: tx });
+    });
+  }
+
+  return { cfg, charts: shownCharts, table, footnotes, commentary, sideTable, dscr, dscrNotes, reserves, errors, warnings, infos };
 }
 
 /* ================= FORMATTING ================= */
@@ -791,11 +1110,13 @@ function svgEl(tag, attrs, parent) {
   return el;
 }
 
-/* Bar with a 4px rounded data end and a square baseline end. */
+/* Bar with a slightly rounded data end (BAR_RADIUS px; 0 = square) and a square baseline end.
+   Kept small so thin stacked segments read as rectangles, not domes. */
+const BAR_RADIUS = 1.5;
 function barPath(x, w, yBase, yEnd, roundEnd) {
   const up = yEnd < yBase;
   const h = Math.abs(yBase - yEnd);
-  const r = roundEnd ? Math.min(4, h, w / 2) : 0;
+  const r = roundEnd ? Math.min(BAR_RADIUS, h, w / 2) : 0;
   if (up) {
     return `M${x},${yBase}V${yEnd + r}Q${x},${yEnd} ${x + r},${yEnd}H${x + w - r}Q${x + w},${yEnd} ${x + w},${yEnd + r}V${yBase}Z`;
   }
@@ -809,18 +1130,22 @@ function chartSeries(ch, cfg) {
     const ys = r.year === cfg.py ? 0 : r.year === cfg.cy ? 1 : -1;
     const ci = ch.comps.indexOf(r.comp);
     if (ys < 0 || ci < 0) continue;
-    r.values.forEach((v, m) => { if (v !== null) out[ys][ci][m] = (out[ys][ci][m] ?? 0) + v; });
+    r.values.forEach((v, m) => {
+      if (v === null || (ys === 1 && m > cfg.cur)) return;
+      out[ys][ci][m] = (out[ys][ci][m] ?? 0) + v;
+    });
   }
   return out;
 }
 
-function drawChart(svg, ch, cfg, W, H) {
+function drawChart(svg, ch, cfg, W, H, notes) {
   svg.setAttribute('width', W);
   svg.setAttribute('height', H);
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const data = chartSeries(ch, cfg);
   const stacked = ch.comps.length > 1;
-  const colors = ch.comps.map((_, i) => PALETTE[i]);
+  const colors = stackColors(ch.comps.length);
+  const pyCols = pyColors(ch.comps.length);
 
   // stack extents per year/month
   const ext = data.map((comps) => MONTHS.map((_, m) => {
@@ -870,6 +1195,11 @@ function drawChart(svg, ch, cfg, W, H) {
   MONTHS.forEach((mn, m) => {
     const tx = svgEl('text', { x: left + band * m + band / 2, y: H - 3, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
     tx.textContent = mn;
+    const marks = notes.filter((f) => f.month === m).map((f) => f.num);
+    if (marks.length) {
+      const sup = svgEl('tspan', { dx: 1, dy: -4, 'font-size': 7.5, 'font-weight': 700, fill: '#111827' }, tx);
+      sup.textContent = marks.join(',');
+    }
   });
 
   const yearLabel = [String(cfg.py), String(cfg.cy)];
@@ -893,12 +1223,12 @@ function drawChart(svg, ch, cfg, W, H) {
         let segBase = yb;
         if (stacked && Math.abs(yb - y0) > 0.5) segBase = v > 0 ? yb - gap : yb + gap;
         if ((v > 0 && ye >= segBase) || (v < 0 && ye <= segBase)) return;
-        const fill = slot === 1 ? colors[ci] : mix(colors[ci], '#FFFFFF', PY_MIX);
+        const fill = slot === 1 ? colors[ci] : pyCols[ci];
         const p = svgEl('path', { d: barPath(x, bw, segBase, ye, isEnd), fill }, g);
         const tt = svgEl('title', {}, p);
         tt.textContent = `${MONTHS[m]} ${yearLabel[slot]}${stacked ? ' · ' + ch.comps[ci] : ''}: ${fmtNum(v, ch.dec, cfg.negParen)}`;
         // label inside a stacked segment, only when it fits with padding
-        if (stacked && slot === 1 && labelMode !== 'None') {
+        if (stacked && (slot === 1 || labelMode === 'Both years') && labelMode !== 'None') {
           const s = fmtNum(v, ch.dec, cfg.negParen);
           const tw = textWidth(s, 8.5, 600);
           const segH = Math.abs(segBase - ye);
@@ -925,24 +1255,20 @@ function drawChart(svg, ch, cfg, W, H) {
   for (const L of labels) {
     if (placed.some((P) => L.x0 < P.x1 + 1 && L.x1 > P.x0 - 1 && L.y0 < P.y1 && L.y1 > P.y0)) continue;
     placed.push(L);
-    const t = svgEl('text', { x: L.cx, y: L.ly, 'text-anchor': 'middle', 'font-size': LBL, 'font-weight': L.slot === 1 ? 600 : 400, fill: L.slot === 1 ? '#111827' : '#6B7280' }, g);
+    const t = svgEl('text', { x: L.cx, y: L.ly, 'text-anchor': 'middle', 'font-size': LBL, 'font-weight': L.slot === 1 ? 600 : 400, fill: L.slot === 1 ? '#111827' : '#4B5563' }, g);
     t.textContent = L.s;
   }
   return plotBottom - top;
 }
 
 function legendHtml(ch, cfg) {
-  const items = [];
+  const sw = (c) => `<i style="background:${c}"></i>`;
   if (ch.comps.length > 1) {
-    ch.comps.forEach((c, i) => items.push(`<span><i style="background:${PALETTE[i]}"></i>${escHtml(c)}</span>`));
-    items.push('<span class="div"></span>');
-    items.push(`<span><i style="background:${mix(YEAR_SOLID, '#FFFFFF', PY_MIX)}"></i>${cfg.py}</span>`);
-    items.push(`<span><i style="background:${YEAR_SOLID}"></i>${cfg.cy}</span>`);
-  } else {
-    items.push(`<span><i style="background:${mix(PALETTE[0], '#FFFFFF', PY_MIX)}"></i>${cfg.py}</span>`);
-    items.push(`<span><i style="background:${PALETTE[0]}"></i>${cfg.cy}</span>`);
+    // Grouped by year: blue shades = current year, gray shades = prior year.
+    const group = (year, cols) => `<span class="lg-year">${year}:</span>${ch.comps.map((c, i) => `<span>${sw(cols[i])}${escHtml(c)}</span>`).join('')}`;
+    return `<div class="legend">${group(cfg.py, pyColors(ch.comps.length))}<span class="div"></span>${group(cfg.cy, stackColors(ch.comps.length))}</div>`;
   }
-  return `<div class="legend">${items.join('')}</div>`;
+  return `<div class="legend"><span>${sw(pyColors(1)[0])}${cfg.py}</span><span>${sw(PALETTE[0])}${cfg.cy}</span></div>`;
 }
 
 /* ================= PAGE ================= */
@@ -953,17 +1279,28 @@ function tableHtml(model) {
     <tr><th class="metric"></th><th class="grp" colspan="3">${escHtml(cfg.monthHead)}</th><th class="gap"></th><th class="grp" colspan="3">${escHtml(cfg.ytdHead)}</th></tr>
     <tr><th class="metric">Metric</th><th>${escHtml(cfg.actual)}</th><th>${escHtml(cfg.comp)}</th><th>${escHtml(cfg.variance)}</th><th class="gap"></th><th>${escHtml(cfg.actual)}</th><th>${escHtml(cfg.comp)}</th><th>${escHtml(cfg.variance)}</th></tr>
   </thead>`;
+  // Pro-rated EV Case values get a letter marker (a, b, c) per basis, explained under the table.
+  const PERIOD = { quarterly: 'quarter', 'semi-annual': 'half-year', annual: 'year' };
+  const bases = [...new Set(table.map((r) => r.evBasis).filter(Boolean))];
+  const letter = (b) => String.fromCharCode(97 + bases.indexOf(b));
+  const mark = (r) => (r.evBasis ? `<sup class="evn">${letter(r.evBasis)}</sup>` : '');
+  const noteText = (b) => (cfg.proNote
+    ? cfg.proNote.replace(/\{basis\}/gi, b).replace(/\{period\}/gi, PERIOD[b]).replace(/\{comparison\}/gi, cfg.comp)
+    : `${cfg.comp} pro-rated from ${b} figures on a straight-line monthly basis; it does not reflect seasonality within the ${PERIOD[b]}.`);
+  const notes = bases.length
+    ? `<div class="tnotes">${bases.map((b) => `<div><sup>${letter(b)}</sup>${escHtml(noteText(b))}</div>`).join('')}</div>`
+    : '';
   const body = table.map((r) => {
     const vm = fmtVariance(r.m[0], r.m[1], r);
     const vy = fmtVariance(r.y[0], r.y[1], r);
     return `<tr class="${r.bold ? 'bold' : ''}">
       <td class="metric">${escHtml(r.metric)}</td>
-      <td>${escHtml(fmtVal(r.m[0], r, cfg.negParen))}</td><td>${escHtml(fmtVal(r.m[1], r, cfg.negParen))}</td><td class="var ${vm.cls}">${escHtml(vm.text)}</td>
+      <td>${escHtml(fmtVal(r.m[0], r, cfg.negParen))}</td><td class="ev">${escHtml(fmtVal(r.m[1], r, cfg.negParen))}${mark(r)}</td><td class="var ${vm.cls}">${escHtml(vm.text)}</td>
       <td class="gap"></td>
-      <td>${escHtml(fmtVal(r.y[0], r, cfg.negParen))}</td><td>${escHtml(fmtVal(r.y[1], r, cfg.negParen))}</td><td class="var ${vy.cls}">${escHtml(vy.text)}</td>
+      <td>${escHtml(fmtVal(r.y[0], r, cfg.negParen))}</td><td class="ev">${escHtml(fmtVal(r.y[1], r, cfg.negParen))}${mark(r)}</td><td class="var ${vy.cls}">${escHtml(vy.text)}</td>
     </tr>`;
   }).join('');
-  return `<table class="cmp${table.length > 9 ? ' dense' : ''}">${head}<tbody>${body}</tbody></table>`;
+  return `<table class="cmp${table.length > 9 ? ' dense' : ''}">${head}<tbody>${body}</tbody></table>${notes}`;
 }
 
 function sideHtml(model) {
@@ -979,57 +1316,371 @@ function sideHtml(model) {
   return parts.join('');
 }
 
+/* ================= DSCR PAGE ================= */
+
+const fmtX = (v) => (v === null || v === undefined || !Number.isFinite(v) ? 'n/a' : `${v.toFixed(2)}x`);
+const STATUS_WARN = '#B7791F', STATUS_CRIT = '#B42318';
+
+function yAxis(g, ticks, y, left, right, W, text) {
+  for (const t of ticks) {
+    const yy = Math.round(y(t)) + 0.5;
+    svgEl('line', { x1: left, x2: W - right, y1: yy, y2: yy, stroke: t === 0 ? '#9CA3AF' : '#E5E7EB', 'stroke-width': 1 }, g);
+    const tx = svgEl('text', { x: left - 6, y: yy + 3, 'text-anchor': 'end', 'font-size': 9, fill: '#6B7280' }, g);
+    tx.textContent = text(t);
+  }
+}
+function niceTicks(lo, hi, n) {
+  const step = niceStep((hi - lo) / n);
+  const t0 = Math.floor(lo / step + 1e-9) * step, t1 = Math.ceil(hi / step - 1e-9) * step;
+  const ticks = [];
+  for (let t = t0; t <= t1 + step / 2; t += step) ticks.push(Number(t.toFixed(10)));
+  return { ticks, t0, t1, step };
+}
+
+/* Two framed panels on a shared quarter axis (never two y-scales on one plot): top = LTM DSCR line
+   with the distribution lock-up / default lines (unlabeled on the plot; the panel legend names
+   them), bottom = CFADS next to debt service stacked by line item.  Each panel has its own border,
+   title and legend so the two read as separate charts that line up quarter by quarter. */
+function svgLegend(g, items, xRight, y) {
+  let x = xRight;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    const tw = textWidth(it.label, 9.5);
+    x -= tw;
+    const t = svgEl('text', { x, y: y + 3.5, 'font-size': 9.5, fill: '#374151' }, g);
+    t.textContent = it.label;
+    x -= 14;
+    if (it.type === 'dot') svgEl('circle', { cx: x + 5, cy: y, r: 4, fill: it.color }, g);
+    else if (it.type === 'line') svgEl('line', { x1: x, x2: x + 10, y1: y + 0.5, y2: y + 0.5, stroke: it.color, 'stroke-width': 2 }, g);
+    else svgEl('rect', { x, y: y - 5, width: 10, height: 10, rx: 2, fill: it.color }, g);
+    x -= 12;
+  }
+}
+
+function drawCoverageChart(svg, model, W, H) {
+  const { cfg, dscr } = model;
+  svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const qs = dscr.shown;
+  const g = svgEl('g', {}, svg);
+  // Debt service pieces for the stacked bar: up to 3 lines as-is; with more, the first two (usually
+  // principal and interest) plus one "Other debt service" piece (swap settlements, agency fees, ...).
+  // A net negative piece (e.g. a swap receipt) reduces the piece below it, so each bar always equals
+  // total debt service.  The cash flow table still lists every line.
+  const dsAll = dscr.lines.filter((l) => l.kind === 'ds');
+  const groups = dsAll.length <= 3
+    ? dsAll.map((l) => ({ name: l.name, lines: [l] }))
+    : [{ name: dsAll[0].name, lines: [dsAll[0]] }, { name: dsAll[1].name, lines: [dsAll[1]] }, { name: 'Other debt service', lines: dsAll.slice(2) }];
+  const dsColors = groups.map((_, i) => DS_COLORS[i]);
+  const segValues = (q) => {
+    const v = groups.map((gr) => gr.lines.reduce((a, l) => a + (l.vals[q.k] ?? 0), 0));
+    for (let i = v.length - 1; i > 0; i--) if (v[i] < 0) { v[i - 1] += v[i]; v[i] = 0; }
+    if (v[0] < 0) v[0] = 0;
+    return v;
+  };
+  const headH = 22, labelPad = 14, xAxisH = 16, padX = 10, sep = 12;
+
+  // DSCR panel domain: LTM values and covenant levels, padded; a line need not start at zero.
+  const ltms = qs.map((q) => q.ltm).filter((v) => v !== null && v !== undefined && Number.isFinite(v));
+  const refs = [cfg.lockup !== null ? { v: cfg.lockup, c: STATUS_WARN } : null, cfg.dflt !== null ? { v: cfg.dflt, c: STATUS_CRIT } : null].filter(Boolean);
+  const hasTop = ltms.length > 0;
+  let dT = null;
+  if (hasTop) {
+    const all = ltms.concat(refs.map((r) => r.v));
+    const lo = Math.min(...all), hi = Math.max(...all);
+    const pad = Math.max(0.1, (hi - lo) * 0.2);
+    dT = niceTicks(Math.max(0, lo - pad), hi + pad, 3);
+  }
+  let bhi = 0, blo = 0;
+  qs.forEach((q) => { bhi = Math.max(bhi, q.cfads, q.ds); blo = Math.min(blo, q.cfads); });
+  if (bhi === blo) bhi = blo + 1;
+  const bT = niceTicks(blo, bhi, 3);
+  const bDec = bT.step < 1 ? Math.ceil(-Math.log10(bT.step) - 1e-9) : 0;
+  const bText = (t) => fmtNum(t, bDec, cfg.negParen);
+  const dDec = dT && dT.step < 0.1 ? 2 : 1;
+  const dText = (t) => `${t.toFixed(dDec)}x`;
+
+  // Both panels share one plotting width so the quarters line up exactly.
+  const tickW = Math.max(...bT.ticks.map((t) => textWidth(bText(t), 9)), ...(dT ? dT.ticks.map((t) => textWidth(dText(t), 9)) : [0]));
+  const left = padX + tickW + 8, right = padX;
+  const band = (W - left - right) / qs.length;
+  const cxOf = (i) => left + band * i + band / 2;
+  const frame = (y, h, fill) => svgEl('rect', { x: 0.5, y: y + 0.5, width: W - 1, height: h - 1, rx: 5, fill, stroke: '#CBD3E1', 'stroke-width': 1 }, g);
+  const title = (y, text) => { const t = svgEl('text', { x: padX, y: y + 15, 'font-size': 11, 'font-weight': 700, fill: '#111827' }, g); t.textContent = text; };
+
+  const h1 = hasTop ? Math.round(H * 0.34) : 0;
+  const y2 = hasTop ? h1 + sep : 0;
+  const h2 = H - y2;
+
+  // ---- DSCR panel
+  if (hasTop) {
+    frame(0, h1, '#F7F9FC');
+    title(0, 'LTM DSCR (x)');
+    svgLegend(g, [
+      { type: 'dot', color: '#1F2937', label: 'LTM DSCR' },
+      ...(cfg.lockup !== null ? [{ type: 'line', color: STATUS_WARN, label: `Distribution lock-up ${fmtX(cfg.lockup)}` }] : []),
+      ...(cfg.dflt !== null ? [{ type: 'line', color: STATUS_CRIT, label: `Default ${fmtX(cfg.dflt)}` }] : []),
+    ], W - padX, 11);
+    const t1 = headH + labelPad, b1 = h1 - 10;
+    if (b1 - t1 < 20) return false;
+    const yd = (v) => t1 + (dT.t1 - v) / (dT.t1 - dT.t0) * (b1 - t1);
+    yAxis(g, dT.ticks, yd, left, right, W, dText);
+    for (const r of refs) {
+      const yy = Math.round(yd(r.v)) + 0.5;
+      svgEl('line', { x1: left, x2: W - right, y1: yy, y2: yy, stroke: r.c, 'stroke-width': 1.25 }, g);
+    }
+    let d = '';
+    qs.forEach((q, i) => {
+      if (q.ltm === null || q.ltm === undefined) return;
+      const prev = qs[i - 1];
+      d += `${prev && prev.ltm !== null && prev.ltm !== undefined ? 'L' : 'M'}${cxOf(i)},${yd(q.ltm)}`;
+    });
+    if (d) svgEl('path', { d, fill: 'none', stroke: '#1F2937', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, g);
+    qs.forEach((q, i) => {
+      if (q.ltm === null || q.ltm === undefined) return;
+      const x = cxOf(i), y = yd(q.ltm);
+      const c = svgEl('circle', { cx: x, cy: y, r: 4, fill: '#1F2937', stroke: '#F7F9FC', 'stroke-width': 2 }, g);
+      svgEl('title', {}, c).textContent = `${q.label} LTM DSCR: ${fmtX(q.ltm)}`;
+      const ly = y - 8 < t1 - 6 ? y + 15 : y - 8;
+      const t = svgEl('text', { x, y: ly, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: '#111827' }, g);
+      t.textContent = fmtX(q.ltm);
+    });
+  }
+
+  // ---- CFADS vs. debt service panel
+  frame(y2, h2, '#FFFFFF');
+  title(y2, `CFADS vs. Debt Service (${cfg.cfUnits})`);
+  svgLegend(g, [
+    { type: 'box', color: PALETTE[0], label: 'CFADS' },
+    ...groups.map((gr, i) => ({ type: 'box', color: dsColors[i], label: gr.name })),
+  ], W - padX, y2 + 11);
+  const negPad = blo < 0 ? 12 : 0;
+  const t2 = y2 + headH + labelPad, b2 = y2 + h2 - xAxisH - negPad - 4;
+  if (b2 - t2 < 30) return false;
+  const yb = (v) => t2 + (bT.t1 - v) / (bT.t1 - bT.t0) * (b2 - t2);
+  yAxis(g, bT.ticks, yb, left, right, W, bText);
+  const bw = Math.min(24, band * 0.3), gap = 2;
+  const y0 = yb(0);
+  const lblDec = cfg.cfDec > 1 ? 1 : cfg.cfDec;
+  qs.forEach((q, i) => {
+    const cx = cxOf(i);
+    const lbl = svgEl('text', { x: cx, y: y2 + h2 - 7, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
+    lbl.textContent = q.label;
+    const xc = cx - bw - gap / 2;
+    const pc = svgEl('path', { d: barPath(xc, bw, y0, yb(q.cfads), true), fill: PALETTE[0] }, g);
+    svgEl('title', {}, pc).textContent = `${q.label} CFADS: ${fmtNum(q.cfads, cfg.cfDec, cfg.negParen)}`;
+    const tc = svgEl('text', { x: xc + bw / 2, y: q.cfads >= 0 ? yb(q.cfads) - 4 : yb(q.cfads) + 11, 'text-anchor': 'middle', 'font-size': 9, 'font-weight': 600, fill: '#111827' }, g);
+    tc.textContent = fmtNum(q.cfads, lblDec, cfg.negParen);
+    const xd = cx + gap / 2;
+    let acc = 0;
+    const segs = segValues(q).map((v, li) => ({ v, li })).filter((sg) => sg.v > 0);
+    segs.forEach((sg, si) => {
+      const ybase = yb(acc), ye = yb(acc + sg.v);
+      acc += sg.v;
+      const base = si > 0 ? ybase - gap : ybase;
+      if (ye >= base) return;
+      const p = svgEl('path', { d: barPath(xd, bw, base, ye, si === segs.length - 1), fill: dsColors[sg.li] }, g);
+      svgEl('title', {}, p).textContent = `${q.label} ${groups[sg.li].name}: ${fmtNum(sg.v, cfg.cfDec, cfg.negParen)}`;
+      const str = fmtNum(sg.v, 1, cfg.negParen);
+      if (base - ye >= 13 && textWidth(str, 8.5, 600) + 4 <= bw + 6) {
+        const ink = luminance(dsColors[sg.li]) > 0.35 ? '#111827' : '#FFFFFF';
+        const t = svgEl('text', { x: xd + bw / 2, y: (base + ye) / 2 + 3, 'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 600, fill: ink }, g);
+        t.textContent = str;
+      }
+    });
+    const td = svgEl('text', { x: xd + bw / 2, y: yb(q.ds) - 4, 'text-anchor': 'middle', 'font-size': 9, 'font-weight': 600, fill: '#111827' }, g);
+    td.textContent = fmtNum(q.ds, lblDec, cfg.negParen);
+  });
+  return true;
+}
+
+function cfTableHtml(model) {
+  const { cfg, dscr } = model;
+  const qs = dscr.shown;
+  const last = qs[qs.length - 1];
+  const hasLtm = last.ltm !== null && last.ltm !== undefined;
+  const ltmIdx = hasLtm ? dscr.quarters.indexOf(last) : -1;
+  const win = hasLtm ? dscr.quarters.slice(ltmIdx - 3, ltmIdx + 1) : [];
+  const f = (v) => (v === null || v === undefined ? '–' : fmtNum(v, cfg.cfDec, cfg.negParen));
+  const cell = (v, extra = '') => `<td class="${extra}">${f(v)}</td>`;
+  const ltmCell = (fn) => (hasLtm ? `<td class="ltm">${f(win.reduce((a, q) => a + fn(q), 0))}</td>` : '');
+  const lineVal = (l, q) => (l.vals[q.k] === null ? null : (l.kind === 'exp' ? -l.vals[q.k] : l.vals[q.k]));
+  const lineRow = (l, sub, cls = '') => `<tr class="${cls}"><td class="${sub ? 'sub' : ''}">${escHtml(l.kind === 'exp' ? 'Less: ' + l.name : l.name)}</td>${qs.map((q) => cell(lineVal(l, q))).join('')}${hasLtm ? `<td class="ltm">${f(win.reduce((a, q) => a + (lineVal(l, q) ?? 0), 0))}</td>` : ''}</tr>`;
+  const ratioCls = (v) => {
+    if (v === null) return '';
+    if (cfg.dflt !== null && v < cfg.dflt) return 'below';
+    if (cfg.lockup !== null && v < cfg.lockup) return 'warn';
+    return '';
+  };
+  let html = `<table class="cf${qs.length > 8 ? ' wide' : ''}"><thead><tr><th>${escHtml(cfg.cfUnits)}</th>${qs.map((q) => `<th>${escHtml(q.label)}</th>`).join('')}${hasLtm ? `<th class="ltm">LTM ${escHtml(last.label)}</th>` : ''}</tr></thead><tbody>`;
+  dscr.lines.filter((l) => l.kind === 'rev').forEach((l) => { html += lineRow(l, false, 'strong'); });
+  dscr.lines.filter((l) => l.kind === 'exp').forEach((l) => { html += lineRow(l, true); });
+  const opex = (q) => -dscr.lines.filter((l) => l.kind === 'exp').reduce((a, l) => a + (l.vals[q.k] ?? 0), 0);
+  html += `<tr class="total"><td>Total O&amp;M costs</td>${qs.map((q) => cell(opex(q))).join('')}${ltmCell(opex)}</tr>`;
+  html += `<tr class="total"><td>CFADS</td>${qs.map((q) => cell(q.cfads)).join('')}${ltmCell((q) => q.cfads)}</tr>`;
+  html += '<tr class="gap"><td colspan="99"></td></tr>';
+  dscr.lines.filter((l) => l.kind === 'ds').forEach((l) => { html += lineRow(l, true); });
+  html += `<tr class="total"><td>Total debt service costs</td>${qs.map((q) => cell(q.ds)).join('')}${ltmCell((q) => q.ds)}</tr>`;
+  html += '<tr class="gap"><td colspan="99"></td></tr>';
+  html += `<tr class="ratio"><td>DSCR - quarter</td>${qs.map((q) => `<td>${fmtX(q.dscr)}</td>`).join('')}${hasLtm ? '<td class="ltm"></td>' : ''}</tr>`;
+  html += `<tr class="ratio"><td>DSCR - LTM</td>${qs.map((q) => `<td class="${ratioCls(q.ltm ?? null)}">${q.ltm === null || q.ltm === undefined ? '–' : fmtX(q.ltm)}</td>`).join('')}${hasLtm ? `<td class="ltm ${ratioCls(last.ltm)}">${fmtX(last.ltm)}</td>` : ''}</tr>`;
+  html += '</tbody></table>';
+  return html;
+}
+
+function reservesHtml(model) {
+  const { cfg, reserves } = model;
+  const f = (v) => (v === null ? '–' : fmtNum(v, cfg.cfDec, cfg.negParen));
+  const rows = reserves.map((r) => {
+    const pct = r.required && r.available !== null ? r.available / r.required : null;
+    const meter = pct === null ? '–' : `<span class="meter"><i style="width:${Math.max(0, Math.min(100, pct * 100)).toFixed(0)}%;background:${pct >= 0.995 ? PALETTE[0] : STATUS_WARN}"></i></span>${Math.round(pct * 100)}%`;
+    return `<tr><td>${escHtml(r.name)}</td><td>${f(r.required)}</td><td>${f(r.available)}</td><td class="${pct !== null && pct < 0.995 ? 'short' : ''}">${meter}</td></tr>`;
+  });
+  if (reserves.length > 1) {
+    const tot = (k) => (reserves.some((r) => r[k] !== null) ? reserves.reduce((a, r) => a + (r[k] ?? 0), 0) : null);
+    rows.push(`<tr class="total"><td>Total</td><td>${f(tot('required'))}</td><td>${f(tot('available'))}</td><td></td></tr>`);
+  }
+  return `<table class="side res"><thead><tr><th>Reserve</th><th>Required</th><th>Available</th><th>Funded</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+function dscrPageHtml(model, pageNo, pageCount) {
+  const { cfg, dscr, dscrNotes } = model;
+  const last = dscr.shown[dscr.shown.length - 1];
+  const head = last.ltm !== null && last.ltm !== undefined
+    ? `LTM DSCR at ${escHtml(last.label)}: ${fmtX(last.ltm)}${cfg.lockup !== null ? ` &nbsp;·&nbsp; Distribution lock-up ${fmtX(cfg.lockup)}` : ''}${cfg.dflt !== null ? ` &nbsp;·&nbsp; Default ${fmtX(cfg.dflt)}` : ''}`
+    : '';
+
+  let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
+  // Top row: the coverage chart, with reserves and notes beside it.  Bottom: the cash flow table at
+  // full width, since it carries up to 12 quarter columns plus LTM.
+  const notesBlock = dscrNotes.length ? `<div class="cm-block">${dscrNotes.map((c) => `<div class="cm-item">${c.heading ? `<div class="cm-h">${escHtml(c.heading)}</div>` : ''}${c.text ? `<div class="cm-t">${escHtml(c.text)}</div>` : ''}</div>`).join('')}</div>` : '';
+  const resBlock = model.reserves.length ? reservesHtml(model) : '';
+  const boxTitle = resBlock ? `${escHtml(cfg.resTitle)} (${escHtml(cfg.cfUnits)})` : 'DSCR Notes';
+  const sideBox = resBlock || notesBlock ? `<section class="card"><div class="card-h">${boxTitle}</div><div class="card-b side-b">${resBlock}${notesBlock}</div></section>` : '';
+  html += '<main class="body">';
+  html += `<div class="toprow" style="grid-template-columns:${sideBox ? `minmax(0, 1fr) ${Math.max(cfg.sideWidth, resBlock ? 32 : 0)}%` : 'minmax(0, 1fr)'}">`;
+  html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span><span class="h-right">${head}</span></div>`;
+  html += '<div class="charts-grid" style="grid-template-columns:minmax(0, 1fr)">';
+  html += '<div class="chart"><div class="plot" data-dscr="coverage"><svg></svg></div></div>';
+  html += `</div></section>${sideBox}</div>`;
+  html += `<div class="bottom" style="grid-template-columns:1fr"><section class="card"><div class="card-h">Cash Flow Available for Debt Service</div><div class="card-b">${cfTableHtml(model)}</div></section></div>`;
+  html += '</main>';
+  html += `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page ${pageNo} of ${pageCount}</span></footer>`;
+  return html;
+}
+
+const bannerHtml = (cfg) => `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
+const footHtml = (cfg, n, of) => `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page ${n} of ${of}</span></footer>`;
+
+/* Page 1 protects its charts.  Layouts are tried in order until every chart keeps at least
+   MIN_PLOT px of drawing height and nothing overflows: normal, compact (two-column footnotes,
+   tighter table and text), then moving footnotes, the side panel and the table, in that
+   order, to a continuation page.  The DSCR page comes after the continuation page. */
+const MIN_PLOT = 85;  // px per chart plot, axis labels included (the examples run 91-122)
+
 function renderPage(model) {
   const { cfg, charts, table } = model;
-  const page = document.getElementById('page');
+  const container = document.getElementById('page');
   const a4 = cfg.pageSize === 'A4';
   const pw = a4 ? '297mm' : '11in', ph = a4 ? '210mm' : '8.5in';
   document.getElementById('pageSizeRule').textContent = `@page { size: ${pw} ${ph}; margin: 0; }`;
-  page.style.width = pw;
-  page.style.height = `calc(${ph} - 1px)`;
-  page.style.setProperty('--theme', cfg.color);
+  container.style.width = pw;
+  document.getElementById('pageWrap').hidden = false;
 
   const sideBody = cfg.sideType === 'None' ? '' : sideHtml(model);
   const hasSide = sideBody !== '';
   const hasTable = table.length > 0;
+  const hasNotes = charts.length > 0 && model.footnotes.length > 0;
   const nCols = cfg.chartCols === 'Auto' ? (charts.length <= 3 ? 1 : 2) : Math.min(+cfg.chartCols, Math.max(1, charts.length));
 
-  let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
-  html += '<main class="body">';
-  if (charts.length) {
-    html += `<section class="card charts-card"><div class="card-h">${escHtml(cfg.chartTitle)}</div><div class="charts-grid" style="grid-template-columns:repeat(${nCols}, minmax(0, 1fr))">`;
+  const notesHtml = `<div class="fnotes">${model.footnotes.map((f) => `<div><sup>${f.num}</sup><b>${MONTHS[f.month]}${f.chart ? ', ' + escHtml(f.chart.name) : ''}:</b> ${escHtml(f.text)}</div>`).join('')}</div>`;
+  const chartsCard = (notesHere, contPage) => {
+    if (!charts.length) return '';
+    let h = `<section class="card charts-card"><div class="card-h">${escHtml(cfg.chartTitle)}</div><div class="charts-grid" style="grid-template-columns:repeat(${nCols}, minmax(0, 1fr))">`;
     charts.forEach((ch, i) => {
-      html += `<div class="chart"><div class="chart-head"><span class="chart-title">${escHtml(ch.name)}</span>${legendHtml(ch, cfg)}</div><div class="plot" data-i="${i}"><svg></svg></div></div>`;
+      h += `<div class="chart"><div class="chart-head"><span class="chart-title">${escHtml(ch.name)}</span>${legendHtml(ch, cfg)}</div><div class="plot" data-i="${i}"><svg></svg></div></div>`;
     });
-    html += '</div></section>';
+    h += '</div>';
+    if (hasNotes) h += notesHere ? notesHtml : `<div class="fnotes fref">Chart footnotes are on page ${contPage}.</div>`;
+    return h + '</section>';
+  };
+  const tableCard = () => `<section class="card"><div class="card-h">${escHtml(cfg.tableTitle)}</div><div class="card-b">${tableHtml(model)}</div></section>`;
+  const sideCard = () => `<section class="card"><div class="card-h">${escHtml(cfg.sideTitle)}</div><div class="card-b side-b">${sideBody}</div></section>`;
+  const bottom = (withTable, withSide, extraCls) => {
+    if (!withTable && !withSide) return '';
+    const colsCss = withTable && withSide ? `grid-template-columns: minmax(0, 1fr) ${cfg.sideWidth}%` : 'grid-template-columns: 1fr';
+    return `<div class="bottom ${extraCls}" style="${colsCss}">${withTable ? tableCard() : ''}${withSide ? sideCard() : ''}</div>`;
+  };
+
+  const levels = [{ compact: false, move: [] }, { compact: true, move: [] }];
+  if (hasNotes) levels.push({ compact: true, move: ['notes'] });
+  if (hasSide) levels.push({ compact: true, move: ['notes', 'side'] });
+  if (hasTable) levels.push({ compact: true, move: ['notes', 'side', 'table'] });
+
+  let pages, chosen = null;
+  for (const lv of levels) {
+    const moved = (k) => lv.move.includes(k);
+    const hasCont = (hasNotes && moved('notes')) || (hasSide && moved('side')) || (hasTable && moved('table'));
+    const total = 1 + (hasCont ? 1 : 0) + (model.dscr ? 1 : 0);
+    container.innerHTML = Array.from({ length: total }, () => '<div class="page"></div>').join('');
+    pages = Array.from(container.children);
+    pages.forEach((pg) => {
+      pg.style.width = pw;
+      pg.style.height = `calc(${ph} - 1px)`;
+      pg.style.setProperty('--theme', cfg.color);
+      pg.classList.toggle('compact', lv.compact);
+    });
+    pages[0].innerHTML = bannerHtml(cfg)
+      + `<main class="body">${chartsCard(!moved('notes'), 2)}${bottom(hasTable && !moved('table'), hasSide && !moved('side'), charts.length ? '' : 'no-charts')}</main>`
+      + footHtml(cfg, 1, total);
+    if (hasCont) {
+      const notesCard = hasNotes && moved('notes') ? `<section class="card"><div class="card-h">${escHtml(cfg.chartTitle)} - Footnotes</div><div class="card-b">${notesHtml}</div></section>` : '';
+      pages[1].innerHTML = bannerHtml(cfg)
+        + `<main class="body cont">${notesCard}${bottom(hasTable && moved('table'), hasSide && moved('side'), '')}</main>`
+        + footHtml(cfg, 2, total);
+    }
+    if (model.dscr) pages[total - 1].innerHTML = dscrPageHtml(model, total, total);
+
+    const body = pages[0].querySelector('.body');
+    const plotMin = Math.min(Infinity, ...Array.from(pages[0].querySelectorAll('.plot'), (pl) => pl.clientHeight));
+    const fits = body.scrollHeight <= body.clientHeight + 2 && plotMin >= MIN_PLOT;
+    chosen = { lv, hasCont };
+    if (fits) break;
   }
-  if (hasTable || hasSide) {
-    const colsCss = hasTable && hasSide ? `grid-template-columns: minmax(0, 1fr) ${cfg.sideWidth}%` : 'grid-template-columns: 1fr';
-    html += `<div class="bottom${charts.length ? '' : ' no-charts'}" style="${colsCss}">`;
-    if (hasTable) html += `<section class="card"><div class="card-h">${escHtml(cfg.tableTitle)}</div><div class="card-b">${tableHtml(model)}</div></section>`;
-    if (hasSide) html += `<section class="card"><div class="card-h">${escHtml(cfg.sideTitle)}</div><div class="card-b side-b">${sideBody}</div></section>`;
-    html += '</div>';
-  }
-  html += '</main>';
-  html += `<footer class="foot"><span>${escHtml(cfg.footer)}</span><span>Page 1 of 1</span></footer>`;
-  page.innerHTML = html;
-  document.getElementById('pageWrap').hidden = false;
 
   const layoutWarnings = [];
+  const { lv, hasCont } = chosen;
+  if (hasCont) {
+    const what = [hasNotes && lv.move.includes('notes') ? 'the chart footnotes' : null, hasSide && lv.move.includes('side') ? `"${cfg.sideTitle}"` : null, hasTable && lv.move.includes('table') ? 'the comparison table' : null].filter(Boolean);
+    layoutWarnings.push(`Page 1 was too full to keep the charts readable, so ${what.join(', ').replace(/, ([^,]*)$/, ' and $1')} moved to page 2.`);
+  }
+
+  // Draw page 1 charts at their final size.
   let smallest = Infinity;
-  page.querySelectorAll('.plot').forEach((plot) => {
+  pages[0].querySelectorAll('.plot').forEach((plot) => {
     const ch = charts[+plot.dataset.i];
-    const svg = plot.querySelector('svg');
-    const h = drawChart(svg, ch, cfg, plot.clientWidth, plot.clientHeight);
+    const notes = model.footnotes.filter((f) => f.chart === null || f.chart === ch);
+    const h = drawChart(plot.querySelector('svg'), ch, cfg, plot.clientWidth, plot.clientHeight, notes);
     smallest = Math.min(smallest, h === false ? 0 : h);
   });
   if (charts.length && smallest < 45) {
-    layoutWarnings.push('The page is crowded: the charts are very short.  Remove some table rows, shorten the commentary, or set "Chart columns" to 2.');
+    layoutWarnings.push('The charts are still very short.  Remove some charts or set "Chart columns" to 2 or 3.');
   }
-  const body = page.querySelector('.body');
-  if (body.scrollHeight > body.clientHeight + 2) {
-    layoutWarnings.push('Some content does not fit on one page and is cut off at the bottom.  Remove table rows or shorten the commentary.');
+
+  // DSCR page: tighten it too if its own content overflows, then draw its charts.
+  if (model.dscr) {
+    const dp = pages[pages.length - 1];
+    const db = dp.querySelector('.body');
+    if (db.scrollHeight > db.clientHeight + 2) dp.classList.add('compact');
+    dp.querySelectorAll('.plot').forEach((plot) => {
+      if (drawCoverageChart(plot.querySelector('svg'), model, plot.clientWidth, plot.clientHeight) === false) layoutWarnings.push('The DSCR page is crowded: its charts are very short.  Shorten the DSCR Notes, the Reserves or the Debt Service rows.');
+    });
   }
+  pages.forEach((pg, i) => {
+    const b = pg.querySelector('.body');
+    if (b.scrollHeight > b.clientHeight + 2) {
+      layoutWarnings.push(`Some content does not fit on page ${i + 1} and is cut off at the bottom.  Remove table rows or shorten the commentary or notes.`);
+    }
+  });
   fitToScreen();
   return layoutWarnings;
 }
@@ -1038,7 +1689,7 @@ function fitToScreen() {
   const page = document.getElementById('page');
   const wrap = document.getElementById('pageWrap');
   if (wrap.hidden) return;
-  const w = page.offsetWidth, h = page.offsetHeight;
+  const w = page.offsetWidth, h = page.scrollHeight;
   const s = Math.min(1, (document.documentElement.clientWidth - 32) / w);
   page.style.transform = s < 1 ? `scale(${s})` : '';
   wrap.style.width = w * s + 'px';
@@ -1077,6 +1728,7 @@ async function loadBytes(u8, label) {
     const layout = renderPage(model);
     const msgs = model.warnings.concat(layout).map((w) => ['warn', w]);
     if (!msgs.length) msgs.push(['ok', `Built from ${label}.  Click "Save as PDF" when it looks right.`]);
+    model.infos.forEach((t) => msgs.push(['info', t]));
     showMessages(msgs);
     document.getElementById('btnPrint').disabled = false;
     document.title = `${model.cfg.title} - ${model.cfg.subtitle || 'Dashboard'}`;
