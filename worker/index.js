@@ -3973,7 +3973,9 @@ async function votdSendChooserEmail(dateET, staged, env) {
 
 // ---- App failure reports, by mail ----
 const REPORT_HOURLY_MAX = 30;
-const REPORT_MAX_BYTES = 4096;
+// 8 KB, up from 4:  a crash report carries up to 2,500 characters of stack
+// in `detail`, on top of the fields below.
+const REPORT_MAX_BYTES = 8192;
 
 async function handleClientReport(request, env, cors) {
   const json = (obj, status = 200) => new Response(JSON.stringify(obj), {
@@ -3993,6 +3995,8 @@ async function handleClientReport(request, env, cors) {
     gid: str(body.gid, 40),
     build: str(body.build, 120),
     at: str(body.at, 40) || new Date().toISOString(),
+    // Free text, for a crash's stack.  Shown in its own block, not the table.
+    detail: str(body.detail, 2500),
   };
   if (!env.COMMENTARY_KV) return json({ ok: true, sent: false });
 
@@ -4010,17 +4014,25 @@ async function handleClientReport(request, env, cors) {
 
   if (!env.RESEND_KEY || !env.VOTD_EMAIL_TO || !env.VOTD_EMAIL_FROM) return json({ ok: true, sent: false, reason: 'mail_unset' });
   const esc = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-  const rows = Object.entries(report).map(([k, v]) =>
+  const rows = Object.entries(report).filter(([k]) => k !== 'detail').map(([k, v]) =>
     `<tr><td style="padding:3px 12px 3px 0;color:#666">${esc(k)}</td><td style="padding:3px 0">${esc(v) || '—'}</td></tr>`).join('');
+  const detail = report.detail
+    ? `<pre style="margin:14px 0 0;padding:10px;background:#f4f4f4;font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(report.detail)}</pre>`
+    : '';
+  // A render crash reads differently from a sync step failing, and should
+  // in the inbox too.
+  const subject = report.kind === 'render'
+    ? `krengbible app crashed in ${report.step || '?'}: ${report.message.slice(0, 80) || report.code || 'unknown'}`
+    : `krengbible app: ${report.kind} failed at ${report.step || '?'} (${report.code || 'unknown'})`;
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${env.RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: env.VOTD_EMAIL_FROM, to: [env.VOTD_EMAIL_TO],
-      subject: `krengbible app: ${report.kind} failed at ${report.step || '?'} (${report.code || 'unknown'})`,
+      subject,
       html: `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:14px;color:#111">` +
         `<p style="margin:0 0 10px">A reader's <b>${esc(report.kind)}</b> failed.  Mailed once per distinct failure per hour;  further repeats are counted only.</p>` +
-        `<table style="border-collapse:collapse">${rows}</table></div>`
+        `<table style="border-collapse:collapse">${rows}</table>${detail}</div>`
     })
   }).catch(() => {});
   return json({ ok: true, sent: true });
