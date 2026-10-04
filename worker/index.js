@@ -2504,9 +2504,16 @@ function smartTerm(lang, word) {
   };
 }
 
-// The best form of `term` in one normalized verse, as the form's text, or null.
+// What `term` matched in one normalized verse, for the app to highlight:  the
+// whole word a word-start form landed on ("cast" -> "casting"), or a Korean
+// whole-word form itself, which may sit inside a longer word.  Null if none.
 function smartFindForm(text, term) {
-  for (const f of term.forms) if (text.indexOf(f.needle) !== -1) return f.s;
+  for (const f of term.forms) {
+    const p = text.indexOf(f.needle);
+    if (p === -1) continue;
+    if (f.anywhere) return f.s;
+    return text.slice(p + 1, text.indexOf(' ', p + 1));
+  }
   return null;
 }
 
@@ -2611,11 +2618,9 @@ async function handleSmartSearch(env, url, cors) {
   const contentNeeded = contentTotal <= 2 ? Math.min(1, contentTotal) : Math.ceil(contentTotal / 2);
   const phraseNeedle = words.length > 1 ? ' ' + phrase : null;
 
+  const preps = await Promise.all(sources.map((src) => smartPrepFor(env, lang, src)));
   const loaded = [];
-  for (const src of sources) {
-    const prep = await smartPrepFor(env, lang, src);
-    if (prep) loaded.push({ src, label: src.label, prep });
-  }
+  sources.forEach((src, k) => { if (preps[k]) loaded.push({ src, label: src.label, prep: preps[k] }); });
   if (loaded.length === 0) {
     return new Response(JSON.stringify({ results: [], hasMore: false, error: 'index_not_built' }), { status: 503, headers });
   }
