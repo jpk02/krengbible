@@ -1280,13 +1280,13 @@ async function loadVotd(){
   var wrap=document.getElementById('content');
   wrap.innerHTML='<div class="ldg"><div class="spinner"></div><div class="ldg-txt">Loading…</div></div>';
   try{
-    // Ask for the day BEFORE the reader's local date, which is the same rule the
-    // app uses, so the site and the app show the same verse on the same day.
-    // The worker cannot answer for the current local date everywhere — its verse
-    // source only ever serves its own current verse, and that key is write-once —
-    // but the previous day is always already published, in every timezone.
-    var t=new Date(),p=new Date(t.getFullYear(),t.getMonth(),t.getDate()-1);
-    var want=p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0');
+    // Ask for the reader's OWN local date, as the app does (lib/votdOnce:
+    // localDayIso), so the site and the app show the same verse on the same day.
+    // This used to ask for the day before, from when the worker could only
+    // answer for days already published;  /votd now serves a reader's local
+    // date up to one day ahead of Eastern time, so the site was a day behind.
+    var t=new Date();
+    var want=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
     var r=await fetch(WORKER+'/votd?date='+want,{cache:'no-store'}),d=await r.json();
     // Handle both old format (array) and new format ({verses, photo})
     var verses=Array.isArray(d)?d:(d.verses||d);
