@@ -9,6 +9,9 @@
 //   /woori/{book}/{chapter}               -> 우리말성경 chapter (KV only; imported, not scraped)
 //   /search/ko?q=...&offset=...           -> Korean full-text search (FAST: uses pre-built index)
 //   /search/en?q=...&page=...             -> English full-text search (FAST: uses pre-built index)
+//   /search/smart?q=...&lang=en|ko&tx=...&page=...
+//                                         -> Ranked search over every indexed version of the
+//                                          language;  text returned in `tx`.  See handleSmartSearch.
 //   /votd[?date=YYYY-MM-DD]              -> Verse of the day + photo.  `date` picks a
 //                                          specific ET date, clamped ET-2..ET+1;  readers
 //                                          ask for their OWN local date, which east of
@@ -2277,6 +2280,417 @@ async function handleKjvSearch(env, url, cors) {
   return new Response(JSON.stringify({
     results, hasMore, nextPage: hasMore ? (page + 1) : -1, total: matches.length, bookCount: bookSet.size,
   }), { headers: { ...cors, 'Content-Type': 'application/json' } });
+}
+
+// ---- /search/smart — ranked search across every indexed version of a language ----
+// Route: GET /search/smart?q=...&lang=en|ko&tx=ESV&page=1
+//
+// The per-version routes above are exact-substring filters:  a verse matches
+// only if the typed text appears in it verbatim, in that one version.  People
+// rarely remember a verse that way.  "why are you downcast" is NIV wording;
+// the ESV says "why are you cast down", so the ESV route found nothing, and
+// the app's old fallback (search each word alone, list the hits in canonical
+// order) buried the verse under every Genesis verse containing "you".
+//
+// This route scores every verse instead.  Each query word that begins a word
+// in the verse adds to its score (filler words like "you" or "the" count for
+// much less than the rest), the whole phrase earns a large bonus, and words
+// sitting close together earn a small one.  Every indexed version of the
+// language is scored, and a verse keeps its best version's score, so a phrase
+// remembered from the NIV still finds its verse while the reader is on the ESV.
+// The text returned is the reader's own version (`tx`) whenever it has an
+// index and the verse;  `matchedIn` names the version that matched better when
+// it was a different one, and `shownIn` the version whose text was returned
+// when it could not be the reader's own.
+//
+// Index-only, like the routes above:  a version whose index is missing is
+// skipped, never fetched live.
+const SMART_SOURCES = {
+  en: [
+    { label: 'ESV', kv: 'esv_search_index', cached: () => EN_SEARCH_INDEX, load: (env) => getEnSearchIndex(env) },
+    { label: 'NIV', kv: 'apibible_search_index_78a9f6124f344018-01', cached: () => APIBIBLE_INDEXES['78a9f6124f344018-01'], load: (env) => getApiBibleSearchIndex(env, '78a9f6124f344018-01') },
+    { label: 'NLT', kv: 'apibible_search_index_d6e14a625393b4da-01', cached: () => APIBIBLE_INDEXES['d6e14a625393b4da-01'], load: (env) => getApiBibleSearchIndex(env, 'd6e14a625393b4da-01') },
+    { label: 'KJV', kv: 'kjv_search_index', cached: () => KJV_SEARCH_INDEX, load: (env) => getKjvSearchIndex(env) },
+  ],
+  ko: [
+    { label: 'NKRV', kv: 'nkrv_search_index', cached: () => SEARCH_INDEX, load: (env) => getKoSearchIndexByPrefix(env, 'nkrv') },
+    { label: 'SAEBEON', kv: 'saebeon_search_index', cached: () => KO_INDEX_CACHE.get('saebeon'), load: (env) => getKoSearchIndexByPrefix(env, 'saebeon') },
+    { label: 'NKT', kv: 'nkt_search_index', cached: () => KO_INDEX_CACHE.get('nkt'), load: (env) => getKoSearchIndexByPrefix(env, 'nkt') },
+    { label: 'WOORI', kv: 'woori_search_index', cached: () => KO_INDEX_CACHE.get('woori'), load: (env) => getKoSearchIndexByPrefix(env, 'woori') },
+    // KLB has no index until one is built, so it is skipped;  smartPrepFor
+    // remembers the miss for a while so every query does not spend a KV read
+    // finding that out again.
+    { label: 'KLB', kv: 'apibible_search_index_e959e47176271f18-01', cached: () => APIBIBLE_INDEXES['e959e47176271f18-01'], load: (env) => getApiBibleSearchIndex(env, 'e959e47176271f18-01') },
+  ],
+};
+
+// Words that carry little meaning on their own.  They still count, so "why are
+// you downcast" prefers verses that have all four words, but a verse cannot
+// qualify on these alone when the query has anything more specific in it.
+const SMART_STOP_EN = new Set((
+  'a an the and or but of to in on at for from by with as is are was were be been being am ' +
+  'i me my mine you your yours thou thee thy thine ye he him his she her it its we us our ' +
+  'they them their this that these those who whom whose what which why how when where ' +
+  'not no so do does did shall will would should can could may might have has had ' +
+  'unto upon o oh let all there then than if'
+).split(' '));
+const SMART_STOP_KO = new Set(['그리고', '그러나', '그러므로', '그런데', '또', '및', '곧', '것', '수', '이', '그', '저']);
+
+const SMART_MISS_MS = 10 * 60 * 1000;
+const SMART_PREP_MS = 60 * 60 * 1000;
+const SMART_MISSES = new Map(); // label -> time its index was last found missing
+const SMART_PREP = new Map();   // label -> { at, prep } or { at, promise }
+
+function smartNormalize(lang, s) {
+  if (lang === 'en') {
+    s = String(s).toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, ' ');
+  } else {
+    s = String(s).replace(/[^0-9A-Za-z가-힣]+/g, ' ');
+  }
+  return ' ' + s.trim() + ' ';
+}
+
+function smartVerseKey(b, c, v) { return b * 1000000 + c * 1000 + v; }
+
+// What the search keeps of one version, derived from its flat index:
+//   text    every verse normalized and joined into one string, a newline
+//           between verses, so a whole version is searched with a few indexOf
+//           scans rather than one per verse (no needle contains a newline, so
+//           none can match across two verses)
+//   starts  where each verse begins in `text`, plus one past the end
+//   keys    each verse's smartVerseKey;  `order` sorts positions by it, for
+//           finding one verse by reference
+// Only this is kept, not the parsed index:  eight parsed versions would come
+// close to a Worker's 128MB on their own.  Verse text for display comes from
+// the reader's own version through its usual loader, as /search/en does.
+// English is built as one-byte text (the normalized form is plain ASCII), at
+// half the size of the two-byte string a join of regex results produces.
+function smartPrep(lang, index) {
+  const n = index.length;
+  const starts = new Int32Array(n + 1);
+  const keys = new Int32Array(n);
+  let text;
+  if (lang === 'en') {
+    let cap = 0;
+    for (let i = 0; i < n; i++) cap += index[i][3].length + 3;
+    const buf = new Uint8Array(cap);
+    let at = 0;
+    for (let i = 0; i < n; i++) {
+      const t = index[i];
+      starts[i] = at;
+      keys[i] = smartVerseKey(t[0], t[1], t[2]);
+      const s = t[3];
+      buf[at++] = 32;
+      let space = true;
+      for (let j = 0; j < s.length; j++) {
+        let c = s.charCodeAt(j);
+        if (c >= 65 && c <= 90) c += 32;
+        if ((c >= 97 && c <= 122) || (c >= 48 && c <= 57)) { buf[at++] = c; space = false; }
+        else if (c === 39 || c === 0x2019) continue;
+        else if (!space) { buf[at++] = 32; space = true; }
+      }
+      if (!space) buf[at++] = 32;
+      buf[at++] = 10;
+    }
+    starts[n] = at;
+    const chunks = [];
+    for (let i = 0; i < at; i += 8192) {
+      chunks.push(String.fromCharCode.apply(null, buf.subarray(i, Math.min(at, i + 8192))));
+    }
+    text = chunks.join('');
+  } else {
+    const parts = new Array(n);
+    let at = 0;
+    for (let i = 0; i < n; i++) {
+      const t = index[i];
+      parts[i] = smartNormalize(lang, t[3]) + '\n';
+      starts[i] = at;
+      at += parts[i].length;
+      keys[i] = smartVerseKey(t[0], t[1], t[2]);
+    }
+    starts[n] = at;
+    text = parts.join('');
+  }
+  const order = Int32Array.from({ length: n }, (_, i) => i).sort((a, b) => keys[a] - keys[b]);
+  return { text, starts, keys, order };
+}
+
+// One version's prep, built once per isolate and refreshed hourly so a rebuilt
+// index is picked up.  Uses the parsed index when a route already holds it;
+// otherwise parses the KV copy just long enough to build from it.  Null when
+// the version has no index.
+async function smartPrepFor(env, lang, src) {
+  const now = Date.now();
+  const missed = SMART_MISSES.get(src.label);
+  if (missed && now - missed < SMART_MISS_MS) return null;
+  const have = SMART_PREP.get(src.label);
+  if (have && now - have.at < SMART_PREP_MS) return have.prep || have.promise;
+  const promise = (async () => {
+    let index = src.cached() || null;
+    if (!index) {
+      const raw = await env.COMMENTARY_KV.get(src.kv);
+      if (raw) { try { index = JSON.parse(raw); } catch (e) { index = null; } }
+    }
+    if (!index) {
+      SMART_MISSES.set(src.label, Date.now());
+      SMART_PREP.delete(src.label);
+      return null;
+    }
+    const prep = smartPrep(lang, index);
+    SMART_PREP.set(src.label, { at: now, prep });
+    return prep;
+  })();
+  SMART_PREP.set(src.label, { at: now, promise });
+  return promise;
+}
+
+// The verse containing character `pos` of prep.text.
+function smartVerseAt(prep, pos) {
+  const s = prep.starts;
+  let lo = 0, hi = s.length - 2;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (s[mid] <= pos) lo = mid; else hi = mid - 1;
+  }
+  return lo;
+}
+
+// The position of the verse with `key`, or -1.
+function smartLookup(prep, key) {
+  const { order, keys } = prep;
+  let lo = 0, hi = order.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const k = keys[order[mid]];
+    if (k === key) return order[mid];
+    if (k < key) lo = mid + 1; else hi = mid - 1;
+  }
+  return -1;
+}
+
+// One query word and the forms of it worth trying, best first.  English adds
+// a stem without a common ending ("lambs" also finds "lamb");  Korean, whose
+// endings attach to the word, tries the word with its last syllables trimmed
+// down to two ("낙심하며" also finds "낙심하느냐").  Shorter forms earn less.
+// A form matches where a word begins ("cast" finds "casting"), except a filler
+// word, which must be the whole word ("you" is not "young"), and a whole
+// Korean word, which may follow a prefix (주 + 하나님 written together).
+function smartTerm(lang, word) {
+  const stop = lang === 'en' ? SMART_STOP_EN.has(word) : (word.length === 1 || SMART_STOP_KO.has(word));
+  const forms = [];
+  const add = (s, credit, kind) => forms.push({
+    s, credit, anywhere: kind === 'anywhere',
+    needle: kind === 'anywhere' ? s : kind === 'whole' ? ' ' + s + ' ' : ' ' + s,
+  });
+  if (stop) {
+    add(word, 1, 'whole');
+  } else if (lang === 'en') {
+    add(word, 1, 'start');
+    const m = word.match(/^(.{3,})(?:ing|ed|es|s)$/);
+    if (m) add(m[1], 0.8, 'start');
+  } else {
+    add(word, 1, 'anywhere');
+    for (let len = word.length - 1; len >= 2; len--) add(word.slice(0, len), 0.7, 'start');
+  }
+  // Every word-start form's needle begins with the shortest one's, so one
+  // scan for that finds them all;  each hit is then graded against the rest.
+  const anchored = forms.filter((f) => !f.anywhere);
+  return {
+    word, forms, stop, weight: stop ? 1 : 3,
+    scans: [
+      ...forms.filter((f) => f.anywhere).map((f) => ({ needle: f.needle, grade: [f] })),
+      ...(anchored.length ? [{ needle: anchored[anchored.length - 1].needle, grade: anchored }] : []),
+    ],
+  };
+}
+
+// The best form of `term` in one normalized verse, as the form's text, or null.
+function smartFindForm(text, term) {
+  for (const f of term.forms) if (text.indexOf(f.needle) !== -1) return f.s;
+  return null;
+}
+
+// Score every verse of one prepared version.  Returns [{ i, score }] for the
+// verses that qualify.
+function smartScore(prep, terms, phraseNeedle, contentTotal, contentNeeded) {
+  const { text, starts } = prep;
+  const n = starts.length - 1;
+  const score = new Float64Array(n);
+  const matched = new Uint8Array(n);
+  const content = new Uint8Array(n);
+  const lo = new Int32Array(n);
+  const hi = new Int32Array(n);
+  const last = new Int32Array(n);
+  const unordered = new Uint8Array(n);
+  const touched = [];
+  // Per term:  the best credit seen in each verse, and where.
+  const credit = new Float64Array(n);
+  const at = new Int32Array(n);
+
+  for (const term of terms) {
+    const hit = [];
+    for (const scan of term.scans) {
+      let pos = text.indexOf(scan.needle);
+      while (pos !== -1) {
+        let c = 0;
+        for (const f of scan.grade) {
+          if (f === scan.grade[scan.grade.length - 1] || text.startsWith(f.needle, pos)) { c = f.credit; break; }
+        }
+        const v = smartVerseAt(prep, pos);
+        if (credit[v] === 0) hit.push(v);
+        if (c > credit[v]) { credit[v] = c; at[v] = pos; }
+        // A full-credit hit cannot be bettered;  move on to the next verse.
+        pos = text.indexOf(scan.needle, c === 1 ? starts[v + 1] : pos + 1);
+      }
+    }
+    for (const v of hit) {
+      const p = at[v];
+      if (matched[v] === 0) { touched.push(v); lo[v] = p; hi[v] = p; last[v] = p; }
+      matched[v]++;
+      if (!term.stop) content[v]++;
+      score[v] += term.weight * credit[v];
+      if (p < lo[v]) lo[v] = p;
+      if (p > hi[v]) hi[v] = p;
+      if (p < last[v]) unordered[v] = 1;
+      last[v] = p;
+      credit[v] = 0;
+    }
+  }
+
+  const phrase = new Uint8Array(n);
+  if (phraseNeedle) {
+    let pos = text.indexOf(phraseNeedle);
+    while (pos !== -1) {
+      const v = smartVerseAt(prep, pos);
+      phrase[v] = 1;
+      pos = text.indexOf(phraseNeedle, starts[v + 1]);
+    }
+  }
+
+  const out = [];
+  for (const v of touched) {
+    const m = matched[v];
+    const span = hi[v] - lo[v];
+    const close = m >= 2 && span <= 30 * m;
+    if (contentTotal > 0) {
+      if (content[v] < contentNeeded && !phrase[v]) continue;
+    } else if (!phrase[v] && !(m === terms.length && close)) {
+      continue;
+    }
+    let s = score[v];
+    if (phrase[v]) s += 100;
+    if (m === terms.length) s += 4;
+    if (close) s += unordered[v] ? 2 : 3;
+    // Tighter is better:  "why, my soul, are you downcast" over "why are you
+    // angry?  why is your face downcast".
+    if (m >= 2) s += 1.5 * Math.min(1, (8 * m) / (span + 1));
+    out.push({ i: v, score: s });
+  }
+  return out;
+}
+
+async function handleSmartSearch(env, url, cors) {
+  const headers = { ...cors, 'Content-Type': 'application/json' };
+  const lang = url.searchParams.get('lang') === 'ko' ? 'ko' : 'en';
+  const sources = SMART_SOURCES[lang];
+  const txParam = String(url.searchParams.get('tx') || '').toUpperCase();
+  const tx = sources.some((s) => s.label === txParam) ? txParam : sources[0].label;
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1') || 1);
+  const pageSize = 20;
+  const q = String(url.searchParams.get('q') || '').slice(0, 200);
+
+  const phrase = smartNormalize(lang, q).trim();
+  if (phrase.length < (lang === 'ko' ? 1 : 2)) {
+    return new Response(JSON.stringify({ results: [], hasMore: false, total: 0 }), { headers });
+  }
+  const words = [...new Set(phrase.split(' '))].slice(0, 12);
+  const terms = words.map((w) => smartTerm(lang, w));
+  const contentTotal = terms.filter((t) => !t.stop).length;
+  // A long query rarely has every word right;  half of its meaningful words
+  // is enough to qualify, and ranking puts the fuller matches first.
+  const contentNeeded = contentTotal <= 2 ? Math.min(1, contentTotal) : Math.ceil(contentTotal / 2);
+  const phraseNeedle = words.length > 1 ? ' ' + phrase : null;
+
+  const loaded = [];
+  for (const src of sources) {
+    const prep = await smartPrepFor(env, lang, src);
+    if (prep) loaded.push({ src, label: src.label, prep });
+  }
+  if (loaded.length === 0) {
+    return new Response(JSON.stringify({ results: [], hasMore: false, error: 'index_not_built' }), { status: 503, headers });
+  }
+
+  // verse key -> { key, score, label, txScore }:  each verse keeps its best
+  // version's score, and the reader's own version's alongside it.
+  const best = new Map();
+  for (const src of loaded) {
+    const { prep, label } = src;
+    for (const { i, score } of smartScore(prep, terms, phraseNeedle, contentTotal, contentNeeded)) {
+      const key = prep.keys[i];
+      const prev = best.get(key);
+      if (!prev) {
+        best.set(key, { key, score, label, txScore: label === tx ? score : 0 });
+      } else {
+        if (score > prev.score) { prev.score = score; prev.label = label; }
+        if (label === tx) prev.txScore = score;
+      }
+    }
+  }
+
+  // Ties go to the reader's own version, then to canonical order.
+  const rank = (r) => r.score + (r.txScore === r.score ? 0.5 : 0);
+  const ranked = [...best.values()].sort((a, b) => rank(b) - rank(a) || a.key - b.key);
+
+  const offset = (page - 1) * pageSize;
+  const page_ = ranked.slice(offset, offset + pageSize);
+  const txSrc = loaded.find((s) => s.label === tx) || null;
+  const texts = new Map(); // label -> parsed index, loaded only when shown
+  const parsed = async (s) => {
+    if (!texts.has(s.label)) texts.set(s.label, await s.src.load(env));
+    return texts.get(s.label);
+  };
+  const results = [];
+  for (const r of page_) {
+    // The reader's version when it has the verse, else the one that matched.
+    let shown = txSrc;
+    let i = shown ? smartLookup(shown.prep, r.key) : -1;
+    if (i === -1) {
+      shown = loaded.find((s) => s.label === r.label);
+      i = smartLookup(shown.prep, r.key);
+    }
+    const index = await parsed(shown);
+    let t = index && index[i];
+    // The prep can be up to an hour older than the parsed index;  if a
+    // rebuild moved verses in between, find this one by reference instead.
+    if (!t || smartVerseKey(t[0], t[1], t[2]) !== r.key) {
+      t = index && index.find((x) => smartVerseKey(x[0], x[1], x[2]) === r.key);
+    }
+    if (!t) continue;
+    const norm = smartNormalize(lang, t[3]);
+    const hl = [];
+    for (const term of terms) {
+      const form = smartFindForm(norm, term);
+      if (form) hl.push(form);
+    }
+    results.push({
+      book: t[0],
+      chapter: t[1],
+      verse: t[2],
+      text: t[3],
+      ref: (lang === 'ko' ? BOOK_NAMES_KO : BOOK_NAMES_EN)[t[0]] + ' ' + t[1] + ':' + t[2],
+      hl,
+      ...(r.label !== shown.label && r.txScore < r.score ? { matchedIn: r.label } : {}),
+      ...(shown !== txSrc ? { shownIn: shown.label } : {}),
+    });
+  }
+  const hasMore = offset + pageSize < ranked.length;
+  return new Response(JSON.stringify({
+    results,
+    hasMore,
+    nextPage: hasMore ? page + 1 : -1,
+    total: ranked.length,
+    versions: loaded.map((s) => s.label),
+  }), { headers });
 }
 
 // ---- api.bible chapter handler ----
@@ -4753,6 +5167,9 @@ Only output valid JSON, no markdown, no preamble.`;
     if (apbs) {
       return handleApiBibleSearch(env, url, cors, apbs[1]);
     }
+
+    // ---- /search/smart (ranked, every indexed version of a language) ----
+    if (path === '/search/smart') return handleSmartSearch(env, url, cors);
 
     // ---- /search/ko (fast) ----
     if (path.startsWith('/search/ko')) return handleKoreanSearch(env, url, cors);
