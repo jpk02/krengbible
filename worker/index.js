@@ -3354,13 +3354,24 @@ async function handleMergeApiBibleIndex(env, url, cors) {
     return new Response(JSON.stringify({error:'no_chunks', hint:'run /admin/build-apibible-index first'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
   }
 
+  // Chunk keys are named by their first chapter, so a build run with a
+  // different chunk size leaves chunks that overlap the new ones.  Each verse
+  // is kept once, from the first chunk that has it, so a rebuild over an old
+  // partial one cannot double the index.
   const merged = [];
+  const seen = new Set();
+  let duplicates = 0;
   for (const key of chunks) {
     const raw = await env.COMMENTARY_KV.get(key);
     if (!raw) continue;
     try {
       const arr = JSON.parse(raw);
-      for (const t of arr) merged.push(t);
+      for (const t of arr) {
+        const k = `${t[0]}_${t[1]}_${t[2]}`;
+        if (seen.has(k)) { duplicates++; continue; }
+        seen.add(k);
+        merged.push(t);
+      }
     } catch (e) { /* skip */ }
   }
 
@@ -3376,6 +3387,7 @@ async function handleMergeApiBibleIndex(env, url, cors) {
     translation: API_BIBLE_TRANSLATIONS[translationId].abbreviation,
     chunksRead: chunks.length,
     totalVerses: merged.length,
+    duplicatesDropped: duplicates,
     indexBytes: payload.length,
     storedAt: indexKey
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
