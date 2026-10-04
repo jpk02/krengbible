@@ -3093,8 +3093,11 @@ function renderBookIntro(d,bk,container){
       if(mapEl._leaflet_id){try{L.DomUtil.get('intro-map')._leaflet_map&&L.DomUtil.get('intro-map')._leaflet_map.remove();}catch(e){}}
       mapEl._leaflet_id=null;
       var locs=d.map_locations;
-      var map=L.map('intro-map',{zoomControl:false,attributionControl:false,dragging:false,touchZoom:false,doubleClickZoom:false,scrollWheelZoom:false,boxZoom:false,keyboard:false});
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{subdomains:'abcd'}).addTo(map);
+      var map=L.map('intro-map',{zoomControl:false,attributionControl:true,dragging:false,touchZoom:false,doubleClickZoom:false,scrollWheelZoom:false,boxZoom:false,keyboard:false});
+      map.attributionControl.setPrefix(false);
+      // CARTO requires a key on every tile (without one the tiles are watermarked)
+      // and the OpenStreetMap + CARTO credit on the map, under its free terms.
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_492y_1_54a85d4b81ec5326a717394a',{subdomains:'abcd',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'}).addTo(map);
       var bounds=locs.map(function(l){return[l.lat,l.lng];});
       if(bounds.length>1)map.fitBounds(bounds,{padding:[50,50],animate:false});
       else map.setView(bounds[0],7,{animate:false});
