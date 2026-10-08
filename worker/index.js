@@ -5365,6 +5365,21 @@ Only output valid JSON, no markdown, no preamble.`;
           return json(await votdBoard(env, 10));
         }
 
+        // Undo a block:  the photo is off the board by now, so it is restored
+        // from the record kept with the block, at the position it had (`at`).
+        if (action === 'unreject') {
+          const rejected = await votdReadJson(env, 'votd_rejected', {});
+          const kept = rejected && rejected[slug];
+          if (!kept || !kept.photo) return json({ error: 'nothing to undo' }, 400);
+          delete rejected[slug];
+          await votdWriteJson(env, 'votd_rejected', rejected);
+          const list = (cands || []).filter((c) => c && c.slug !== slug);
+          const at = Math.max(0, Math.min(list.length, parseInt(url.searchParams.get('at') || '0', 10) || 0));
+          list.splice(at, 0, kept.photo);
+          await votdWriteJson(env, 'votd_candidates', list);
+          return json(await votdBoard(env, 10));
+        }
+
         const rec = (cands || []).find((c) => c.slug === slug)
           || (queued || []).find((q) => q.slug === slug);
         if (!rec) return json({ error: 'unknown slug' }, 400);
@@ -5378,6 +5393,10 @@ Only output valid JSON, no markdown, no preamble.`;
           rejected[slug] = {
             credit: rec.credit, alt: rec.alt, topic: rec.topic || null,
             color: rec.color || null, at: new Date().toISOString(),
+            // The whole record, so the picker's Undo can put the photo back.
+            // The board drops a blocked photo from votd_candidates, so without
+            // this there would be nothing left to restore.
+            photo: rec,
           };
           await votdWriteJson(env, 'votd_rejected', rejected);
         } else if (action === 'queue') {

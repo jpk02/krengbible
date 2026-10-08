@@ -41,6 +41,13 @@
   .tabs button{border-radius:999px;padding:7px 14px}
   .tabs button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 
+  /* The Undo bar after blocking a photo — see offerUndo. */
+  #undo{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+        display:flex;align-items:center;gap:14px;padding:10px 12px 10px 16px;border-radius:12px;
+        background:#222;color:#fff;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);
+        transition:opacity .18s,transform .18s;z-index:50}
+  #undo.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  #undo button{background:transparent;border:0;color:#8ab4ff;font-weight:600;font-size:14px;cursor:pointer;padding:4px 6px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
   /* THE SHAPE THE APP ACTUALLY SHOWS.
    *
@@ -233,6 +240,7 @@
 <div class="report" id="report" hidden></div>
 <div id="boot" class="msg">Loading…</div>
 <div id="lb"><button class="x" type="button" aria-label="Close">✕</button><img alt=""><div class="cap"></div></div>
+<div id="undo" role="status"><span class="msg"></span><button type="button">Undo</button></div>
 <nav class="tabs" id="tabs" hidden>
   <button type="button" data-tab="pick">Pick photos</button>
   <button type="button" data-tab="review">On screen · Tomorrow · Queue <span id="qtab"></span></button>
@@ -475,7 +483,7 @@ function render(b, keepView){
 
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
-  for(const c of b.candidates){
+  b.candidates.forEach((c, idx) => {
     const el = document.createElement('div');
     el.className = 'card';
     el.innerHTML =
@@ -491,9 +499,11 @@ function render(b, keepView){
       img.src = big(filterUrl(c.url, name), 900);
     }), el.querySelector('.row'));
     el.querySelector('.add').onclick = () => act(el, 'queue', c.slug, filter);
-    el.querySelector('.x').onclick   = () => act(el, 'reject', c.slug);
+    el.querySelector('.x').onclick   = async () => {
+      if(await act(el, 'reject', c.slug)) offerUndo(c.slug, idx);
+    };
     grid.appendChild(el);
-  }
+  });
 
   const q = document.getElementById('queue');
   queueDepth = b.queue.length;
@@ -591,12 +601,42 @@ async function act(el, action, slug, filter){
   el.classList.add('busy');
   const q = '/admin/votd-act?action=' + action + '&slug=' + encodeURIComponent(slug) +
     (filter ? '&filter=' + encodeURIComponent(filter) : '');
-  try{ render(await call(q)); }
+  try{ render(await call(q)); return true; }
   catch(e){
     el.classList.remove('busy');
     alert(e.stale ? e.message + '\n\nReloading the board.' : e.message);
     if(e.stale) location.reload();
+    return false;
   }
+}
+
+/* Undo for the ✕ on a candidate.  A block is permanent and a mis-tap is easy,
+ * so for a few seconds after one, a bar offers to take it back:  the worker
+ * unblocks the photo and puts it back where it was on the board (`at`).
+ * One at a time;  a second ✕ replaces the offer with its own. */
+let undoTimer = null;
+function offerUndo(slug, at){
+  const bar = document.getElementById('undo');
+  bar.querySelector('.msg').textContent = 'Photo blocked.';
+  bar.classList.add('on');
+  const btn = bar.querySelector('button');
+  btn.disabled = false;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try{
+      render(await call('/admin/votd-act?action=unreject&slug=' + encodeURIComponent(slug) + '&at=' + at));
+      hideUndo();
+    }catch(e){
+      btn.disabled = false;
+      alert(e.message);
+    }
+  };
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(hideUndo, 8000);
+}
+function hideUndo(){
+  clearTimeout(undoTimer);
+  document.getElementById('undo').classList.remove('on');
 }
 
 /**
