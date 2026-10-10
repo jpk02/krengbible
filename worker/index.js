@@ -2289,6 +2289,111 @@ async function handleEnglishSearch(env, url, cors) {
 //
 // The stored value is the SAME {data:{content:"[1]...[2]..."}} shape the app's
 // parseApibible already handles, so the client reuses that parser unchanged.
+// ---- /widget/verse — the home-screen widget's verse of the day ----
+//
+// The widget is SwiftUI in the app binary and cannot run the app's code, so
+// it asks here for one finished card:  the day's verse already in the
+// reader's translation, its reference already written out, and the photo.
+// Everything about what the card says lives on this side, so changing it is a
+// Worker deploy rather than an App Store build.
+//
+//   ?date=YYYY-MM-DD   the reader's LOCAL date, exactly as the app asks /votd
+//   ?lang=ko|en        which language the card is in
+//   ?kotr=NKRV|WOORI|SAEBEON|NKT   Korean translation  (others -> NKRV)
+//   ?entr=ESV|KJV                  English translation (others -> ESV)
+//
+// Read-only and KV-only:  it never populates a VOTD key (the /votd route owns
+// that, write-once) and never calls an upstream.  A date with no verse yet
+// falls back to the current ET date, the same rule /votd applies, and the
+// answer carries the date it actually served.
+async function handleWidgetVerse(env, url, cors) {
+  const headers = { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=900' };
+  const fail = (error, status) => new Response(JSON.stringify({ error }), { status, headers: { ...headers, 'Cache-Control': 'no-store' } });
+  if (!env.COMMENTARY_KV) return fail('kv_unset', 503);
+  const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'ko';
+  const kotr = String(url.searchParams.get('kotr') || 'NKRV').toUpperCase();
+  const entr = String(url.searchParams.get('entr') || 'ESV').toUpperCase();
+  const asked = url.searchParams.get('date') || '';
+  let date = /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked <= votdDateET(1) && asked >= votdDateET(-2) ? asked : votdDateET(0);
+  let raw = await env.COMMENTARY_KV.get(`votdverse_${date}`);
+  if (!raw && date !== votdDateET(0)) {
+    date = votdDateET(0);
+    raw = await env.COMMENTARY_KV.get(`votdverse_${date}`);
+  }
+  if (!raw) return fail('no_verse', 503);
+  let verses;
+  try { verses = await votdAttachTexts(JSON.parse(raw), env); } catch { return fail('bad_verse', 500); }
+  const first = Array.isArray(verses) ? verses[0] : null;
+  if (!first) return fail('bad_verse', 500);
+
+  const norm = (n) => String(n || '').replace(/\s+/g, '').toLowerCase().replace(/^psalm$/, 'psalms');
+  const bookIdx = BOOK_NAMES_EN.findIndex((b) => norm(b) === norm(first.bookname));
+  const chapter = parseInt(first.chapter, 10);
+  const num = parseInt(first.verse, 10);
+  const covers = (label) => {
+    const m = String(label).match(/^(\d+)(?:-(\d+))?$/);
+    if (!m) return false;
+    const lo = +m[1], hi = m[2] ? +m[2] : lo;
+    return num >= lo && num <= hi;
+  };
+
+  let text = lang === 'ko' ? first.ko : first.en;
+  let translation = lang === 'ko' ? 'NKRV' : 'ESV';
+  if (bookIdx >= 0 && Number.isFinite(chapter) && Number.isFinite(num)) {
+    try {
+      if (lang === 'ko' && kotr !== 'NKRV' && KO_INDEX_CONFIG[kotr]) {
+        const r = await KO_INDEX_CONFIG[kotr].fetch(bookIdx + 1, chapter, env);
+        const data = r.ok ? (kotr === 'NKT' ? nktToCanonical(bookIdx + 1, chapter, r.data) : r.data) : null;
+        const v = data && (data.verses || []).find((x) => covers(x.verse));
+        if (v && v.text) { text = cleanForSearch(v.text); translation = kotr; }
+      } else if (lang === 'en' && entr === 'KJV') {
+        const cached = await env.COMMENTARY_KV.get(`kjv_${bookIdx + 1}_${chapter}`, 'json');
+        const content = cached && cached.data && cached.data.content;
+        const m = typeof content === 'string' && content.match(new RegExp(`\\[${num}\\]([^\\[]*)`));
+        if (m && m[1].trim()) { text = m[1].trim(); translation = 'KJV'; }
+      }
+    } catch {
+      // The NKRV / ESV text from the VOTD payload stands.
+    }
+  }
+  // Nothing in either translation:  labs.bible.org's own text, which is the
+  // NET Bible, and labelled as such rather than as the one asked for.
+  if (!text) { text = first.text; translation = 'NET'; }
+
+  const ref = bookIdx >= 0
+    ? (lang === 'ko' ? `${BOOK_NAMES_KO[bookIdx]} ${chapter}:${first.verse}` : `${BOOK_NAMES_EN[bookIdx]} ${chapter}:${first.verse}`)
+    : `${first.bookname} ${first.chapter}:${first.verse}`;
+
+  // The photo, at a size a widget can hold.  Widgets have a small memory
+  // budget, and a full-size Unsplash original can blow it and leave the
+  // widget blank;  1000px wide is sharp on the large size and cheap.
+  let photo = null;
+  try {
+    const p = JSON.parse((await env.COMMENTARY_KV.get(`votdphoto2_${date}`)) || 'null');
+    if (p && p.url) {
+      const u = new URL(p.url);
+      u.searchParams.set('w', '1000');
+      u.searchParams.set('q', '75');
+      photo = { url: u.toString(), color: p.color || null };
+    }
+  } catch {
+    photo = null;
+  }
+
+  return new Response(JSON.stringify({
+    date,
+    lang,
+    translation,
+    label: lang === 'ko' ? '오늘의 말씀' : 'Verse of the Day',
+    ref,
+    text,
+    book: bookIdx >= 0 ? bookIdx + 1 : null,
+    chapter: Number.isFinite(chapter) ? chapter : null,
+    verse: Number.isFinite(num) ? num : null,
+    photo,
+  }), { headers });
+}
+
 async function handleKjvChapter(env, cors, bookNum, chapter) {
   const respHeaders = { ...cors, 'Content-Type': 'application/json' };
   const bookIdx = bookNum - 1;
@@ -5302,6 +5407,8 @@ Only output valid JSON, no markdown, no preamble.`;
     // distinct failure per hour (the rest are counted, not sent).  Nothing
     // identifying is expected in the body and nothing is added:  the app
     // sends the failure, the step, the group id, and its own build.
+    if (path === '/widget/verse') return handleWidgetVerse(env, url, cors);
+
     if (path === '/report' && request.method === 'POST') {
       return handleClientReport(request, env, cors);
     }
