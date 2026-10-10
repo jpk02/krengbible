@@ -943,7 +943,90 @@ async function fetchAndCacheWoori(bookNum, chapter, env) {
   if (!env.COMMENTARY_KV) return { ok: false, error: 'kv_unset' };
   const stored = await env.COMMENTARY_KV.get(`woori_${bookNum}_${chapter}`, 'json');
   if (!stored) return { ok: false, error: 'woori_not_imported' };
-  return { ok: true, cached: true, data: stored };
+  return { ok: true, cached: true, data: cleanWooriStrays(bookNum, chapter, stored) };
+}
+
+// ---- 우리말성경: the stray question marks ----
+//
+// The publisher's text set uses a narrow no-break space in a few places --
+// between nested quotes (“ ‘), after a closing quote, at some verse ends,
+// between 제 and a numeral -- and the import wrote each one as a literal "?".
+// So 1 Kings 20:11 read “?‘갑옷을 입는 사람이..., and "죄를?지었습니다"
+// lost its space.  160 verses in 125 chapters, found by reading every chapter
+// on 10 October 2026.
+//
+// Cleaned here, on the way out of KV, so /woori and the search-index build
+// both get the repaired text and the stored import stays as it arrived.  KV
+// is the only copy of this translation the Worker has, and rewriting it in
+// place is not something to do without the publisher's file beside it.
+//
+// Three passes, each written against the full list rather than guessed at:
+//   1. A "?" between two letters stood for a space:  it becomes one.
+//   2. A "?" beside a quote mark, after ".", "!", "," or another "?", or
+//      opening the verse, can never be a question:  it goes.
+//   3. A "?" after a word and before a quote, in a sentence that is not a
+//      question ("사랑하라?’"), looks exactly like a real one ("칠까?’"), so
+//      those are listed verse by verse.
+// Real question marks are untouched:  a scan after cleaning finds none of
+// the stray patterns left, and the count of "?" after a question ending
+// (냐, 까, 가, 소, 요...) is the same before and after.
+const WOORI_STRAY_BY_VERSE = {
+  '14_30_18': [['용서해? ', '용서해 ']],
+  '18_34_18': [['인간이다?’', '인간이다’']],
+  '18_37_6': [['떨어지라?’', '떨어지라’']],
+  '23_27_2': [['포도원?’', '포도원’']],
+  '23_35_8': [['길?’', '길’']],
+  '24_3_16': [['언약궤?’', '언약궤’']],
+  '40_27_46': [['ㄱ“', '“']],
+  '41_11_3': [['놓겠다?’', '놓겠다’']],
+  '41_11_31': [['왔다?’', '왔다’']],
+  '41_11_32': [['왔다?’', '왔다’']],
+  '41_12_30': [['사랑하라?’', '사랑하라’']],
+  '41_12_31': [['사랑하라?’', '사랑하라’']],
+  '42_10_27': [['“? ‘', '“‘'], ['또  ‘', '또 ‘'], ['사랑하라?’', '사랑하라’']],
+  '4_29_1': [['“?‘ ', '“‘']],
+  '43_1_39': [['오후? ', '오후 ']],
+  '43_3_7': [['한다?’', '한다’']],
+  '43_4_20': [['한다?’', '한다’']],
+  '43_4_35': [['된다?’', '된다’']],
+  '43_4_37': [['거둔다?’', '거둔다’']],
+  '44_3_23': [['것이다?’', '것이다’']],
+  '45_2_3': [['사람이여?,', '사람이여,']],
+  '47_1_20': [['아멘?”', '아멘”']],
+  '47_9_9': [['기록되기를? ', '기록되기를 ']],
+};
+
+function cleanWooriVerse(text, fixes) {
+  if (typeof text !== 'string' || !text) return text;
+  let t = text;
+  if (fixes) for (const [from, to] of fixes) t = t.split(from).join(to);
+  if (t.indexOf('?') === -1) return t;
+  t = t.replace(/(?<=[가-힣A-Za-z0-9])\?(?=[가-힣A-Za-z0-9])/g, ' ');
+  // Left to right over the original, so a run like ’?? loses both marks:
+  // each "?" is judged by the character before it as the text arrived.
+  let out = '';
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === '?') {
+      const prev = i === 0 ? '' : t[i - 1];
+      const next = i + 1 < t.length ? t[i + 1] : '';
+      if (prev === '' || '“‘”’.!,?'.includes(prev) || next === '“' || next === '‘') continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+function cleanWooriStrays(bookNum, chapter, data) {
+  if (!data || !Array.isArray(data.verses)) return data;
+  let changed = false;
+  const verses = data.verses.map((v) => {
+    const text = cleanWooriVerse(v.text, WOORI_STRAY_BY_VERSE[`${bookNum}_${chapter}_${v.verse}`]);
+    if (text === v.text) return v;
+    changed = true;
+    return { ...v, text };
+  });
+  return changed ? { ...data, verses } : data;
 }
 
 async function fetchAndCacheNkt(bookNum, chapter, env) {
