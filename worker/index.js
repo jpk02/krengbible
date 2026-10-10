@@ -3734,6 +3734,13 @@ async function handleKoreanSearch(env, url, cors) {
 // fields and water kept as the minority they should be:
 //
 //     sun 3 · hills 4 · pasture 4 · flock 3 · plains 2 · flowers 3 · grain 1
+//     · water 3
+//
+// Water was asked for by name on 10 October 2026:  rivers and streams, each
+// named as a place in sunlight so the shaded-forest creek -- the commonest
+// stream photo there is -- mostly misses the query, and the brightness gate
+// below catches the rest.  A bridge or a boat in frame is rejected by
+// VOTD_MANMADE like anything else.
 //
 // NAME A SCENE, NOT A TEXTURE.  Every topic's head noun is a place with depth
 // and a foreground — landscape, valley, countryside, hillside, vista, pasture,
@@ -3776,7 +3783,11 @@ const VOTD_TOPICS = [
   'flower field rolling hills sunlight',
   'poppy meadow landscape spring',
   // grain
-  'golden wheat field landscape sunrise'
+  'golden wheat field landscape sunrise',
+  // water
+  'river winding through green valley sunlight',
+  'clear stream through sunny meadow landscape',
+  'calm river countryside landscape morning light'
 ];
 
 /** `k` DISTINCT topics.  A refill that draws every photo from one topic comes
