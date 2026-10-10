@@ -4059,6 +4059,50 @@ function votdNormalize(pd, topic) {
 }
 
 /** ET calendar date, `YYYY-MM-DD`, `offsetDays` from now. */
+// ---- The morning KPI report ----
+//
+// The report itself is a GitHub Actions workflow in the app repo (it reads
+// Firestore and GA4 with credentials that live there).  Its own schedule was
+// set for 05:30 ET and ran anywhere from four to nine hours late, because
+// GitHub treats scheduled workflows as best-effort and delays them under load.
+// A Cloudflare cron fires on the minute, so the Worker starts the workflow
+// instead, through the same "Run workflow" call the Actions tab makes.
+//
+// The workflow's own schedule stays as the fallback and skips itself when a
+// report has already gone out that day, so a missing token or a failed
+// dispatch costs lateness, not the report.
+const KPI_WORKFLOW_URL = 'https://api.github.com/repos/jpk02/krengbible-app/actions/workflows/kpi.yml/dispatches';
+
+function newYorkHour(date) {
+  const h = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hourCycle: 'h23' }).format(date);
+  return parseInt(h, 10);
+}
+
+async function dispatchKpiReport(env) {
+  if (!env.GH_DISPATCH_TOKEN) {
+    console.log('kpi dispatch skipped: GH_DISPATCH_TOKEN unset');
+    return;
+  }
+  try {
+    const res = await fetch(KPI_WORKFLOW_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.GH_DISPATCH_TOKEN}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        // GitHub refuses a request with no User-Agent.
+        'User-Agent': 'krengbible-worker',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    // 204 is success;  anything else is logged with its status only.
+    console.log(`kpi dispatch: ${res.status}`);
+  } catch (e) {
+    console.log(`kpi dispatch failed: ${String(e && e.message || e).slice(0, 120)}`);
+  }
+}
+
 function votdDateET(offsetDays = 0) {
   return new Date(Date.now() + offsetDays * 86400000)
     .toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -6300,6 +6344,12 @@ Only output valid JSON, no markdown, no preamble.`;
     }
     if (event.cron === '10 15 * * *') {
       ctx.waitUntil(captureDailyReading(kstDateStamp(), env));
+      return;
+    }
+    if (event.cron === '0 10,11 * * *') {
+      // Fires at 10:00 and 11:00 UTC;  only one of them is 6am in New York,
+      // depending on daylight saving.  See dispatchKpiReport.
+      if (newYorkHour(new Date(event.scheduledTime)) === 6) ctx.waitUntil(dispatchKpiReport(env));
       return;
     }
     if (event.cron === '0 8 * * *') {

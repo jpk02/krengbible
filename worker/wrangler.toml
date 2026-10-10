@@ -21,8 +21,15 @@ id = "5f36020ad8334b02ab9ffcdfa8788c63"
 #   10 15 * * * Capture the Korean daily-reading schedule for the KST date that
 #               has just begun (15:10 UTC = 00:10 KST) and warm its reflection.
 #               Write-once per date — see captureDailyReading.
+#   0 10,11 * * *  Start the app repo's KPI Report workflow at 06:00 New York
+#               time.  Two hours because a cron is UTC and 06:00 ET is 10:00
+#               UTC in summer and 11:00 in winter;  scheduled() fires on the
+#               one that is actually 6am there.  GitHub's own schedule ran this
+#               report anywhere from four to nine hours late.  Needs the
+#               GH_DISPATCH_TOKEN secret (see below);  without it, it does
+#               nothing.
 [triggers]
-crons = ["0 8 * * *", "0 9 * * *", "10 15 * * *"]
+crons = ["0 8 * * *", "0 9 * * *", "10 15 * * *", "0 10,11 * * *"]
 
 # Secrets ESV_TOKEN, ANTHROPIC_KEY, ADMIN_SECRET are managed via
 # `wrangler secret put NAME` and persist across deploys — not declared here.
@@ -34,5 +41,10 @@ crons = ["0 8 * * *", "0 9 * * *", "10 15 * * *"]
 # Kept as secrets rather than [vars] because this repo is public and the
 # recipient is a personal address.  If any is unset the cron still stages the
 # photo and simply skips the email — staging must not depend on mail working.
+# GH_DISPATCH_TOKEN, same mechanism, starts the morning KPI report:  a GitHub
+# fine-grained token for jpk02/krengbible-app with Actions read and write and
+# nothing else.  Unset, the 6am cron does nothing and the workflow's own late
+# schedule still sends the report.
+#
 # VOTD_PUBLIC_ORIGIN is optional; set it only if the worker moves to a custom
 # domain, since a cron has no request to read its own host from.
