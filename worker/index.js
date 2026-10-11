@@ -3836,10 +3836,9 @@ async function handleKoreanSearch(env, url, cors) {
 // seventh ('pasture rolling hills') that returns fields anyway, against ONE
 // sky topic and none at all about the sun — which is why the board came back
 // roughly nine-tenths fields.  Weighted now toward sky, sun and hills, with
-// fields and water kept as the minority they should be:
-//
-//     sun 3 · hills 4 · pasture 4 · flock 3 · plains 2 · flowers 3 · grain 1
-//     · water 3
+// fields and water kept as the minority they should be.  The all-year core
+// is now sun 2 · hills 2 · plains 1 · water 1 · flock 1, and each season adds
+// eight of its own (see SEASONS below).
 //
 // Water was asked for by name on 10 October 2026:  rivers and streams, each
 // named as a place in sunlight so the shaded-forest creek -- the commonest
@@ -3855,52 +3854,103 @@ async function handleKoreanSearch(env, url, cors) {
 // poor backdrop for a verse.  If you add a topic, check it names somewhere a
 // person could stand.
 //
-// Note the list IS the distribution — a topic is drawn at random per fetch —
-// so changing the mix here is how you change what the picker shows.
+// SEASONS.  The topics are two lists:  a season-neutral core that runs all
+// year, and one list per season that joins it for those months (in New York
+// time, the same clock as the rest of the VOTD).  Asked for on 11 October
+// 2026:  fall trees and foliage in the fall, more snow in the winter.  Green
+// pastures and lambs are spring and summer subjects, so they live in those
+// lists rather than the core, where they would put June on a December verse.
+// Each season is about half the draw:  enough to read as the time of year,
+// not so much that every day is the same kind of picture.
+//
+// Note the lists ARE the distribution — a topic is drawn at random per fetch
+// from votdTopics(), core plus the current season — so changing the mix here
+// is how you change what the picker shows.
 //
 // Two words to avoid when editing: anything in VOTD_GLOOMY_KEYWORDS ('dusk',
 // 'twilight', 'dramatic sky', 'grey'...) will have the returned photo rejected
 // by its own tags, so a 'dusk over the hills' topic quietly yields nothing.
-const VOTD_TOPICS = [
+// Winter topics name the sun or a clear sky for the same reason:  a snowy
+// scene under cloud is grey, and the brightness gate below drops it.
+const VOTD_TOPICS_ALL_YEAR = [
   // sun
   'scenic landscape golden hour sunlight',
-  'sunrise over green valley landscape',
   'sunbeams over rolling countryside',
   // hills
-  'rolling green hills scenic landscape',
   'mountain valley landscape clear day',
-  'green hillside overlooking valley',
   'scenic highland vista sunlight',
-  // pasture
-  'green pasture rolling countryside scenic',
-  'lush pasture valley sunlight landscape',
-  'open pastureland scenic horizon',
-  'spring pasture green fields landscape',
-  // flock
-  'sheep grazing green pasture landscape',
-  'flock of sheep rolling hills scenic',
-  'lambs in green meadow spring landscape',
   // plains
   'vast open plains scenic horizon',
-  'wide grassland plain landscape sunny',
-  // flowers
-  'wildflower meadow scenic landscape',
-  'flower field rolling hills sunlight',
-  'poppy meadow landscape spring',
-  // grain
-  'golden wheat field landscape sunrise',
   // water
-  'river winding through green valley sunlight',
-  'clear stream through sunny meadow landscape',
-  'calm river countryside landscape morning light'
+  'calm river countryside landscape morning light',
+  // flock
+  'flock of sheep rolling hills scenic'
 ];
+
+const VOTD_TOPICS_BY_SEASON = {
+  spring: [
+    'sunrise over green valley landscape',
+    'rolling green hills scenic landscape',
+    'spring pasture green fields landscape',
+    'lambs in green meadow spring landscape',
+    'wildflower meadow scenic landscape',
+    'poppy meadow landscape spring',
+    'blossoming trees spring countryside sunlight',
+    'clear stream through sunny meadow landscape'
+  ],
+  summer: [
+    'rolling green hills scenic landscape',
+    'green hillside overlooking valley',
+    'lush pasture valley sunlight landscape',
+    'sheep grazing green pasture landscape',
+    'flower field rolling hills sunlight',
+    'wide grassland plain landscape sunny',
+    'golden wheat field landscape sunrise',
+    'river winding through green valley sunlight'
+  ],
+  fall: [
+    'autumn foliage mountain valley sunlight',
+    'fall trees colorful countryside landscape',
+    'autumn hillside golden trees sunlight',
+    'fall foliage river valley sunny',
+    'autumn countryside rolling hills scenic',
+    'golden autumn meadow landscape',
+    'autumn lake fall colors clear sky',
+    'golden wheat field landscape sunrise'
+  ],
+  winter: [
+    'snowy mountain valley sunny day',
+    'snow covered countryside bright sunlight',
+    'winter landscape snow blue sky',
+    'frosty meadow sunrise landscape',
+    'snowy pine trees sunlit hillside',
+    'winter river snowy banks sunlight',
+    'snow covered rolling hills scenic',
+    'alpine winter vista clear sky'
+  ]
+};
+
+/** The season in New York on `date`:  March to May is spring, June to August
+ *  summer, September to November fall, December to February winter. */
+function votdSeason(date = new Date()) {
+  const m = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'numeric' }).format(date));
+  if (m >= 3 && m <= 5) return 'spring';
+  if (m >= 6 && m <= 8) return 'summer';
+  if (m >= 9 && m <= 11) return 'fall';
+  return 'winter';
+}
+
+/** Every topic in play on `date`:  the core, plus that season's list. */
+function votdTopics(date = new Date()) {
+  return [...VOTD_TOPICS_ALL_YEAR, ...VOTD_TOPICS_BY_SEASON[votdSeason(date)]];
+}
 
 /** `k` DISTINCT topics.  A refill that draws every photo from one topic comes
  *  back as thirty variations of the same scene, which is what a single random
  *  pick per call produced.  Fewer photos from more topics costs exactly the
  *  same number of requests. */
 function votdPickTopics(k) {
-  const pool = [...VOTD_TOPICS];
+  const pool = votdTopics();
   const out = [];
   while (out.length < k && pool.length) {
     out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
@@ -4047,7 +4097,8 @@ const votdFetchPhotos = async (count, env, topic) => {
   // Callers filling several rounds pass a DIFFERENT topic each time, so one
   // draw cannot make the whole bench a single scene.  Unnamed = random, which
   // is right for the one-off re-roll in votdRollPhoto.
-  const t = topic || VOTD_TOPICS[Math.floor(Math.random() * VOTD_TOPICS.length)];
+  const topics = votdTopics();
+  const t = topic || topics[Math.floor(Math.random() * topics.length)];
   const n = Math.max(1, Math.min(30, count | 0));
   let r;
   try {
@@ -4141,7 +4192,7 @@ async function votdRollPhoto(first, seen, env) {
 /** Unsplash payload -> the record shape stored in KV and rendered by clients.
  *
  *  `topic` is the search that produced the photo, carried so the photo report
- *  can say which of VOTD_TOPICS is generating the rejects.  Without it a block
+ *  can say which of the topics (votdTopics) is generating the rejects.  Without it a block
  *  is evidence about one photo;  with it, a topic that yields nothing usable
  *  can be found and dropped, which is the difference between a growing
  *  blocklist and a better search.  Null where the caller does not know it —
@@ -5678,7 +5729,7 @@ Only output valid JSON, no markdown, no preamble.`;
     // The picker keeps two lists and uses them for one thing: never show the
     // same photo twice.  That stops repeats and teaches nothing, so a bad
     // search goes on producing bad candidates for as long as it is in
-    // VOTD_TOPICS, and the only thing that grows is the blocklist.
+    // the topics (votdTopics), and the only thing that grows is the blocklist.
     //
     // This reads both lists together and reports where they DIFFER, which is
     // the only part that carries information.  A word in half the kept photos
