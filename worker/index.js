@@ -3836,9 +3836,13 @@ async function handleKoreanSearch(env, url, cors) {
 // seventh ('pasture rolling hills') that returns fields anyway, against ONE
 // sky topic and none at all about the sun — which is why the board came back
 // roughly nine-tenths fields.  Weighted now toward sky, sun and hills, with
-// fields and water kept as the minority they should be.  The all-year core
-// is now sun 2 · hills 2 · plains 1 · water 1 · flock 1, and each season adds
-// eight of its own (see SEASONS below).
+// fields and water kept as the minority they should be:
+//
+//     sun 3 · hills 4 · pasture 3 · flock 2 · plains 2 · flowers 2 · grain 1
+//     · water 3
+//
+// That is the all-year core;  each season adds its own on top (see SEASONS
+// below).
 //
 // Water was asked for by name on 10 October 2026:  rivers and streams, each
 // named as a place in sunlight so the shaded-forest creek -- the commonest
@@ -3854,14 +3858,14 @@ async function handleKoreanSearch(env, url, cors) {
 // poor backdrop for a verse.  If you add a topic, check it names somewhere a
 // person could stand.
 //
-// SEASONS.  The topics are two lists:  a season-neutral core that runs all
-// year, and one list per season that joins it for those months (in New York
-// time, the same clock as the rest of the VOTD).  Asked for on 11 October
-// 2026:  fall trees and foliage in the fall, more snow in the winter.  Green
-// pastures and lambs are spring and summer subjects, so they live in those
-// lists rather than the core, where they would put June on a December verse.
-// Each season is about half the draw:  enough to read as the time of year,
-// not so much that every day is the same kind of picture.
+// SEASONS.  The topics are two lists:  the core, which runs all year, and
+// one list per season that joins it for those months (in New York time, the
+// same clock as the rest of the VOTD).  Asked for on 11 October 2026:  fall
+// trees and foliage in the fall, more snow in the winter -- MIXED with the
+// usual scenes, not in place of them.  So the core is the full list the
+// picker always used, less only the three searches that name spring, which
+// move to the spring list.  A season adds six to eight topics to the core's
+// twenty, so roughly a quarter to a third of a refill is seasonal.
 //
 // Note the lists ARE the distribution — a topic is drawn at random per fetch
 // from votdTopics(), core plus the current season — so changing the mix here
@@ -3875,38 +3879,50 @@ async function handleKoreanSearch(env, url, cors) {
 const VOTD_TOPICS_ALL_YEAR = [
   // sun
   'scenic landscape golden hour sunlight',
+  'sunrise over green valley landscape',
   'sunbeams over rolling countryside',
   // hills
+  'rolling green hills scenic landscape',
   'mountain valley landscape clear day',
+  'green hillside overlooking valley',
   'scenic highland vista sunlight',
+  // pasture
+  'green pasture rolling countryside scenic',
+  'lush pasture valley sunlight landscape',
+  'open pastureland scenic horizon',
+  // flock
+  'sheep grazing green pasture landscape',
+  'flock of sheep rolling hills scenic',
   // plains
   'vast open plains scenic horizon',
+  'wide grassland plain landscape sunny',
+  // flowers
+  'wildflower meadow scenic landscape',
+  'flower field rolling hills sunlight',
+  // grain
+  'golden wheat field landscape sunrise',
   // water
-  'calm river countryside landscape morning light',
-  // flock
-  'flock of sheep rolling hills scenic'
+  'river winding through green valley sunlight',
+  'clear stream through sunny meadow landscape',
+  'calm river countryside landscape morning light'
 ];
 
 const VOTD_TOPICS_BY_SEASON = {
   spring: [
-    'sunrise over green valley landscape',
-    'rolling green hills scenic landscape',
     'spring pasture green fields landscape',
     'lambs in green meadow spring landscape',
-    'wildflower meadow scenic landscape',
     'poppy meadow landscape spring',
     'blossoming trees spring countryside sunlight',
-    'clear stream through sunny meadow landscape'
+    'spring wildflowers hillside sunlight',
+    'fresh green valley spring morning'
   ],
   summer: [
-    'rolling green hills scenic landscape',
-    'green hillside overlooking valley',
-    'lush pasture valley sunlight landscape',
-    'sheep grazing green pasture landscape',
-    'flower field rolling hills sunlight',
-    'wide grassland plain landscape sunny',
-    'golden wheat field landscape sunrise',
-    'river winding through green valley sunlight'
+    'summer meadow tall grass sunlight',
+    'sunflower field countryside sunny',
+    'lush green valley summer landscape',
+    'summer river clear water sunny',
+    'golden barley field summer landscape',
+    'green rolling hills summer sky'
   ],
   fall: [
     'autumn foliage mountain valley sunlight',
@@ -3916,7 +3932,7 @@ const VOTD_TOPICS_BY_SEASON = {
     'autumn countryside rolling hills scenic',
     'golden autumn meadow landscape',
     'autumn lake fall colors clear sky',
-    'golden wheat field landscape sunrise'
+    'harvest fields autumn countryside sunlight'
   ],
   winter: [
     'snowy mountain valley sunny day',
