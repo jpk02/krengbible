@@ -1651,10 +1651,6 @@ function reservesHtml(model) {
 
 function dscrPageHtml(model, pageNo, pageCount) {
   const { cfg, dscr, dscrNotes } = model;
-  const last = dscr.shown[dscr.shown.length - 1];
-  const head = last.ltm !== null && last.ltm !== undefined
-    ? `LTM DSCR at ${escHtml(last.label)}: ${fmtX(last.ltm)}${cfg.lockup !== null ? ` &nbsp;·&nbsp; Distribution lock-up ${fmtX(cfg.lockup)}` : ''}${cfg.dflt !== null ? ` &nbsp;·&nbsp; Default ${fmtX(cfg.dflt)}` : ''}`
-    : '';
 
   let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
   // Top row: the coverage chart, with reserves and notes beside it.  Bottom: the cash flow table at
@@ -1665,7 +1661,7 @@ function dscrPageHtml(model, pageNo, pageCount) {
   const sideBox = resBlock || notesBlock ? `<section class="card"><div class="card-h">${boxTitle}</div><div class="card-b side-b">${resBlock}${notesBlock}</div></section>` : '';
   html += '<main class="body">';
   html += `<div class="toprow" style="grid-template-columns:${sideBox ? `minmax(0, 1fr) ${Math.max(cfg.sideWidth, resBlock ? 32 : 0)}%` : 'minmax(0, 1fr)'}">`;
-  html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span><span class="h-right">${head}</span></div>`;
+  html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span></div>`;
   html += '<div class="charts-grid" style="grid-template-columns:minmax(0, 1fr)">';
   html += '<div class="chart"><div class="plot" data-dscr="coverage"><svg></svg></div></div>';
   html += `</div></section>${sideBox}</div>`;
