@@ -33,7 +33,9 @@ function instructionsSheet() {
     ['               "Current month" drives the month and YTD columns of the table.  Current-year chart values after it are not shown.'],
     ['Charts  -  one row per chart / component / year with Jan-Dec values.  Leave months blank where there is no data yet.'],
     ['               Each distinct "Chart" name becomes its own chart.  Rows with a "Component" (e.g. Contracted, Merchant) are stacked.'],
-    ['               Every chart shows the Prior year and Current year from Settings side by side, month by month.'],
+    ['               Every chart shows the Prior year and Current year from Settings side by side, month by month,'],
+    ['               plus a YTD section on the right (Jan through Current month, both years).  "YTD Method": Sum (default),'],
+    ['               Average (for percentages), or None to leave the YTD section off that chart.'],
     ['               Enter full precision here (e.g. 3.92); the Decimals column only controls how the chart labels are rounded.'],
     ['Footnotes  -  explain a month on a chart.  Pick the chart from the dropdown, or leave "Chart" blank to mark that month on every chart.'],
     ['               The month label gets a small number and the note prints under the charts.'],
@@ -113,15 +115,20 @@ function settingsSheet(settings) {
 
 
 function chartsSheet(series) {
-  const rows = [[h('Chart'), h('Component'), h('Year'), h('Decimals'), ...MONTHS.map(h)]];
+  // "YTD Method" sits after Dec so the month columns (E..P) the Table formulas read never move.
+  const rows = [[h('Chart'), h('Component'), h('Year'), h('Decimals'), ...MONTHS.map(h), h('YTD Method')]];
   for (const s of series) {
     const style = S.input1;  // every Charts value displays with 1 decimal (full precision is kept)
     rows.push([
       inp(s.chart), inp(s.component || ''), inp(s.year), inp(s.decimals),
       ...MONTHS.map((_, i) => (s.values[i] === undefined || s.values[i] === null ? { v: '', s: style } : { v: s.values[i], s: style })),
+      inp(s.ytd || 'Sum'),
     ]);
   }
-  return { name: 'Charts', rows, widths: [26, 16, 8, 10, ...MONTHS.map(() => 8)], freezeRows: 1 };
+  return {
+    name: 'Charts', rows, widths: [26, 16, 8, 10, ...MONTHS.map(() => 8), 12], freezeRows: 1,
+    validations: [{ range: 'Q2:Q500', list: ['Sum', 'Average', 'None'] }],
+  };
 }
 
 function footnotesSheet(items) {
@@ -383,7 +390,7 @@ const COMMON = (o) => [
 const BLUEFIELD = {
   settings: COMMON({
     title: 'BLUEFIELD SOLAR HOLDINGS',
-    tableTitle: 'Operating and Financial Performance vs. EV Case - Monthly & YTD',
+    tableTitle: 'Operating and Financial Performance vs. EV Case - YTD & Monthly',
     sideType: 'Commentary',
     sideTitle: 'Maintenance Commentary',
     sideWidth: 30,
@@ -448,7 +455,7 @@ const BLUEFIELD = {
 const RIDGELINE = {
   settings: COMMON({
     title: 'RIDGELINE POWER PARTNERS',
-    tableTitle: 'Operating Metrics vs. EV Case - Monthly & YTD',
+    tableTitle: 'Operating Metrics vs. EV Case - YTD & Monthly',
     sideType: 'Table + Commentary',
     sideTitle: 'Liquidity and Monitoring',
     sideWidth: 32,
