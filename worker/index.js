@@ -9,6 +9,9 @@
 //   /woori/{book}/{chapter}               -> 우리말성경 chapter (KV only; imported, not scraped)
 //   /search/ko?q=...&offset=...           -> Korean full-text search (FAST: uses pre-built index)
 //   /search/en?q=...&page=...             -> English full-text search (FAST: uses pre-built index)
+//   /search/smart?q=...&lang=en|ko&tx=...&page=...
+//                                         -> Ranked search over every indexed version of the
+//                                          language;  text returned in `tx`.  See handleSmartSearch.
 //   /votd[?date=YYYY-MM-DD]              -> Verse of the day + photo.  `date` picks a
 //                                          specific ET date, clamped ET-2..ET+1;  readers
 //                                          ask for their OWN local date, which east of
@@ -940,7 +943,90 @@ async function fetchAndCacheWoori(bookNum, chapter, env) {
   if (!env.COMMENTARY_KV) return { ok: false, error: 'kv_unset' };
   const stored = await env.COMMENTARY_KV.get(`woori_${bookNum}_${chapter}`, 'json');
   if (!stored) return { ok: false, error: 'woori_not_imported' };
-  return { ok: true, cached: true, data: stored };
+  return { ok: true, cached: true, data: cleanWooriStrays(bookNum, chapter, stored) };
+}
+
+// ---- 우리말성경: the stray question marks ----
+//
+// The publisher's text set uses a narrow no-break space in a few places --
+// between nested quotes (“ ‘), after a closing quote, at some verse ends,
+// between 제 and a numeral -- and the import wrote each one as a literal "?".
+// So 1 Kings 20:11 read “?‘갑옷을 입는 사람이..., and "죄를?지었습니다"
+// lost its space.  160 verses in 125 chapters, found by reading every chapter
+// on 10 October 2026.
+//
+// Cleaned here, on the way out of KV, so /woori and the search-index build
+// both get the repaired text and the stored import stays as it arrived.  KV
+// is the only copy of this translation the Worker has, and rewriting it in
+// place is not something to do without the publisher's file beside it.
+//
+// Three passes, each written against the full list rather than guessed at:
+//   1. A "?" between two letters stood for a space:  it becomes one.
+//   2. A "?" beside a quote mark, after ".", "!", "," or another "?", or
+//      opening the verse, can never be a question:  it goes.
+//   3. A "?" after a word and before a quote, in a sentence that is not a
+//      question ("사랑하라?’"), looks exactly like a real one ("칠까?’"), so
+//      those are listed verse by verse.
+// Real question marks are untouched:  a scan after cleaning finds none of
+// the stray patterns left, and the count of "?" after a question ending
+// (냐, 까, 가, 소, 요...) is the same before and after.
+const WOORI_STRAY_BY_VERSE = {
+  '14_30_18': [['용서해? ', '용서해 ']],
+  '18_34_18': [['인간이다?’', '인간이다’']],
+  '18_37_6': [['떨어지라?’', '떨어지라’']],
+  '23_27_2': [['포도원?’', '포도원’']],
+  '23_35_8': [['길?’', '길’']],
+  '24_3_16': [['언약궤?’', '언약궤’']],
+  '40_27_46': [['ㄱ“', '“']],
+  '41_11_3': [['놓겠다?’', '놓겠다’']],
+  '41_11_31': [['왔다?’', '왔다’']],
+  '41_11_32': [['왔다?’', '왔다’']],
+  '41_12_30': [['사랑하라?’', '사랑하라’']],
+  '41_12_31': [['사랑하라?’', '사랑하라’']],
+  '42_10_27': [['“? ‘', '“‘'], ['또  ‘', '또 ‘'], ['사랑하라?’', '사랑하라’']],
+  '4_29_1': [['“?‘ ', '“‘']],
+  '43_1_39': [['오후? ', '오후 ']],
+  '43_3_7': [['한다?’', '한다’']],
+  '43_4_20': [['한다?’', '한다’']],
+  '43_4_35': [['된다?’', '된다’']],
+  '43_4_37': [['거둔다?’', '거둔다’']],
+  '44_3_23': [['것이다?’', '것이다’']],
+  '45_2_3': [['사람이여?,', '사람이여,']],
+  '47_1_20': [['아멘?”', '아멘”']],
+  '47_9_9': [['기록되기를? ', '기록되기를 ']],
+};
+
+function cleanWooriVerse(text, fixes) {
+  if (typeof text !== 'string' || !text) return text;
+  let t = text;
+  if (fixes) for (const [from, to] of fixes) t = t.split(from).join(to);
+  if (t.indexOf('?') === -1) return t;
+  t = t.replace(/(?<=[가-힣A-Za-z0-9])\?(?=[가-힣A-Za-z0-9])/g, ' ');
+  // Left to right over the original, so a run like ’?? loses both marks:
+  // each "?" is judged by the character before it as the text arrived.
+  let out = '';
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === '?') {
+      const prev = i === 0 ? '' : t[i - 1];
+      const next = i + 1 < t.length ? t[i + 1] : '';
+      if (prev === '' || '“‘”’.!,?'.includes(prev) || next === '“' || next === '‘') continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+function cleanWooriStrays(bookNum, chapter, data) {
+  if (!data || !Array.isArray(data.verses)) return data;
+  let changed = false;
+  const verses = data.verses.map((v) => {
+    const text = cleanWooriVerse(v.text, WOORI_STRAY_BY_VERSE[`${bookNum}_${chapter}_${v.verse}`]);
+    if (text === v.text) return v;
+    changed = true;
+    return { ...v, text };
+  });
+  return changed ? { ...data, verses } : data;
 }
 
 async function fetchAndCacheNkt(bookNum, chapter, env) {
@@ -2203,6 +2289,111 @@ async function handleEnglishSearch(env, url, cors) {
 //
 // The stored value is the SAME {data:{content:"[1]...[2]..."}} shape the app's
 // parseApibible already handles, so the client reuses that parser unchanged.
+// ---- /widget/verse — the home-screen widget's verse of the day ----
+//
+// The widget is SwiftUI in the app binary and cannot run the app's code, so
+// it asks here for one finished card:  the day's verse already in the
+// reader's translation, its reference already written out, and the photo.
+// Everything about what the card says lives on this side, so changing it is a
+// Worker deploy rather than an App Store build.
+//
+//   ?date=YYYY-MM-DD   the reader's LOCAL date, exactly as the app asks /votd
+//   ?lang=ko|en        which language the card is in
+//   ?kotr=NKRV|WOORI|SAEBEON|NKT   Korean translation  (others -> NKRV)
+//   ?entr=ESV|KJV                  English translation (others -> ESV)
+//
+// Read-only and KV-only:  it never populates a VOTD key (the /votd route owns
+// that, write-once) and never calls an upstream.  A date with no verse yet
+// falls back to the current ET date, the same rule /votd applies, and the
+// answer carries the date it actually served.
+async function handleWidgetVerse(env, url, cors) {
+  const headers = { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=900' };
+  const fail = (error, status) => new Response(JSON.stringify({ error }), { status, headers: { ...headers, 'Cache-Control': 'no-store' } });
+  if (!env.COMMENTARY_KV) return fail('kv_unset', 503);
+  const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'ko';
+  const kotr = String(url.searchParams.get('kotr') || 'NKRV').toUpperCase();
+  const entr = String(url.searchParams.get('entr') || 'ESV').toUpperCase();
+  const asked = url.searchParams.get('date') || '';
+  let date = /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked <= votdDateET(1) && asked >= votdDateET(-2) ? asked : votdDateET(0);
+  let raw = await env.COMMENTARY_KV.get(`votdverse_${date}`);
+  if (!raw && date !== votdDateET(0)) {
+    date = votdDateET(0);
+    raw = await env.COMMENTARY_KV.get(`votdverse_${date}`);
+  }
+  if (!raw) return fail('no_verse', 503);
+  let verses;
+  try { verses = await votdAttachTexts(JSON.parse(raw), env); } catch { return fail('bad_verse', 500); }
+  const first = Array.isArray(verses) ? verses[0] : null;
+  if (!first) return fail('bad_verse', 500);
+
+  const norm = (n) => String(n || '').replace(/\s+/g, '').toLowerCase().replace(/^psalm$/, 'psalms');
+  const bookIdx = BOOK_NAMES_EN.findIndex((b) => norm(b) === norm(first.bookname));
+  const chapter = parseInt(first.chapter, 10);
+  const num = parseInt(first.verse, 10);
+  const covers = (label) => {
+    const m = String(label).match(/^(\d+)(?:-(\d+))?$/);
+    if (!m) return false;
+    const lo = +m[1], hi = m[2] ? +m[2] : lo;
+    return num >= lo && num <= hi;
+  };
+
+  let text = lang === 'ko' ? first.ko : first.en;
+  let translation = lang === 'ko' ? 'NKRV' : 'ESV';
+  if (bookIdx >= 0 && Number.isFinite(chapter) && Number.isFinite(num)) {
+    try {
+      if (lang === 'ko' && kotr !== 'NKRV' && KO_INDEX_CONFIG[kotr]) {
+        const r = await KO_INDEX_CONFIG[kotr].fetch(bookIdx + 1, chapter, env);
+        const data = r.ok ? (kotr === 'NKT' ? nktToCanonical(bookIdx + 1, chapter, r.data) : r.data) : null;
+        const v = data && (data.verses || []).find((x) => covers(x.verse));
+        if (v && v.text) { text = cleanForSearch(v.text); translation = kotr; }
+      } else if (lang === 'en' && entr === 'KJV') {
+        const cached = await env.COMMENTARY_KV.get(`kjv_${bookIdx + 1}_${chapter}`, 'json');
+        const content = cached && cached.data && cached.data.content;
+        const m = typeof content === 'string' && content.match(new RegExp(`\\[${num}\\]([^\\[]*)`));
+        if (m && m[1].trim()) { text = m[1].trim(); translation = 'KJV'; }
+      }
+    } catch {
+      // The NKRV / ESV text from the VOTD payload stands.
+    }
+  }
+  // Nothing in either translation:  labs.bible.org's own text, which is the
+  // NET Bible, and labelled as such rather than as the one asked for.
+  if (!text) { text = first.text; translation = 'NET'; }
+
+  const ref = bookIdx >= 0
+    ? (lang === 'ko' ? `${BOOK_NAMES_KO[bookIdx]} ${chapter}:${first.verse}` : `${BOOK_NAMES_EN[bookIdx]} ${chapter}:${first.verse}`)
+    : `${first.bookname} ${first.chapter}:${first.verse}`;
+
+  // The photo, at a size a widget can hold.  Widgets have a small memory
+  // budget, and a full-size Unsplash original can blow it and leave the
+  // widget blank;  1000px wide is sharp on the large size and cheap.
+  let photo = null;
+  try {
+    const p = JSON.parse((await env.COMMENTARY_KV.get(`votdphoto2_${date}`)) || 'null');
+    if (p && p.url) {
+      const u = new URL(p.url);
+      u.searchParams.set('w', '1000');
+      u.searchParams.set('q', '75');
+      photo = { url: u.toString(), color: p.color || null };
+    }
+  } catch {
+    photo = null;
+  }
+
+  return new Response(JSON.stringify({
+    date,
+    lang,
+    translation,
+    label: lang === 'ko' ? '오늘의 말씀' : 'Verse of the Day',
+    ref,
+    text,
+    book: bookIdx >= 0 ? bookIdx + 1 : null,
+    chapter: Number.isFinite(chapter) ? chapter : null,
+    verse: Number.isFinite(num) ? num : null,
+    photo,
+  }), { headers });
+}
+
 async function handleKjvChapter(env, cors, bookNum, chapter) {
   const respHeaders = { ...cors, 'Content-Type': 'application/json' };
   const bookIdx = bookNum - 1;
@@ -2277,6 +2468,422 @@ async function handleKjvSearch(env, url, cors) {
   return new Response(JSON.stringify({
     results, hasMore, nextPage: hasMore ? (page + 1) : -1, total: matches.length, bookCount: bookSet.size,
   }), { headers: { ...cors, 'Content-Type': 'application/json' } });
+}
+
+// ---- /search/smart — ranked search across every indexed version of a language ----
+// Route: GET /search/smart?q=...&lang=en|ko&tx=ESV&page=1
+//
+// The per-version routes above are exact-substring filters:  a verse matches
+// only if the typed text appears in it verbatim, in that one version.  People
+// rarely remember a verse that way.  "why are you downcast" is NIV wording;
+// the ESV says "why are you cast down", so the ESV route found nothing, and
+// the app's old fallback (search each word alone, list the hits in canonical
+// order) buried the verse under every Genesis verse containing "you".
+//
+// This route scores every verse instead.  Each query word that begins a word
+// in the verse adds to its score (filler words like "you" or "the" count for
+// much less than the rest), the whole phrase earns a large bonus, and words
+// sitting close together earn a small one.  Every indexed version of the
+// language is scored, and a verse keeps its best version's score, so a phrase
+// remembered from the NIV still finds its verse while the reader is on the ESV.
+// The text returned is the reader's own version (`tx`) whenever it has an
+// index and the verse;  `matchedIn` names the version that matched better when
+// it was a different one, and `shownIn` the version whose text was returned
+// when it could not be the reader's own.
+//
+// Index-only, like the routes above:  a version whose index is missing is
+// skipped, never fetched live.
+const SMART_SOURCES = {
+  en: [
+    { label: 'ESV', kv: 'esv_search_index', cached: () => EN_SEARCH_INDEX, load: (env) => getEnSearchIndex(env) },
+    { label: 'NIV', kv: 'apibible_search_index_78a9f6124f344018-01', cached: () => APIBIBLE_INDEXES['78a9f6124f344018-01'], load: (env) => getApiBibleSearchIndex(env, '78a9f6124f344018-01') },
+    { label: 'NLT', kv: 'apibible_search_index_d6e14a625393b4da-01', cached: () => APIBIBLE_INDEXES['d6e14a625393b4da-01'], load: (env) => getApiBibleSearchIndex(env, 'd6e14a625393b4da-01') },
+    { label: 'KJV', kv: 'kjv_search_index', cached: () => KJV_SEARCH_INDEX, load: (env) => getKjvSearchIndex(env) },
+  ],
+  ko: [
+    { label: 'NKRV', kv: 'nkrv_search_index', cached: () => SEARCH_INDEX, load: (env) => getKoSearchIndexByPrefix(env, 'nkrv') },
+    { label: 'SAEBEON', kv: 'saebeon_search_index', cached: () => KO_INDEX_CACHE.get('saebeon'), load: (env) => getKoSearchIndexByPrefix(env, 'saebeon') },
+    { label: 'NKT', kv: 'nkt_search_index', cached: () => KO_INDEX_CACHE.get('nkt'), load: (env) => getKoSearchIndexByPrefix(env, 'nkt') },
+    { label: 'WOORI', kv: 'woori_search_index', cached: () => KO_INDEX_CACHE.get('woori'), load: (env) => getKoSearchIndexByPrefix(env, 'woori') },
+    // KLB has no index until one is built, so it is skipped;  smartPrepFor
+    // remembers the miss for a while so every query does not spend a KV read
+    // finding that out again.
+    { label: 'KLB', kv: 'apibible_search_index_e959e47176271f18-01', cached: () => APIBIBLE_INDEXES['e959e47176271f18-01'], load: (env) => getApiBibleSearchIndex(env, 'e959e47176271f18-01') },
+  ],
+};
+
+// Words that carry little meaning on their own.  They still count, so "why are
+// you downcast" prefers verses that have all four words, but a verse cannot
+// qualify on these alone when the query has anything more specific in it.
+const SMART_STOP_EN = new Set((
+  'a an the and or but of to in on at for from by with as is are was were be been being am ' +
+  'i me my mine you your yours thou thee thy thine ye he him his she her it its we us our ' +
+  'they them their this that these those who whom whose what which why how when where ' +
+  'not no so do does did shall will would should can could may might have has had ' +
+  'unto upon o oh let all there then than if'
+).split(' '));
+const SMART_STOP_KO = new Set(['그리고', '그러나', '그러므로', '그런데', '또', '및', '곧', '것', '수', '이', '그', '저']);
+
+const SMART_MISS_MS = 10 * 60 * 1000;
+const SMART_PREP_MS = 60 * 60 * 1000;
+const SMART_MISSES = new Map(); // label -> time its index was last found missing
+const SMART_PREP = new Map();   // label -> { at, prep } or { at, promise }
+
+function smartNormalize(lang, s) {
+  if (lang === 'en') {
+    s = String(s).toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, ' ');
+  } else {
+    s = String(s).replace(/[^0-9A-Za-z가-힣]+/g, ' ');
+  }
+  return ' ' + s.trim() + ' ';
+}
+
+function smartVerseKey(b, c, v) { return b * 1000000 + c * 1000 + v; }
+
+// What the search keeps of one version, derived from its flat index:
+//   text    every verse normalized and joined into one string, a newline
+//           between verses, so a whole version is searched with a few indexOf
+//           scans rather than one per verse (no needle contains a newline, so
+//           none can match across two verses)
+//   starts  where each verse begins in `text`, plus one past the end
+//   keys    each verse's smartVerseKey;  `order` sorts positions by it, for
+//           finding one verse by reference
+// Only this is kept, not the parsed index:  eight parsed versions would come
+// close to a Worker's 128MB on their own.  Verse text for display comes from
+// the reader's own version through its usual loader, as /search/en does.
+// English is built as one-byte text (the normalized form is plain ASCII), at
+// half the size of the two-byte string a join of regex results produces.
+function smartPrep(lang, index) {
+  const n = index.length;
+  const starts = new Int32Array(n + 1);
+  const keys = new Int32Array(n);
+  let text;
+  if (lang === 'en') {
+    let cap = 0;
+    for (let i = 0; i < n; i++) cap += index[i][3].length + 3;
+    const buf = new Uint8Array(cap);
+    let at = 0;
+    for (let i = 0; i < n; i++) {
+      const t = index[i];
+      starts[i] = at;
+      keys[i] = smartVerseKey(t[0], t[1], t[2]);
+      const s = t[3];
+      buf[at++] = 32;
+      let space = true;
+      for (let j = 0; j < s.length; j++) {
+        let c = s.charCodeAt(j);
+        if (c >= 65 && c <= 90) c += 32;
+        if ((c >= 97 && c <= 122) || (c >= 48 && c <= 57)) { buf[at++] = c; space = false; }
+        else if (c === 39 || c === 0x2019) continue;
+        else if (!space) { buf[at++] = 32; space = true; }
+      }
+      if (!space) buf[at++] = 32;
+      buf[at++] = 10;
+    }
+    starts[n] = at;
+    const chunks = [];
+    for (let i = 0; i < at; i += 8192) {
+      chunks.push(String.fromCharCode.apply(null, buf.subarray(i, Math.min(at, i + 8192))));
+    }
+    text = chunks.join('');
+  } else {
+    const parts = new Array(n);
+    let at = 0;
+    for (let i = 0; i < n; i++) {
+      const t = index[i];
+      parts[i] = smartNormalize(lang, t[3]) + '\n';
+      starts[i] = at;
+      at += parts[i].length;
+      keys[i] = smartVerseKey(t[0], t[1], t[2]);
+    }
+    starts[n] = at;
+    text = parts.join('');
+  }
+  const order = Int32Array.from({ length: n }, (_, i) => i).sort((a, b) => keys[a] - keys[b]);
+  return { text, starts, keys, order };
+}
+
+// One version's prep, built once per isolate and refreshed hourly so a rebuilt
+// index is picked up.  Uses the parsed index when a route already holds it;
+// otherwise parses the KV copy just long enough to build from it.  Null when
+// the version has no index.
+async function smartPrepFor(env, lang, src) {
+  const now = Date.now();
+  const missed = SMART_MISSES.get(src.label);
+  if (missed && now - missed < SMART_MISS_MS) return null;
+  const have = SMART_PREP.get(src.label);
+  if (have && now - have.at < SMART_PREP_MS) return have.prep || have.promise;
+  const promise = (async () => {
+    let index = src.cached() || null;
+    if (!index) {
+      const raw = await env.COMMENTARY_KV.get(src.kv);
+      if (raw) { try { index = JSON.parse(raw); } catch (e) { index = null; } }
+    }
+    if (!index) {
+      SMART_MISSES.set(src.label, Date.now());
+      SMART_PREP.delete(src.label);
+      return null;
+    }
+    const prep = smartPrep(lang, index);
+    SMART_PREP.set(src.label, { at: now, prep });
+    return prep;
+  })();
+  SMART_PREP.set(src.label, { at: now, promise });
+  return promise;
+}
+
+// The verse containing character `pos` of prep.text.
+function smartVerseAt(prep, pos) {
+  const s = prep.starts;
+  let lo = 0, hi = s.length - 2;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (s[mid] <= pos) lo = mid; else hi = mid - 1;
+  }
+  return lo;
+}
+
+// The position of the verse with `key`, or -1.
+function smartLookup(prep, key) {
+  const { order, keys } = prep;
+  let lo = 0, hi = order.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const k = keys[order[mid]];
+    if (k === key) return order[mid];
+    if (k < key) lo = mid + 1; else hi = mid - 1;
+  }
+  return -1;
+}
+
+// One query word and the forms of it worth trying, best first.  English adds
+// a stem without a common ending ("lambs" also finds "lamb");  Korean, whose
+// endings attach to the word, tries the word with its last syllables trimmed
+// down to two ("낙심하며" also finds "낙심하느냐").  Shorter forms earn less.
+// A form matches where a word begins ("cast" finds "casting"), except a filler
+// word, which must be the whole word ("you" is not "young"), and a whole
+// Korean word, which may follow a prefix (주 + 하나님 written together).
+function smartTerm(lang, word) {
+  const stop = lang === 'en' ? SMART_STOP_EN.has(word) : (word.length === 1 || SMART_STOP_KO.has(word));
+  const forms = [];
+  const add = (s, credit, kind) => forms.push({
+    s, credit, anywhere: kind === 'anywhere',
+    needle: kind === 'anywhere' ? s : kind === 'whole' ? ' ' + s + ' ' : ' ' + s,
+  });
+  if (stop) {
+    add(word, 1, 'whole');
+  } else if (lang === 'en') {
+    add(word, 1, 'start');
+    const m = word.match(/^(.{3,})(?:ing|ed|es|s)$/);
+    if (m) add(m[1], 0.8, 'start');
+  } else {
+    add(word, 1, 'anywhere');
+    for (let len = word.length - 1; len >= 2; len--) add(word.slice(0, len), 0.7, 'start');
+  }
+  // Every word-start form's needle begins with the shortest one's, so one
+  // scan for that finds them all;  each hit is then graded against the rest.
+  const anchored = forms.filter((f) => !f.anywhere);
+  return {
+    word, forms, stop, weight: stop ? 1 : 3,
+    scans: [
+      ...forms.filter((f) => f.anywhere).map((f) => ({ needle: f.needle, grade: [f] })),
+      ...(anchored.length ? [{ needle: anchored[anchored.length - 1].needle, grade: anchored }] : []),
+    ],
+  };
+}
+
+// What `term` matched in one normalized verse, for the app to highlight:  the
+// whole word a word-start form landed on ("cast" -> "casting"), or a Korean
+// whole-word form itself, which may sit inside a longer word.  Null if none.
+function smartFindForm(text, term) {
+  for (const f of term.forms) {
+    const p = text.indexOf(f.needle);
+    if (p === -1) continue;
+    if (f.anywhere) return f.s;
+    return text.slice(p + 1, text.indexOf(' ', p + 1));
+  }
+  return null;
+}
+
+// Score every verse of one prepared version.  Returns [{ i, score }] for the
+// verses that qualify.
+function smartScore(prep, terms, phraseNeedle, contentTotal, contentNeeded) {
+  const { text, starts } = prep;
+  const n = starts.length - 1;
+  const score = new Float64Array(n);
+  const matched = new Uint8Array(n);
+  const content = new Uint8Array(n);
+  const lo = new Int32Array(n);
+  const hi = new Int32Array(n);
+  const last = new Int32Array(n);
+  const unordered = new Uint8Array(n);
+  const touched = [];
+  // Per term:  the best credit seen in each verse, and where.
+  const credit = new Float64Array(n);
+  const at = new Int32Array(n);
+
+  for (const term of terms) {
+    const hit = [];
+    for (const scan of term.scans) {
+      let pos = text.indexOf(scan.needle);
+      while (pos !== -1) {
+        let c = 0;
+        for (const f of scan.grade) {
+          if (f === scan.grade[scan.grade.length - 1] || text.startsWith(f.needle, pos)) { c = f.credit; break; }
+        }
+        const v = smartVerseAt(prep, pos);
+        if (credit[v] === 0) hit.push(v);
+        if (c > credit[v]) { credit[v] = c; at[v] = pos; }
+        // A full-credit hit cannot be bettered;  move on to the next verse.
+        pos = text.indexOf(scan.needle, c === 1 ? starts[v + 1] : pos + 1);
+      }
+    }
+    for (const v of hit) {
+      const p = at[v];
+      if (matched[v] === 0) { touched.push(v); lo[v] = p; hi[v] = p; last[v] = p; }
+      matched[v]++;
+      if (!term.stop) content[v]++;
+      score[v] += term.weight * credit[v];
+      if (p < lo[v]) lo[v] = p;
+      if (p > hi[v]) hi[v] = p;
+      if (p < last[v]) unordered[v] = 1;
+      last[v] = p;
+      credit[v] = 0;
+    }
+  }
+
+  const phrase = new Uint8Array(n);
+  if (phraseNeedle) {
+    let pos = text.indexOf(phraseNeedle);
+    while (pos !== -1) {
+      const v = smartVerseAt(prep, pos);
+      phrase[v] = 1;
+      pos = text.indexOf(phraseNeedle, starts[v + 1]);
+    }
+  }
+
+  const out = [];
+  for (const v of touched) {
+    const m = matched[v];
+    const span = hi[v] - lo[v];
+    const close = m >= 2 && span <= 30 * m;
+    if (contentTotal > 0) {
+      if (content[v] < contentNeeded && !phrase[v]) continue;
+    } else if (!phrase[v] && !(m === terms.length && close)) {
+      continue;
+    }
+    let s = score[v];
+    if (phrase[v]) s += 100;
+    if (m === terms.length) s += 4;
+    if (close) s += unordered[v] ? 2 : 3;
+    // Tighter is better:  "why, my soul, are you downcast" over "why are you
+    // angry?  why is your face downcast".
+    if (m >= 2) s += 1.5 * Math.min(1, (8 * m) / (span + 1));
+    out.push({ i: v, score: s });
+  }
+  return out;
+}
+
+async function handleSmartSearch(env, url, cors) {
+  const headers = { ...cors, 'Content-Type': 'application/json' };
+  const lang = url.searchParams.get('lang') === 'ko' ? 'ko' : 'en';
+  const sources = SMART_SOURCES[lang];
+  const txParam = String(url.searchParams.get('tx') || '').toUpperCase();
+  const tx = sources.some((s) => s.label === txParam) ? txParam : sources[0].label;
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1') || 1);
+  const pageSize = 20;
+  const q = String(url.searchParams.get('q') || '').slice(0, 200);
+
+  const phrase = smartNormalize(lang, q).trim();
+  if (phrase.length < (lang === 'ko' ? 1 : 2)) {
+    return new Response(JSON.stringify({ results: [], hasMore: false, total: 0 }), { headers });
+  }
+  const words = [...new Set(phrase.split(' '))].slice(0, 12);
+  const terms = words.map((w) => smartTerm(lang, w));
+  const contentTotal = terms.filter((t) => !t.stop).length;
+  // A long query rarely has every word right;  half of its meaningful words
+  // is enough to qualify, and ranking puts the fuller matches first.
+  const contentNeeded = contentTotal <= 2 ? Math.min(1, contentTotal) : Math.ceil(contentTotal / 2);
+  const phraseNeedle = words.length > 1 ? ' ' + phrase : null;
+
+  const preps = await Promise.all(sources.map((src) => smartPrepFor(env, lang, src)));
+  const loaded = [];
+  sources.forEach((src, k) => { if (preps[k]) loaded.push({ src, label: src.label, prep: preps[k] }); });
+  if (loaded.length === 0) {
+    return new Response(JSON.stringify({ results: [], hasMore: false, error: 'index_not_built' }), { status: 503, headers });
+  }
+
+  // verse key -> { key, score, label, txScore }:  each verse keeps its best
+  // version's score, and the reader's own version's alongside it.
+  const best = new Map();
+  for (const src of loaded) {
+    const { prep, label } = src;
+    for (const { i, score } of smartScore(prep, terms, phraseNeedle, contentTotal, contentNeeded)) {
+      const key = prep.keys[i];
+      const prev = best.get(key);
+      if (!prev) {
+        best.set(key, { key, score, label, txScore: label === tx ? score : 0 });
+      } else {
+        if (score > prev.score) { prev.score = score; prev.label = label; }
+        if (label === tx) prev.txScore = score;
+      }
+    }
+  }
+
+  // Ties go to the reader's own version, then to canonical order.
+  const rank = (r) => r.score + (r.txScore === r.score ? 0.5 : 0);
+  const ranked = [...best.values()].sort((a, b) => rank(b) - rank(a) || a.key - b.key);
+
+  const offset = (page - 1) * pageSize;
+  const page_ = ranked.slice(offset, offset + pageSize);
+  const txSrc = loaded.find((s) => s.label === tx) || null;
+  const texts = new Map(); // label -> parsed index, loaded only when shown
+  const parsed = async (s) => {
+    if (!texts.has(s.label)) texts.set(s.label, await s.src.load(env));
+    return texts.get(s.label);
+  };
+  const results = [];
+  for (const r of page_) {
+    // The reader's version when it has the verse, else the one that matched.
+    let shown = txSrc;
+    let i = shown ? smartLookup(shown.prep, r.key) : -1;
+    if (i === -1) {
+      shown = loaded.find((s) => s.label === r.label);
+      i = smartLookup(shown.prep, r.key);
+    }
+    const index = await parsed(shown);
+    let t = index && index[i];
+    // The prep can be up to an hour older than the parsed index;  if a
+    // rebuild moved verses in between, find this one by reference instead.
+    if (!t || smartVerseKey(t[0], t[1], t[2]) !== r.key) {
+      t = index && index.find((x) => smartVerseKey(x[0], x[1], x[2]) === r.key);
+    }
+    if (!t) continue;
+    const norm = smartNormalize(lang, t[3]);
+    const hl = [];
+    for (const term of terms) {
+      const form = smartFindForm(norm, term);
+      if (form) hl.push(form);
+    }
+    results.push({
+      book: t[0],
+      chapter: t[1],
+      verse: t[2],
+      text: t[3],
+      ref: (lang === 'ko' ? BOOK_NAMES_KO : BOOK_NAMES_EN)[t[0]] + ' ' + t[1] + ':' + t[2],
+      hl,
+      ...(r.label !== shown.label && r.txScore < r.score ? { matchedIn: r.label } : {}),
+      ...(shown !== txSrc ? { shownIn: shown.label } : {}),
+    });
+  }
+  const hasMore = offset + pageSize < ranked.length;
+  return new Response(JSON.stringify({
+    results,
+    hasMore,
+    nextPage: hasMore ? page + 1 : -1,
+    total: ranked.length,
+    versions: loaded.map((s) => s.label),
+  }), { headers });
 }
 
 // ---- api.bible chapter handler ----
@@ -2935,13 +3542,24 @@ async function handleMergeApiBibleIndex(env, url, cors) {
     return new Response(JSON.stringify({error:'no_chunks', hint:'run /admin/build-apibible-index first'}), {status:400, headers:{...cors,'Content-Type':'application/json'}});
   }
 
+  // Chunk keys are named by their first chapter, so a build run with a
+  // different chunk size leaves chunks that overlap the new ones.  Each verse
+  // is kept once, from the first chunk that has it, so a rebuild over an old
+  // partial one cannot double the index.
   const merged = [];
+  const seen = new Set();
+  let duplicates = 0;
   for (const key of chunks) {
     const raw = await env.COMMENTARY_KV.get(key);
     if (!raw) continue;
     try {
       const arr = JSON.parse(raw);
-      for (const t of arr) merged.push(t);
+      for (const t of arr) {
+        const k = `${t[0]}_${t[1]}_${t[2]}`;
+        if (seen.has(k)) { duplicates++; continue; }
+        seen.add(k);
+        merged.push(t);
+      }
     } catch (e) { /* skip */ }
   }
 
@@ -2957,6 +3575,7 @@ async function handleMergeApiBibleIndex(env, url, cors) {
     translation: API_BIBLE_TRANSLATIONS[translationId].abbreviation,
     chunksRead: chunks.length,
     totalVerses: merged.length,
+    duplicatesDropped: duplicates,
     indexBytes: payload.length,
     storedAt: indexKey
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
@@ -3219,7 +3838,17 @@ async function handleKoreanSearch(env, url, cors) {
 // roughly nine-tenths fields.  Weighted now toward sky, sun and hills, with
 // fields and water kept as the minority they should be:
 //
-//     sun 3 · hills 4 · pasture 4 · flock 3 · plains 2 · flowers 3 · grain 1
+//     sun 3 · hills 4 · pasture 3 · flock 2 · plains 2 · flowers 2 · grain 1
+//     · water 3
+//
+// That is the all-year core;  each season adds its own on top (see SEASONS
+// below).
+//
+// Water was asked for by name on 10 October 2026:  rivers and streams, each
+// named as a place in sunlight so the shaded-forest creek -- the commonest
+// stream photo there is -- mostly misses the query, and the brightness gate
+// below catches the rest.  A bridge or a boat in frame is rejected by
+// VOTD_MANMADE like anything else.
 //
 // NAME A SCENE, NOT A TEXTURE.  Every topic's head noun is a place with depth
 // and a foreground — landscape, valley, countryside, hillside, vista, pasture,
@@ -3229,13 +3858,25 @@ async function handleKoreanSearch(env, url, cors) {
 // poor backdrop for a verse.  If you add a topic, check it names somewhere a
 // person could stand.
 //
-// Note the list IS the distribution — a topic is drawn at random per fetch —
-// so changing the mix here is how you change what the picker shows.
+// SEASONS.  The topics are two lists:  the core, which runs all year, and
+// one list per season that joins it for those months (in New York time, the
+// same clock as the rest of the VOTD).  Asked for on 11 October 2026:  fall
+// trees and foliage in the fall, more snow in the winter -- MIXED with the
+// usual scenes, not in place of them.  So the core is the full list the
+// picker always used, less only the three searches that name spring, which
+// move to the spring list.  A season adds six to eight topics to the core's
+// twenty, so roughly a quarter to a third of a refill is seasonal.
+//
+// Note the lists ARE the distribution — a topic is drawn at random per fetch
+// from votdTopics(), core plus the current season — so changing the mix here
+// is how you change what the picker shows.
 //
 // Two words to avoid when editing: anything in VOTD_GLOOMY_KEYWORDS ('dusk',
 // 'twilight', 'dramatic sky', 'grey'...) will have the returned photo rejected
 // by its own tags, so a 'dusk over the hills' topic quietly yields nothing.
-const VOTD_TOPICS = [
+// Winter topics name the sun or a clear sky for the same reason:  a snowy
+// scene under cloud is grey, and the brightness gate below drops it.
+const VOTD_TOPICS_ALL_YEAR = [
   // sun
   'scenic landscape golden hour sunlight',
   'sunrise over green valley landscape',
@@ -3249,28 +3890,83 @@ const VOTD_TOPICS = [
   'green pasture rolling countryside scenic',
   'lush pasture valley sunlight landscape',
   'open pastureland scenic horizon',
-  'spring pasture green fields landscape',
   // flock
   'sheep grazing green pasture landscape',
   'flock of sheep rolling hills scenic',
-  'lambs in green meadow spring landscape',
   // plains
   'vast open plains scenic horizon',
   'wide grassland plain landscape sunny',
   // flowers
   'wildflower meadow scenic landscape',
   'flower field rolling hills sunlight',
-  'poppy meadow landscape spring',
   // grain
-  'golden wheat field landscape sunrise'
+  'golden wheat field landscape sunrise',
+  // water
+  'river winding through green valley sunlight',
+  'clear stream through sunny meadow landscape',
+  'calm river countryside landscape morning light'
 ];
+
+const VOTD_TOPICS_BY_SEASON = {
+  spring: [
+    'spring pasture green fields landscape',
+    'lambs in green meadow spring landscape',
+    'poppy meadow landscape spring',
+    'blossoming trees spring countryside sunlight',
+    'spring wildflowers hillside sunlight',
+    'fresh green valley spring morning'
+  ],
+  summer: [
+    'summer meadow tall grass sunlight',
+    'sunflower field countryside sunny',
+    'lush green valley summer landscape',
+    'summer river clear water sunny',
+    'golden barley field summer landscape',
+    'green rolling hills summer sky'
+  ],
+  fall: [
+    'autumn foliage mountain valley sunlight',
+    'fall trees colorful countryside landscape',
+    'autumn hillside golden trees sunlight',
+    'fall foliage river valley sunny',
+    'autumn countryside rolling hills scenic',
+    'golden autumn meadow landscape',
+    'autumn lake fall colors clear sky',
+    'harvest fields autumn countryside sunlight'
+  ],
+  winter: [
+    'snowy mountain valley sunny day',
+    'snow covered countryside bright sunlight',
+    'winter landscape snow blue sky',
+    'frosty meadow sunrise landscape',
+    'snowy pine trees sunlit hillside',
+    'winter river snowy banks sunlight',
+    'snow covered rolling hills scenic',
+    'alpine winter vista clear sky'
+  ]
+};
+
+/** The season in New York on `date`:  March to May is spring, June to August
+ *  summer, September to November fall, December to February winter. */
+function votdSeason(date = new Date()) {
+  const m = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'numeric' }).format(date));
+  if (m >= 3 && m <= 5) return 'spring';
+  if (m >= 6 && m <= 8) return 'summer';
+  if (m >= 9 && m <= 11) return 'fall';
+  return 'winter';
+}
+
+/** Every topic in play on `date`:  the core, plus that season's list. */
+function votdTopics(date = new Date()) {
+  return [...VOTD_TOPICS_ALL_YEAR, ...VOTD_TOPICS_BY_SEASON[votdSeason(date)]];
+}
 
 /** `k` DISTINCT topics.  A refill that draws every photo from one topic comes
  *  back as thirty variations of the same scene, which is what a single random
  *  pick per call produced.  Fewer photos from more topics costs exactly the
  *  same number of requests. */
 function votdPickTopics(k) {
-  const pool = [...VOTD_TOPICS];
+  const pool = votdTopics();
   const out = [];
   while (out.length < k && pool.length) {
     out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
@@ -3417,7 +4113,8 @@ const votdFetchPhotos = async (count, env, topic) => {
   // Callers filling several rounds pass a DIFFERENT topic each time, so one
   // draw cannot make the whole bench a single scene.  Unnamed = random, which
   // is right for the one-off re-roll in votdRollPhoto.
-  const t = topic || VOTD_TOPICS[Math.floor(Math.random() * VOTD_TOPICS.length)];
+  const topics = votdTopics();
+  const t = topic || topics[Math.floor(Math.random() * topics.length)];
   const n = Math.max(1, Math.min(30, count | 0));
   let r;
   try {
@@ -3511,7 +4208,7 @@ async function votdRollPhoto(first, seen, env) {
 /** Unsplash payload -> the record shape stored in KV and rendered by clients.
  *
  *  `topic` is the search that produced the photo, carried so the photo report
- *  can say which of VOTD_TOPICS is generating the rejects.  Without it a block
+ *  can say which of the topics (votdTopics) is generating the rejects.  Without it a block
  *  is evidence about one photo;  with it, a topic that yields nothing usable
  *  can be found and dropped, which is the difference between a growing
  *  blocklist and a better search.  Null where the caller does not know it —
@@ -3545,6 +4242,50 @@ function votdNormalize(pd, topic) {
 }
 
 /** ET calendar date, `YYYY-MM-DD`, `offsetDays` from now. */
+// ---- The morning KPI report ----
+//
+// The report itself is a GitHub Actions workflow in the app repo (it reads
+// Firestore and GA4 with credentials that live there).  Its own schedule was
+// set for 05:30 ET and ran anywhere from four to nine hours late, because
+// GitHub treats scheduled workflows as best-effort and delays them under load.
+// A Cloudflare cron fires on the minute, so the Worker starts the workflow
+// instead, through the same "Run workflow" call the Actions tab makes.
+//
+// The workflow's own schedule stays as the fallback and skips itself when a
+// report has already gone out that day, so a missing token or a failed
+// dispatch costs lateness, not the report.
+const KPI_WORKFLOW_URL = 'https://api.github.com/repos/jpk02/krengbible-app/actions/workflows/kpi.yml/dispatches';
+
+function newYorkHour(date) {
+  const h = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hourCycle: 'h23' }).format(date);
+  return parseInt(h, 10);
+}
+
+async function dispatchKpiReport(env) {
+  if (!env.GH_DISPATCH_TOKEN) {
+    console.log('kpi dispatch skipped: GH_DISPATCH_TOKEN unset');
+    return;
+  }
+  try {
+    const res = await fetch(KPI_WORKFLOW_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.GH_DISPATCH_TOKEN}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        // GitHub refuses a request with no User-Agent.
+        'User-Agent': 'krengbible-worker',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    // 204 is success;  anything else is logged with its status only.
+    console.log(`kpi dispatch: ${res.status}`);
+  } catch (e) {
+    console.log(`kpi dispatch failed: ${String(e && e.message || e).slice(0, 120)}`);
+  }
+}
+
 function votdDateET(offsetDays = 0) {
   return new Date(Date.now() + offsetDays * 86400000)
     .toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -3973,7 +4714,9 @@ async function votdSendChooserEmail(dateET, staged, env) {
 
 // ---- App failure reports, by mail ----
 const REPORT_HOURLY_MAX = 30;
-const REPORT_MAX_BYTES = 4096;
+// 8 KB, up from 4:  a crash report carries up to 2,500 characters of stack
+// in `detail`, on top of the fields below.
+const REPORT_MAX_BYTES = 8192;
 
 async function handleClientReport(request, env, cors) {
   const json = (obj, status = 200) => new Response(JSON.stringify(obj), {
@@ -3993,6 +4736,8 @@ async function handleClientReport(request, env, cors) {
     gid: str(body.gid, 40),
     build: str(body.build, 120),
     at: str(body.at, 40) || new Date().toISOString(),
+    // Free text, for a crash's stack.  Shown in its own block, not the table.
+    detail: str(body.detail, 2500),
   };
   if (!env.COMMENTARY_KV) return json({ ok: true, sent: false });
 
@@ -4010,17 +4755,25 @@ async function handleClientReport(request, env, cors) {
 
   if (!env.RESEND_KEY || !env.VOTD_EMAIL_TO || !env.VOTD_EMAIL_FROM) return json({ ok: true, sent: false, reason: 'mail_unset' });
   const esc = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-  const rows = Object.entries(report).map(([k, v]) =>
+  const rows = Object.entries(report).filter(([k]) => k !== 'detail').map(([k, v]) =>
     `<tr><td style="padding:3px 12px 3px 0;color:#666">${esc(k)}</td><td style="padding:3px 0">${esc(v) || '—'}</td></tr>`).join('');
+  const detail = report.detail
+    ? `<pre style="margin:14px 0 0;padding:10px;background:#f4f4f4;font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(report.detail)}</pre>`
+    : '';
+  // A render crash reads differently from a sync step failing, and should
+  // in the inbox too.
+  const subject = report.kind === 'render'
+    ? `krengbible app crashed in ${report.step || '?'}: ${report.message.slice(0, 80) || report.code || 'unknown'}`
+    : `krengbible app: ${report.kind} failed at ${report.step || '?'} (${report.code || 'unknown'})`;
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${env.RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: env.VOTD_EMAIL_FROM, to: [env.VOTD_EMAIL_TO],
-      subject: `krengbible app: ${report.kind} failed at ${report.step || '?'} (${report.code || 'unknown'})`,
+      subject,
       html: `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:14px;color:#111">` +
         `<p style="margin:0 0 10px">A reader's <b>${esc(report.kind)}</b> failed.  Mailed once per distinct failure per hour;  further repeats are counted only.</p>` +
-        `<table style="border-collapse:collapse">${rows}</table></div>`
+        `<table style="border-collapse:collapse">${rows}</table>${detail}</div>`
     })
   }).catch(() => {});
   return json({ ok: true, sent: true });
@@ -4721,6 +5474,8 @@ Only output valid JSON, no markdown, no preamble.`;
     // distinct failure per hour (the rest are counted, not sent).  Nothing
     // identifying is expected in the body and nothing is added:  the app
     // sends the failure, the step, the group id, and its own build.
+    if (path === '/widget/verse') return handleWidgetVerse(env, url, cors);
+
     if (path === '/report' && request.method === 'POST') {
       return handleClientReport(request, env, cors);
     }
@@ -4741,6 +5496,9 @@ Only output valid JSON, no markdown, no preamble.`;
     if (apbs) {
       return handleApiBibleSearch(env, url, cors, apbs[1]);
     }
+
+    // ---- /search/smart (ranked, every indexed version of a language) ----
+    if (path === '/search/smart') return handleSmartSearch(env, url, cors);
 
     // ---- /search/ko (fast) ----
     if (path.startsWith('/search/ko')) return handleKoreanSearch(env, url, cors);
@@ -4919,6 +5677,21 @@ Only output valid JSON, no markdown, no preamble.`;
           return json(await votdBoard(env, 10));
         }
 
+        // Undo a block:  the photo is off the board by now, so it is restored
+        // from the record kept with the block, at the position it had (`at`).
+        if (action === 'unreject') {
+          const rejected = await votdReadJson(env, 'votd_rejected', {});
+          const kept = rejected && rejected[slug];
+          if (!kept || !kept.photo) return json({ error: 'nothing to undo' }, 400);
+          delete rejected[slug];
+          await votdWriteJson(env, 'votd_rejected', rejected);
+          const list = (cands || []).filter((c) => c && c.slug !== slug);
+          const at = Math.max(0, Math.min(list.length, parseInt(url.searchParams.get('at') || '0', 10) || 0));
+          list.splice(at, 0, kept.photo);
+          await votdWriteJson(env, 'votd_candidates', list);
+          return json(await votdBoard(env, 10));
+        }
+
         const rec = (cands || []).find((c) => c.slug === slug)
           || (queued || []).find((q) => q.slug === slug);
         if (!rec) return json({ error: 'unknown slug' }, 400);
@@ -4932,6 +5705,10 @@ Only output valid JSON, no markdown, no preamble.`;
           rejected[slug] = {
             credit: rec.credit, alt: rec.alt, topic: rec.topic || null,
             color: rec.color || null, at: new Date().toISOString(),
+            // The whole record, so the picker's Undo can put the photo back.
+            // The board drops a blocked photo from votd_candidates, so without
+            // this there would be nothing left to restore.
+            photo: rec,
           };
           await votdWriteJson(env, 'votd_rejected', rejected);
         } else if (action === 'queue') {
@@ -4968,7 +5745,7 @@ Only output valid JSON, no markdown, no preamble.`;
     // The picker keeps two lists and uses them for one thing: never show the
     // same photo twice.  That stops repeats and teaches nothing, so a bad
     // search goes on producing bad candidates for as long as it is in
-    // VOTD_TOPICS, and the only thing that grows is the blocklist.
+    // the topics (votdTopics), and the only thing that grows is the blocklist.
     //
     // This reads both lists together and reports where they DIFFER, which is
     // the only part that carries information.  A word in half the kept photos
@@ -5752,6 +6529,12 @@ Only output valid JSON, no markdown, no preamble.`;
     }
     if (event.cron === '10 15 * * *') {
       ctx.waitUntil(captureDailyReading(kstDateStamp(), env));
+      return;
+    }
+    if (event.cron === '0 10,11 * * *') {
+      // Fires at 10:00 and 11:00 UTC;  only one of them is 6am in New York,
+      // depending on daylight saving.  See dispatchKpiReport.
+      if (newYorkHour(new Date(event.scheduledTime)) === 6) ctx.waitUntil(dispatchKpiReport(env));
       return;
     }
     if (event.cron === '0 8 * * *') {

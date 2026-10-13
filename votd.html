@@ -41,29 +41,37 @@
   .tabs button{border-radius:999px;padding:7px 14px}
   .tabs button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 
+  /* The Undo bar after blocking a photo — see offerUndo. */
+  #undo{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+        display:flex;align-items:center;gap:14px;padding:10px 12px 10px 16px;border-radius:12px;
+        background:#222;color:#fff;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);
+        transition:opacity .18s,transform .18s;z-index:50}
+  #undo.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  #undo button{background:transparent;border:0;color:#8ab4ff;font-weight:600;font-size:14px;cursor:pointer;padding:4px 6px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
   /* THE SHAPE THE APP ACTUALLY SHOWS.
    *
    * VotdCard renders the photo into a card that is `width: 100%, maxWidth: 420,
-   * minHeight: 420` with contentFit="cover" — so on a typical phone it is about
-   * 353 wide by 420 tall and the image is CROPPED to that, not letterboxed.
+   * minHeight: 320` with contentFit="cover" — so on a typical phone it is about
+   * 362 wide by 320 tall and the image is CROPPED to that, not letterboxed.
+   * (It was 420 tall, a near-square, until the card went to one language.)
    * Previewing at 3/2 was showing a landscape strip of a portrait crop: the
    * top and bottom of every photo were invisible here and the sides were
    * missing there, which is exactly backwards for choosing one.
    *
    * WHY THIS EXACT RATIO, AND WHY THERE IS NO SINGLE RIGHT ONE.
    *
-   * The card is `min(screenWidth - 40, 420)` wide by `max(420, content)` tall,
-   * so the crop depends on the phone: about 0.80 on an SE, 0.93 on a Pro Max.
-   * 362/420 is an iPhone 16 Pro (402pt wide, less the 20pt page padding on each
+   * The card is `min(screenWidth - 40, 420)` wide by `max(320, content)` tall,
+   * so the crop depends on the phone: about 1.05 on an SE, 1.22 on a Pro Max.
+   * 362/320 is an iPhone 16 Pro (402pt wide, less the 20pt page padding on each
    * side), which is what this was checked against.  Nudge it if the reference
    * device changes;  every preview here follows this one value.
    *
-   * The height moves too:  the card grows past 420 when a verse runs long, and
+   * The height moves too:  the card grows past 320 when a verse runs long, and
    * the tiles here grow with it (see .ph), so a long day's preview shows the
    * taller crop the reader gets.  It exists to stop a photo being chosen
    * whose subject the crop cuts through. */
-  :root{--votd-crop:362/420}
+  :root{--votd-crop:362/320}
 
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;
         display:flex;flex-direction:column;transition:opacity .18s,transform .18s}
@@ -76,8 +84,9 @@
    * verse be read over it", which is the question that actually decides a
    * pick — a bright lower third that looks fine bare turns white text to
    * mush.  So the preview carries the app's own scrim (0 → .15 at half →
-   * .65), its label, both languages with the divider between them, and the
-   * button, in the app's sizes.
+   * .65), its label, the verse in ONE language (the app shows only the
+   * reader's preferred one;  this previews Korean, the language the card's
+   * button is in), and the button, in the app's sizes.
    *
    * SIZED FROM THE PREVIEW'S WIDTH, not in px.  The app's numbers are points
    * on a 362pt card;  a grid tile here is anywhere from 280 to 500px wide,
@@ -86,7 +95,7 @@
    * the tile lands, and the text covers the same share of the photo it
    * covers on the phone.  That share is what you are judging. */
   /* The crop is the card's usual shape and a MINIMUM, as the app's card has
-   * minHeight 420:  a long verse makes the tile taller, and the photo fills
+   * minHeight 320:  a long verse makes the tile taller, and the photo fills
    * the taller tile, so the preview shows the crop the reader will get.  The
    * overlay is in the flow for that reason, and the tile clips with `clip`
    * rather than `hidden`, since a hidden overflow would cap the tile at its
@@ -108,9 +117,9 @@
   .ov .lab,.ov .ref,.ov .txt{text-shadow:0 calc(1 * var(--u)) calc(10 * var(--u)) rgba(0,0,0,.5)}
   .ov .lab{font-size:calc(12 * var(--u));font-weight:500;letter-spacing:calc(1.2 * var(--u));
            color:rgba(255,255,255,.78);margin-bottom:calc(8 * var(--u))}
-  .ov .ref{font-size:calc(13 * var(--u));font-weight:500;color:rgba(255,255,255,.9);
+  .ov .ref{font-size:calc(13 * var(--u));font-weight:700;color:rgba(255,255,255,.9);
            margin-bottom:calc(4 * var(--u))}
-  .ov .txt{font-size:calc(18 * var(--u));line-height:calc(30 * var(--u));font-weight:400;
+  .ov .txt{font-size:calc(17 * var(--u));line-height:calc(28 * var(--u));font-weight:400;
            margin-bottom:calc(8 * var(--u))}
   .ov .txt.sec{font-size:calc(15 * var(--u));opacity:.85}
   .ov .div{height:1px;background:rgba(255,255,255,.2);margin:calc(10 * var(--u)) 0}
@@ -231,6 +240,7 @@
 <div class="report" id="report" hidden></div>
 <div id="boot" class="msg">Loading…</div>
 <div id="lb"><button class="x" type="button" aria-label="Close">✕</button><img alt=""><div class="cap"></div></div>
+<div id="undo" role="status"><span class="msg"></span><button type="button">Undo</button></div>
 <nav class="tabs" id="tabs" hidden>
   <button type="button" data-tab="pick">Pick photos</button>
   <button type="button" data-tab="review">On screen · Tomorrow · Queue <span id="qtab"></span></button>
@@ -318,7 +328,7 @@ async function call(path){
  * compare like for like.  John 3:16 is on the long side of the daily verse,
  * which is the side worth checking — a photo that carries it carries most. */
 const SAMPLE = {
-  label: '오늘의 말씀 · Verse of the Day',
+  label: '오늘의 말씀',
   koRef: '요한복음 3:16',
   ko: '하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니 이는 그를 믿는 자마다 멸망하지 않고 영생을 얻게 하려 하심이라',
   enRef: 'John 3:16',
@@ -327,8 +337,9 @@ const SAMPLE = {
 };
 
 /* A photo with a verse laid over it, the way the app lays it.  Everything
- * the app puts on the card is here in the app's order: label, Korean,
- * divider, English (secondary size), button.
+ * the app puts on the card is here in the app's order: label, reference,
+ * verse, button.  One language, as the app now shows only the reader's
+ * preferred one;  Korean here.
  *
  * The grid uses SAMPLE, so its tiles compare like for like.  The two live
  * tiles pass the day's REAL verse (see verseFor), so "on screen now" is what
@@ -338,11 +349,8 @@ function photoTile(src, verse){
   return '<div class="ph"><img loading="lazy" src="' + src + '" alt="">' +
     '<div class="ov">' +
       '<div class="lab">' + esc(v.label) + '</div>' +
-      '<div class="ref">' + esc(v.koRef) + '</div>' +
-      '<div class="txt">' + esc(v.ko) + '</div>' +
-      '<div class="div"></div>' +
-      '<div class="ref">' + esc(v.enRef) + '</div>' +
-      '<div class="txt sec">' + esc(v.en) + '</div>' +
+      '<div class="ref">' + esc(v.ko ? v.koRef : v.enRef) + '</div>' +
+      '<div class="txt">' + esc(v.ko || v.en) + '</div>' +
       '<div class="btn">' + esc(v.cta) + '</div>' +
     '</div></div>';
 }
@@ -475,7 +483,7 @@ function render(b, keepView){
 
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
-  for(const c of b.candidates){
+  b.candidates.forEach((c, idx) => {
     const el = document.createElement('div');
     el.className = 'card';
     el.innerHTML =
@@ -491,9 +499,11 @@ function render(b, keepView){
       img.src = big(filterUrl(c.url, name), 900);
     }), el.querySelector('.row'));
     el.querySelector('.add').onclick = () => act(el, 'queue', c.slug, filter);
-    el.querySelector('.x').onclick   = () => act(el, 'reject', c.slug);
+    el.querySelector('.x').onclick   = async () => {
+      if(await act(el, 'reject', c.slug)) offerUndo(c.slug, idx);
+    };
     grid.appendChild(el);
-  }
+  });
 
   const q = document.getElementById('queue');
   queueDepth = b.queue.length;
@@ -591,12 +601,42 @@ async function act(el, action, slug, filter){
   el.classList.add('busy');
   const q = '/admin/votd-act?action=' + action + '&slug=' + encodeURIComponent(slug) +
     (filter ? '&filter=' + encodeURIComponent(filter) : '');
-  try{ render(await call(q)); }
+  try{ render(await call(q)); return true; }
   catch(e){
     el.classList.remove('busy');
     alert(e.stale ? e.message + '\n\nReloading the board.' : e.message);
     if(e.stale) location.reload();
+    return false;
   }
+}
+
+/* Undo for the ✕ on a candidate.  A block is permanent and a mis-tap is easy,
+ * so for a few seconds after one, a bar offers to take it back:  the worker
+ * unblocks the photo and puts it back where it was on the board (`at`).
+ * One at a time;  a second ✕ replaces the offer with its own. */
+let undoTimer = null;
+function offerUndo(slug, at){
+  const bar = document.getElementById('undo');
+  bar.querySelector('.msg').textContent = 'Photo blocked.';
+  bar.classList.add('on');
+  const btn = bar.querySelector('button');
+  btn.disabled = false;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try{
+      render(await call('/admin/votd-act?action=unreject&slug=' + encodeURIComponent(slug) + '&at=' + at));
+      hideUndo();
+    }catch(e){
+      btn.disabled = false;
+      alert(e.message);
+    }
+  };
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(hideUndo, 8000);
+}
+function hideUndo(){
+  clearTimeout(undoTimer);
+  document.getElementById('undo').classList.remove('on');
 }
 
 /**

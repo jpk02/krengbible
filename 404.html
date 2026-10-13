@@ -8,6 +8,16 @@
 <link rel="icon" href="/favicon-16.png" sizes="16x16">
 <link rel="icon" href="/favicon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>
+  // Safari's own "Open / Get" app banner, on invite pages only.  Written
+  // while the head is still parsing, because Safari reads this tag at load
+  // and ignores one added later.
+  (function () {
+    var m = location.pathname.match(/^\/invite\/([A-Za-z0-9]+)/);
+    if (!m) return;
+    document.write('<meta name="apple-itunes-app" content="app-id=6788847671, app-argument=krengbible://invite/' + m[1].toUpperCase() + '">');
+  })();
+</script>
 <style>
   :root { --bg:#f4f1eb; --card:#fffdf8; --text:#2a2722; --muted:#8a8578; --line:#e6e1d6; --accent:#1b2a4a; --chipbg:#efece3; }
   @media (prefers-color-scheme: dark) {
@@ -23,6 +33,9 @@
   p { color:var(--muted); font-size:15px; margin:0 0 22px; }
   .btn { display:block; width:100%; padding:15px; border-radius:999px; background:var(--accent); color:#fff;
     font-size:16px; font-weight:700; text-decoration:none; border:none; }
+  .btn + .btn { margin-top:10px; }
+  .btn.alt { background:var(--chipbg); color:var(--text); }
+  .open { display:inline-block; margin-top:16px; font-size:14px; font-weight:600; color:var(--muted); text-decoration:none; }
   .codewrap { margin-top:22px; }
   .codelabel { font-size:13px; font-weight:600; color:var(--muted); margin-bottom:8px; }
   .code { font-size:26px; font-weight:800; letter-spacing:5px; color:var(--text);
@@ -45,17 +58,58 @@
     // invite links (/invite/<code>) and turn them into a join page.
     var m = location.pathname.match(/^\/invite\/([^\/?#]+)/i);
     if (!m) return;
-    var code = decodeURIComponent(m[1]).toUpperCase();
-    var appLink = 'krengbible://invite/' + encodeURIComponent(code);
+    // Invite codes are letters and digits;  anything else is dropped, so the
+    // code can be put into the page and the links below as it is.
+    var code = decodeURIComponent(m[1]).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!code) return;
+
+    var ua = navigator.userAgent || '';
+    var isAndroid = /Android/i.test(ua);
+    // iPadOS reports itself as a Mac;  a Mac with a touch screen is an iPad.
+    var isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    var ko = /^ko\b/i.test(navigator.language || '');
+    var t = function (en, k) { return ko ? k : en; };
+
+    var appLink = 'krengbible://invite/' + code;
+    var appStore = 'https://apps.apple.com/app/id6788847671';
+    // The referrer rides along to the app's first launch on Android, so a
+    // later app version can open straight to this group after installing.
+    var play = 'https://play.google.com/store/apps/details?id=com.krengbible.app&referrer=' +
+      encodeURIComponent('invite=' + code);
+    // Chrome on Android opens the app when it is installed and goes to the
+    // fallback, the Play listing, when it is not.  A bare krengbible:// link
+    // does nothing at all without the app.
+    var androidOpen = 'intent://invite/' + code +
+      '#Intent;scheme=krengbible;package=com.krengbible.app;S.browser_fallback_url=' +
+      encodeURIComponent(play) + ';end';
+
+    var buttons;
+    if (isAndroid) {
+      buttons =
+        '<a class="btn" href="' + androidOpen + '">' + t('Open in Krengbible', '크렝바이블에서 열기') + '</a>' +
+        '<a class="btn alt" href="' + play + '">' + t('Get it on Google Play', 'Google Play에서 받기') + '</a>';
+    } else if (isIOS) {
+      // No automatic jump to the app here.  An iPhone WITH the app never
+      // reaches this page (the link opens the app directly), so a jump would
+      // only ever run on a phone without it, where Safari answers with an
+      // "address is invalid" error.  The small link is for links tapped
+      // inside apps like KakaoTalk, whose browsers do not hand links over.
+      buttons =
+        '<a class="btn" href="' + appStore + '">' + t('Get it on the App Store', 'App Store에서 받기') + '</a>' +
+        '<a class="open" href="' + appLink + '">' + t('Already have the app?  Open it', '이미 앱이 있나요?  열기') + ' &rsaquo;</a>';
+    } else {
+      buttons =
+        '<a class="btn" href="' + appStore + '">' + t('Get it on the App Store', 'App Store에서 받기') + '</a>' +
+        '<a class="btn alt" href="' + play + '">' + t('Get it on Google Play', 'Google Play에서 받기') + '</a>';
+    }
+
     document.getElementById('card').innerHTML =
-      '<h1>You’re invited</h1>' +
-      '<p>Join this reading group on Krengbible.</p>' +
-      '<a class="btn" href="' + appLink + '">Open in Krengbible</a>' +
-      '<div class="codewrap"><div class="codelabel">Or enter this code in the app</div>' +
-      '<div class="code">' + code.replace(/[<>&]/g, '') + '</div></div>' +
-      '<p class="hint">Don’t have the app yet? Ask whoever invited you to add you as a tester.</p>';
-    // If the app is installed, nudge it to open automatically.
-    setTimeout(function () { location.href = appLink; }, 350);
+      '<h1>' + t('You’re invited', '모임에 초대받았어요') + '</h1>' +
+      '<p>' + t('Join this reading group on Krengbible.', '크렝바이블에서 이 읽기 모임에 참여하세요.') + '</p>' +
+      buttons +
+      '<div class="codewrap"><div class="codelabel">' +
+      t('After installing, enter this code in the app', '설치 후 앱에서 이 코드를 입력하세요') +
+      '</div><div class="code">' + code + '</div></div>';
   })();
 </script>
 </body>

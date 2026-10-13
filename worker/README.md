@@ -162,6 +162,7 @@ If you ever change verse text (you almost certainly won't), re-run the chunked b
 | `/commentary/{book}/{ch}` | AI chapter commentary | KV-cached forever |
 | `/search/ko?q=&offset=` | Korean search | Uses pre-built index — fast |
 | `/search/en?q=&page=` | English search | ESV API |
+| `/search/smart?q=&lang=en\|ko&tx=&page=` | Ranked search the app uses | Scores every verse in every indexed version of the language (ESV, NIV, NLT, KJV;  개역개정, 새번역, 새한글, 우리말, and 현대인의 성경 once it has an index).  Text is returned in `tx`;  `matchedIn` names a version that matched better.  Index-only, never live |
 | `/votd[?date=YYYY-MM-DD]` | Verse of the day | KV-cached ~72h.  `date` selects an ET date, clamped ET-2 through ET+1 — readers request their OWN local date, and east of Eastern that date is still a future ET one, which is what the +1 is for.  A future date used to be refused because populating it from upstream would pin the wrong verse under a write-once key;  dated requests are read-only now, so they never populate and the clamp no longer has to carry that job.  The verse for each date is written at 09:00 UTC the day before it begins anywhere, so a reader's own date is always already there.  The first verse also carries `ko` (개역개정) and `en` (ESV) text from the cached chapters when both are in KV, so the app's first open of a day needs no chapter fetch on the default translations |
 | `/nkrv/{book}/{ch}` | Korean Bible chapter | KV-cached forever |
 | `/admin/build-index` | Build search index chunk | Requires `secret` |

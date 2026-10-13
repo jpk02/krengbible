@@ -12,6 +12,11 @@ To bust the KV cache for a single chapter (e.g., to test a worker change):
 wrangler kv key delete --binding=COMMENTARY_KV "nkrv_1_1" --remote
 ```
 
+**Every translation is fully cached in KV.**  The ESV and api.bible fetch
+paths in the Worker exist for cache misses that should not happen;  nothing
+in normal operation should call either upstream API for chapter text.  A
+miss is a bug to fix in KV, not a reason to fetch upstream.
+
 See `worker/README.md` for routes, env vars (`COMMENTARY_KV`, `ESV_TOKEN`, `ANTHROPIC_KEY`, `ADMIN_SECRET`, `API_BIBLE_KEY`), and the search-index build runbook.
 
 ### Deploying from a cloud or phone session
