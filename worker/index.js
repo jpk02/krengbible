@@ -3502,6 +3502,65 @@ async function fetchChapterFromApiBible(translationId, usfmCode, chapter, env) {
   throw new Error(`429 retries exhausted for ${chapterId}`);
 }
 
+// ---- Keeping the api.bible translations stored ----
+//
+// Every chapter a reader opens should come out of KV, never api.bible.  But
+// api.bible's terms make a stored chapter expire after 30 days, so a store
+// filled once empties itself a month later and readers go back to costing
+// an api.bible call each.  This runs hourly (wrangler.toml) and refreshes a
+// few chapters each time:  any that are missing first, then the oldest, but
+// only once they are at least STALE_AFTER_DAYS old, so a chapter is fetched
+// about once a month and the store never lapses.  Three translations of
+// 1,189 chapters is ~120 refreshes a day;  REFRESH_PER_RUN x 24 runs leaves
+// room to fill a gap without ever being a burst.
+//
+// KLB is left out:  no longer offered, only builds from before The Message
+// came back still read it, and those reads cache it as they always did.
+const API_BIBLE_KEEP_STORED = ['d6e14a625393b4da-01', '78a9f6124f344018-01', '6f11a7de016f942e-01'];
+const REFRESH_PER_RUN = 20;
+const STALE_AFTER_DAYS = 25;
+
+async function refreshApiBibleStore(env) {
+  if (!env.COMMENTARY_KV || !env.API_BIBLE_KEY) return;
+  const now = Date.now() / 1000;
+  const staleBefore = now + (30 - STALE_AFTER_DAYS) * 86400; // expiry earlier than this = old enough
+  const due = [];
+  for (const id of API_BIBLE_KEEP_STORED) {
+    const prefix = `apibible_raw_v2_${id}_`;
+    const expiry = new Map();
+    let cursor;
+    for (let page = 0; page < 5; page++) {
+      const list = await env.COMMENTARY_KV.list({ prefix, cursor, limit: 1000 });
+      for (const k of list.keys) expiry.set(k.name.slice(prefix.length), k.expiration || 0);
+      if (list.list_complete || !list.cursor) break;
+      cursor = list.cursor;
+    }
+    for (let ord = 0; ord < TOTAL_CHAPTERS; ord++) {
+      const [bookIdx, chapter] = ordinalToBookChapter(ord);
+      const usfm = USFM_CODES[bookIdx];
+      const exp = expiry.get(`${usfm}.${chapter}`);
+      if (exp === undefined) due.push({ id, usfm, chapter, at: 0 });
+      else if (exp && exp < staleBefore) due.push({ id, usfm, chapter, at: exp });
+    }
+  }
+  due.sort((a, b) => a.at - b.at);
+  let refreshed = 0, failed = 0;
+  for (const d of due.slice(0, REFRESH_PER_RUN)) {
+    try {
+      const payload = await fetchChapterFromApiBible(d.id, d.usfm, d.chapter, env);
+      await env.COMMENTARY_KV.put(
+        `apibible_raw_v2_${d.id}_${d.usfm}.${d.chapter}`,
+        JSON.stringify({ data: payload.data, meta: payload.meta }),
+        { expirationTtl: API_BIBLE_CACHE_TTL },
+      );
+      refreshed++;
+    } catch (e) {
+      failed++;
+    }
+  }
+  console.log(`apibible-store: due ${due.length}, refreshed ${refreshed}, failed ${failed}`);
+}
+
 // Walk a slice of the canonical chapter ordinals and either reuse the cached
 // chapter or call api.bible.  Writes a flat-tuple chunk to KV.  Mirrors
 // handleBuildEnIndex but is per-translation.
@@ -6606,6 +6665,10 @@ Only output valid JSON, no markdown, no preamble.`;
     // one, and by the time it rotates, half the world is already on the date.
     // So a date's verse is defined as "what upstream had the morning before",
     // fixed once and identical for every reader on that date.
+    if (event.cron === '17 * * * *') {
+      ctx.waitUntil(refreshApiBibleStore(env));
+      return;
+    }
     if (event.cron === '0 9 * * *') {
       ctx.waitUntil(votdEnsureVerse(votdDateET(1), env));
       return;

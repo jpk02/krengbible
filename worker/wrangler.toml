@@ -28,8 +28,12 @@ id = "5f36020ad8334b02ab9ffcdfa8788c63"
 #               report anywhere from four to nine hours late.  Needs the
 #               GH_DISPATCH_TOKEN secret (see below);  without it, it does
 #               nothing.
+#   17 * * * *  Keep NLT, NIV and The Message stored:  refresh up to 20
+#               chapters that are missing or 25+ days old, so api.bible's
+#               30-day expiry never empties the store.  See
+#               refreshApiBibleStore.
 [triggers]
-crons = ["0 8 * * *", "0 9 * * *", "10 15 * * *", "0 10,11 * * *"]
+crons = ["0 8 * * *", "0 9 * * *", "10 15 * * *", "0 10,11 * * *", "17 * * * *"]
 
 # Secrets ESV_TOKEN, ANTHROPIC_KEY, ADMIN_SECRET are managed via
 # `wrangler secret put NAME` and persist across deploys — not declared here.
