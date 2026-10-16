@@ -655,7 +655,8 @@ function buildModel(sheets) {
     chartTitle: sText('Chart section title', 'Monthly Performance'),
     labels: sChoice('Data labels', ['Both years', 'This year', 'None'], 'Both years'),
     chartCols: sChoice('Chart columns', ['Auto', '1', '2', '3'], 'Auto'),
-    tableTitle: sText('Table title', 'Performance vs. EV Case - Monthly & YTD'),
+    // The table now shows YTD first; older workbooks' "Monthly & YTD" titles follow suit.
+    tableTitle: sText('Table title', 'Performance vs. EV Case - YTD & Monthly').replace(/Monthly\s*&\s*YTD/i, 'YTD & Monthly'),
     actual: sText('Actual label', 'Actual'),
     comp: sText('Comparison label', 'EV Case'),
     variance: sText('Variance label', 'Variance'),
@@ -683,7 +684,7 @@ function buildModel(sheets) {
   if (!cg) warnings.push('No "Charts" tab found, so the dashboard has no charts.');
   else {
     const hm = headerMap(cg[0]);
-    const ci = { chart: hm['chart'], comp: hm['component'], year: hm['year'], dec: hm['decimals'] };
+    const ci = { chart: hm['chart'], comp: hm['component'], year: hm['year'], dec: hm['decimals'], ytd: hm['ytd method'] ?? hm['ytd'] };
     const monthCols = MONTHS.map((m) => {
       const key = Object.keys(hm).find((k) => k === m.toLowerCase() || k === FULL_MONTHS[MONTHS.indexOf(m)]);
       return key === undefined ? undefined : hm[key];
@@ -706,6 +707,8 @@ function buildModel(sheets) {
         if (!ch.comps.includes(comp)) ch.comps.push(comp);
         const d = ci.dec !== undefined ? toNumber(row[ci.dec]) : null;
         if (ch.dec === null && d !== null && !Number.isNaN(d)) ch.dec = Math.max(0, Math.min(4, Math.round(d)));
+        const ym = ci.ytd !== undefined ? norm(cellW(row, ci.ytd)) : '';
+        if (!ch.ytd && ym) ch.ytd = ym.startsWith('av') ? 'average' : ym.startsWith('no') ? 'none' : 'sum';
         const values = monthCols.map((col, mi) => {
           if (col === undefined) return null;
           const n = toNumber(row[col]);
@@ -1167,11 +1170,17 @@ function drawChart(svg, ch, cfg, W, H, notes) {
   const tickDec = step < 1 ? Math.min(4, Math.ceil(-Math.log10(step) - 1e-9)) : 0;
   const tickText = (t) => fmtNum(t, tickDec, cfg.negParen);
 
+  // YTD (Jan..Current month, both years) in its own section at the right, on its own scale:
+  // a year-to-date total is many months' worth, so it would flatten the monthly bars on one axis.
+  const ytd = chartYtd(ch, cfg, data);
   const axisW = Math.max(...ticks.map((t) => textWidth(tickText(t), 9))) + 8;
   const top = labelMode === 'None' ? 6 : 15;
   const xAxisH = 15;
-  const negPad = lo < 0 && labelMode !== 'None' ? 12 : 0;
-  const left = axisW, right = 4;
+  const negPad = (lo < 0 || (ytd && ytd.lo < 0)) && labelMode !== 'None' ? 12 : 0;
+  const left = axisW;
+  const ytdW = ytd ? Math.max(64, Math.min(110, W * 0.085)) : 0;
+  const ytdGap = ytd ? 16 : 0;
+  const right = 4 + ytdW + ytdGap;
   const plotBottom = H - xAxisH - negPad;
   if (plotBottom - top < 20) return false;
   const y = (v) => top + (t1 - v) / (t1 - t0) * (plotBottom - top);
@@ -1258,7 +1267,94 @@ function drawChart(svg, ch, cfg, W, H, notes) {
     const t = svgEl('text', { x: L.cx, y: L.ly, 'text-anchor': 'middle', 'font-size': LBL, 'font-weight': L.slot === 1 ? 600 : 400, fill: L.slot === 1 ? '#111827' : '#4B5563' }, g);
     t.textContent = L.s;
   }
+  if (ytd) drawYtdSection(g, ch, cfg, ytd, { x0: W - ytdW - 4, x1: W - 4, divX: W - 4 - ytdW - ytdGap / 2, top, plotBottom, H, bw, gap, colors, pyCols, stacked, labelMode, LBL });
   return plotBottom - top;
+}
+
+/* YTD values per year and component: Jan..Current month for both years (like for like).
+   Sum by default; "Average" averages the months that have a value; "None" turns it off. */
+function chartYtd(ch, cfg, data) {
+  if (ch.ytd === 'none') return null;
+  const vals = data.map((comps) => comps.map((series) => {
+    const xs = series.slice(0, cfg.cur + 1).filter((v) => v !== null);
+    if (!xs.length) return null;
+    const sum = xs.reduce((a, b) => a + b, 0);
+    return ch.ytd === 'average' ? sum / xs.length : sum;
+  }));
+  if (vals.every((comps) => comps.every((v) => v === null))) return null;
+  let lo = 0, hi = 0;
+  vals.forEach((comps) => {
+    let pos = 0, neg = 0;
+    comps.forEach((v) => { if (v === null) return; if (v >= 0) pos += v; else neg += v; });
+    hi = Math.max(hi, pos); lo = Math.min(lo, neg);
+  });
+  if (hi === lo) hi = lo + 1;
+  return { vals, lo, hi };
+}
+
+function drawYtdSection(g, ch, cfg, ytd, o) {
+  // divider between the monthly bars and the YTD section
+  svgEl('line', { x1: o.divX, x2: o.divX, y1: o.top - 8, y2: o.H - 2, stroke: '#CBD3E1', 'stroke-width': 1 }, g);
+  const span = ytd.hi - ytd.lo;
+  const hi = ytd.hi + span * 0.04, lo = ytd.lo < 0 ? ytd.lo - span * 0.04 : 0;
+  const y = (v) => o.top + (hi - v) / (hi - lo) * (o.plotBottom - o.top);
+  const y0 = y(0);
+  svgEl('line', { x1: o.x0, x2: o.x1, y1: Math.round(y0) + 0.5, y2: Math.round(y0) + 0.5, stroke: '#9CA3AF', 'stroke-width': 1 }, g);
+  const cx = (o.x0 + o.x1) / 2;
+  const lbl = svgEl('text', { x: cx, y: o.H - 3, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#374151' }, g);
+  lbl.textContent = `YTD ${MONTHS[cfg.cur]}`;
+  const labels = [];
+  for (let slot = 0; slot < 2; slot++) {
+    const comps = ytd.vals[slot];
+    if (comps.every((v) => v === null)) continue;
+    const x = slot === 0 ? cx - o.bw - o.gap / 2 : cx + o.gap / 2;
+    let accPos = 0, accNeg = 0;
+    const lastPos = comps.map((v, i) => (v !== null && v > 0 ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
+    const lastNeg = comps.map((v, i) => (v !== null && v < 0 ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
+    comps.forEach((v, ci) => {
+      if (v === null || v === 0) return;
+      let yb, ye, isEnd;
+      if (v > 0) { yb = y(accPos); ye = y(accPos + v); accPos += v; isEnd = ci === lastPos; }
+      else { yb = y(accNeg); ye = y(accNeg + v); accNeg += v; isEnd = ci === lastNeg; }
+      let segBase = yb;
+      if (o.stacked && Math.abs(yb - y0) > 0.5) segBase = v > 0 ? yb - o.gap : yb + o.gap;
+      if ((v > 0 && ye >= segBase) || (v < 0 && ye <= segBase)) return;
+      const fill = slot === 1 ? o.colors[ci] : o.pyCols[ci];
+      const p = svgEl('path', { d: barPath(x, o.bw, segBase, ye, isEnd), fill }, g);
+      svgEl('title', {}, p).textContent = `YTD ${MONTHS[cfg.cur]} ${slot ? cfg.cy : cfg.py}${o.stacked ? ' · ' + ch.comps[ci] : ''}: ${fmtNum(v, ch.dec, cfg.negParen)}`;
+      if (o.stacked && (slot === 1 || o.labelMode === 'Both years') && o.labelMode !== 'None') {
+        const s = fmtNum(v, ch.dec, cfg.negParen);
+        if (Math.abs(segBase - ye) >= 13 && textWidth(s, 8.5, 600) + 4 <= o.bw + 6) {
+          const ink = luminance(fill) > 0.35 ? '#111827' : '#FFFFFF';
+          const t = svgEl('text', { x: x + o.bw / 2, y: (segBase + ye) / 2 + 3, 'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 600, fill: ink }, g);
+          t.textContent = s;
+        }
+      }
+    });
+    const want = o.labelMode === 'Both years' || (o.labelMode === 'This year' && slot === 1);
+    if (want) {
+      const total = accPos + accNeg;
+      const s = fmtNum(total, ch.dec, cfg.negParen);
+      const tw = textWidth(s, o.LBL, slot === 1 ? 600 : 400);
+      const lx = x + o.bw / 2;
+      const ly = total >= 0 ? y(accPos) - 4 : y(accNeg) + o.LBL + 2;
+      labels.push({ slot, s, cx: lx, ly, x0: lx - tw / 2, x1: lx + tw / 2, y0: ly - o.LBL, y1: ly });
+    }
+  }
+  labels.sort((a, b) => b.slot - a.slot);
+  const placed = [];
+  for (const L of labels) {
+    // adjacent YTD totals are wide: nudge the prior-year label left if they would touch
+    const hit = placed.find((P) => L.x0 < P.x1 + 1 && L.x1 > P.x0 - 1 && L.y0 < P.y1 && L.y1 > P.y0);
+    if (hit) {
+      const shift = L.x1 - (hit.x0 - 2);
+      if (L.x0 - shift < o.x0 - 6) continue;
+      L.cx -= shift; L.x0 -= shift; L.x1 -= shift;
+    }
+    placed.push(L);
+    const t = svgEl('text', { x: L.cx, y: L.ly, 'text-anchor': 'middle', 'font-size': o.LBL, 'font-weight': L.slot === 1 ? 600 : 400, fill: L.slot === 1 ? '#111827' : '#4B5563' }, g);
+    t.textContent = L.s;
+  }
 }
 
 function legendHtml(ch, cfg) {
@@ -1275,8 +1371,9 @@ function legendHtml(ch, cfg) {
 
 function tableHtml(model) {
   const { cfg, table } = model;
+  // YTD columns come first, then the month.
   const head = `<thead>
-    <tr><th class="metric"></th><th class="grp" colspan="3">${escHtml(cfg.monthHead)}</th><th class="gap"></th><th class="grp" colspan="3">${escHtml(cfg.ytdHead)}</th></tr>
+    <tr><th class="metric"></th><th class="grp" colspan="3">${escHtml(cfg.ytdHead)}</th><th class="gap"></th><th class="grp" colspan="3">${escHtml(cfg.monthHead)}</th></tr>
     <tr><th class="metric">Metric</th><th>${escHtml(cfg.actual)}</th><th>${escHtml(cfg.comp)}</th><th>${escHtml(cfg.variance)}</th><th class="gap"></th><th>${escHtml(cfg.actual)}</th><th>${escHtml(cfg.comp)}</th><th>${escHtml(cfg.variance)}</th></tr>
   </thead>`;
   // Pro-rated EV Case values get a letter marker (a, b, c) per basis, explained under the table.
@@ -1295,9 +1392,9 @@ function tableHtml(model) {
     const vy = fmtVariance(r.y[0], r.y[1], r);
     return `<tr class="${r.bold ? 'bold' : ''}">
       <td class="metric">${escHtml(r.metric)}</td>
-      <td>${escHtml(fmtVal(r.m[0], r, cfg.negParen))}</td><td class="ev">${escHtml(fmtVal(r.m[1], r, cfg.negParen))}${mark(r)}</td><td class="var ${vm.cls}">${escHtml(vm.text)}</td>
-      <td class="gap"></td>
       <td>${escHtml(fmtVal(r.y[0], r, cfg.negParen))}</td><td class="ev">${escHtml(fmtVal(r.y[1], r, cfg.negParen))}${mark(r)}</td><td class="var ${vy.cls}">${escHtml(vy.text)}</td>
+      <td class="gap"></td>
+      <td>${escHtml(fmtVal(r.m[0], r, cfg.negParen))}</td><td class="ev">${escHtml(fmtVal(r.m[1], r, cfg.negParen))}${mark(r)}</td><td class="var ${vm.cls}">${escHtml(vm.text)}</td>
     </tr>`;
   }).join('');
   return `<table class="cmp${table.length > 9 ? ' dense' : ''}">${head}<tbody>${body}</tbody></table>${notes}`;
@@ -1404,10 +1501,16 @@ function drawCoverageChart(svg, model, W, H) {
   const left = padX + tickW + 8, right = padX;
   const band = (W - left - right) / qs.length;
   const cxOf = (i) => left + band * i + band / 2;
+  // Quarter labels: "Q3 2024", or "Q3 24" when the full label would not fit the column.
+  const qText = (label) => {
+    if (textWidth(label, 10) <= band * 0.9) return label;
+    const m = label.match(/Q\s*([1-4])\D*\d{0,2}(\d{2})\b/i);
+    return m ? `Q${m[1]} ${m[2]}` : label;
+  };
   const frame = (y, h, fill) => svgEl('rect', { x: 0.5, y: y + 0.5, width: W - 1, height: h - 1, rx: 5, fill, stroke: '#CBD3E1', 'stroke-width': 1 }, g);
   const title = (y, text) => { const t = svgEl('text', { x: padX, y: y + 15, 'font-size': 11, 'font-weight': 700, fill: '#111827' }, g); t.textContent = text; };
 
-  const h1 = hasTop ? Math.round(H * 0.34) : 0;
+  const h1 = hasTop ? Math.round(H * 0.38) : 0;
   const y2 = hasTop ? h1 + sep : 0;
   const h2 = H - y2;
 
@@ -1420,8 +1523,12 @@ function drawCoverageChart(svg, model, W, H) {
       ...(cfg.lockup !== null ? [{ type: 'line', color: STATUS_WARN, label: `Distribution lock-up ${fmtX(cfg.lockup)}` }] : []),
       ...(cfg.dflt !== null ? [{ type: 'line', color: STATUS_CRIT, label: `Default ${fmtX(cfg.dflt)}` }] : []),
     ], W - padX, 11);
-    const t1 = headH + labelPad, b1 = h1 - 10;
+    const t1 = headH + labelPad, b1 = h1 - 10 - xAxisH;
     if (b1 - t1 < 20) return false;
+    qs.forEach((q, i) => {
+      const tx = svgEl('text', { x: cxOf(i), y: h1 - 8, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
+      tx.textContent = qText(q.label);
+    });
     const yd = (v) => t1 + (dT.t1 - v) / (dT.t1 - dT.t0) * (b1 - t1);
     yAxis(g, dT.ticks, yd, left, right, W, dText);
     for (const r of refs) {
@@ -1464,7 +1571,7 @@ function drawCoverageChart(svg, model, W, H) {
   qs.forEach((q, i) => {
     const cx = cxOf(i);
     const lbl = svgEl('text', { x: cx, y: y2 + h2 - 7, 'text-anchor': 'middle', 'font-size': 10, fill: '#6B7280' }, g);
-    lbl.textContent = q.label;
+    lbl.textContent = qText(q.label);
     const xc = cx - bw - gap / 2;
     const pc = svgEl('path', { d: barPath(xc, bw, y0, yb(q.cfads), true), fill: PALETTE[0] }, g);
     svgEl('title', {}, pc).textContent = `${q.label} CFADS: ${fmtNum(q.cfads, cfg.cfDec, cfg.negParen)}`;
@@ -1544,10 +1651,6 @@ function reservesHtml(model) {
 
 function dscrPageHtml(model, pageNo, pageCount) {
   const { cfg, dscr, dscrNotes } = model;
-  const last = dscr.shown[dscr.shown.length - 1];
-  const head = last.ltm !== null && last.ltm !== undefined
-    ? `LTM DSCR at ${escHtml(last.label)}: ${fmtX(last.ltm)}${cfg.lockup !== null ? ` &nbsp;·&nbsp; Distribution lock-up ${fmtX(cfg.lockup)}` : ''}${cfg.dflt !== null ? ` &nbsp;·&nbsp; Default ${fmtX(cfg.dflt)}` : ''}`
-    : '';
 
   let html = `<header class="banner"><div><h1>${escHtml(cfg.title)}</h1>${cfg.subtitle ? `<div class="sub">${escHtml(cfg.subtitle)}</div>` : ''}</div><div class="period">${escHtml(cfg.period)}</div></header>`;
   // Top row: the coverage chart, with reserves and notes beside it.  Bottom: the cash flow table at
@@ -1558,7 +1661,7 @@ function dscrPageHtml(model, pageNo, pageCount) {
   const sideBox = resBlock || notesBlock ? `<section class="card"><div class="card-h">${boxTitle}</div><div class="card-b side-b">${resBlock}${notesBlock}</div></section>` : '';
   html += '<main class="body">';
   html += `<div class="toprow" style="grid-template-columns:${sideBox ? `minmax(0, 1fr) ${Math.max(cfg.sideWidth, resBlock ? 32 : 0)}%` : 'minmax(0, 1fr)'}">`;
-  html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span><span class="h-right">${head}</span></div>`;
+  html += `<section class="card charts-card"><div class="card-h"><span>${escHtml(cfg.dscrTitle)}</span></div>`;
   html += '<div class="charts-grid" style="grid-template-columns:minmax(0, 1fr)">';
   html += '<div class="chart"><div class="plot" data-dscr="coverage"><svg></svg></div></div>';
   html += `</div></section>${sideBox}</div>`;
