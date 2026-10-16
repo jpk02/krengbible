@@ -126,9 +126,9 @@ const API_BIBLE_TRANSLATIONS = {
   '78a9f6124f344018-01': { abbreviation: 'NIV', name: 'New International Version' },
   '6f11a7de016f942e-01': { abbreviation: 'MSG', name: 'The Message' },
   // KLB (현대인의 성경 / Korean Living Bible, 1985) — a KOREAN translation served
-  // through /apibible like the English ones; the app lists it under its Korean
-  // translations.  MSG stays whitelisted (no longer selectable in the app, but
-  // keeping the entry preserves its cache and costs nothing).
+  // through /apibible like the English ones.  No longer offered (The Message
+  // took its place), but it stays whitelisted:  app builds that still list it
+  // read it from here, and the entry costs nothing.
   'e959e47176271f18-01': { abbreviation: 'KLB', name: 'Korean Living Bible' }
   // KJV is intentionally NOT here.  It's public domain, so routing it through
   // api.bible only spent quota for text we can serve ourselves — see the
@@ -2498,6 +2498,7 @@ const SMART_SOURCES = {
     { label: 'ESV', kv: 'esv_search_index', cached: () => EN_SEARCH_INDEX, load: (env) => getEnSearchIndex(env) },
     { label: 'NIV', kv: 'apibible_search_index_78a9f6124f344018-01', cached: () => APIBIBLE_INDEXES['78a9f6124f344018-01'], load: (env) => getApiBibleSearchIndex(env, '78a9f6124f344018-01') },
     { label: 'NLT', kv: 'apibible_search_index_d6e14a625393b4da-01', cached: () => APIBIBLE_INDEXES['d6e14a625393b4da-01'], load: (env) => getApiBibleSearchIndex(env, 'd6e14a625393b4da-01') },
+    { label: 'MSG', kv: 'apibible_search_index_6f11a7de016f942e-01', cached: () => APIBIBLE_INDEXES['6f11a7de016f942e-01'], load: (env) => getApiBibleSearchIndex(env, '6f11a7de016f942e-01') },
     { label: 'KJV', kv: 'kjv_search_index', cached: () => KJV_SEARCH_INDEX, load: (env) => getKjvSearchIndex(env) },
   ],
   ko: [
@@ -2505,10 +2506,6 @@ const SMART_SOURCES = {
     { label: 'SAEBEON', kv: 'saebeon_search_index', cached: () => KO_INDEX_CACHE.get('saebeon'), load: (env) => getKoSearchIndexByPrefix(env, 'saebeon') },
     { label: 'NKT', kv: 'nkt_search_index', cached: () => KO_INDEX_CACHE.get('nkt'), load: (env) => getKoSearchIndexByPrefix(env, 'nkt') },
     { label: 'WOORI', kv: 'woori_search_index', cached: () => KO_INDEX_CACHE.get('woori'), load: (env) => getKoSearchIndexByPrefix(env, 'woori') },
-    // KLB has no index until one is built, so it is skipped;  smartPrepFor
-    // remembers the miss for a while so every query does not spend a KV read
-    // finding that out again.
-    { label: 'KLB', kv: 'apibible_search_index_e959e47176271f18-01', cached: () => APIBIBLE_INDEXES['e959e47176271f18-01'], load: (env) => getApiBibleSearchIndex(env, 'e959e47176271f18-01') },
   ],
 };
 
