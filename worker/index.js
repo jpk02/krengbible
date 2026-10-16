@@ -3014,7 +3014,23 @@ function apiBibleHtmlToText(html) {
   // NLT now and then.  Matching only a single number let a range fall through
   // as bare text, "1-2Josiah was...", which no client reads as a verse, so
   // the whole run of verses lost its place beside the Korean.
-  s = s.replace(/<span[^>]*\bdata-number="(\d+(?:-\d+)?)"[^>]*>[^<]*<\/span>/g, '[$1] ');
+  //
+  // The Message also splits a verse between two passages:  "10-12a" then
+  // "12b-14" (2 Kings 24).  The clients have no half-verses, so the letters
+  // go and each passage keeps its place by its first verse:  [10-12] under
+  // verse 10, [12-14] under verse 12.  A part that would start on the same
+  // verse as the passage before it carries no marker and stays with that
+  // passage, so no verse is ever claimed twice.
+  let prevStart = -1;
+  s = s.replace(
+    /<span[^>]*\bdata-number="(\d+)[a-z]?(?:-(\d+)[a-z]?)?"[^>]*>[^<]*<\/span>/g,
+    (_m, a, b) => {
+      const start = parseInt(a, 10);
+      if (start === prevStart) return ' ';
+      prevStart = start;
+      return b && b !== a ? `[${a}-${b}] ` : `[${a}] `;
+    },
+  );
   s = s.replace(/<table[^>]*>([\s\S]*?)<\/table>/g, (_m, body) => {
     const rows = [];
     for (const r of body.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)) {
