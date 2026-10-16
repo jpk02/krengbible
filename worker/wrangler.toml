@@ -29,7 +29,7 @@ id = "5f36020ad8334b02ab9ffcdfa8788c63"
 #               GH_DISPATCH_TOKEN secret (see below);  without it, it does
 #               nothing.
 #   17 * * * *  Keep NLT, NIV and The Message stored:  refresh up to 20
-#               chapters that are missing or 25+ days old, so api.bible's
+#               chapters that are missing or 20+ days old, so api.bible's
 #               30-day expiry never empties the store.  See
 #               refreshApiBibleStore.
 [triggers]

@@ -3510,15 +3510,20 @@ async function fetchChapterFromApiBible(translationId, usfmCode, chapter, env) {
 // an api.bible call each.  This runs hourly (wrangler.toml) and refreshes a
 // few chapters each time:  any that are missing first, then the oldest, but
 // only once they are at least STALE_AFTER_DAYS old, so a chapter is fetched
-// about once a month and the store never lapses.  Three translations of
-// 1,189 chapters is ~120 refreshes a day;  REFRESH_PER_RUN x 24 runs leaves
-// room to fill a gap without ever being a burst.
+// about every three weeks and the store never lapses.  Three translations of
+// 1,189 chapters is ~180 refreshes a day;  REFRESH_PER_RUN x 24 runs = 480.
+//
+// Twenty days, not 25:  the three stores were filled within days of each
+// other, so their chapters come due together.  A 10-day window before expiry
+// holds 4,800 refreshes, comfortably more than the 3,567 chapters;  a 5-day
+// one held 2,400, which the 2,378 MSG and NLT chapters due on the same day
+// would only just have fitted.  After the first round the dates spread.
 //
 // KLB is left out:  no longer offered, only builds from before The Message
 // came back still read it, and those reads cache it as they always did.
 const API_BIBLE_KEEP_STORED = ['d6e14a625393b4da-01', '78a9f6124f344018-01', '6f11a7de016f942e-01'];
 const REFRESH_PER_RUN = 20;
-const STALE_AFTER_DAYS = 25;
+const STALE_AFTER_DAYS = 20;
 
 async function refreshApiBibleStore(env) {
   if (!env.COMMENTARY_KV || !env.API_BIBLE_KEY) return;
