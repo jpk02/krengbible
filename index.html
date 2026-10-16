@@ -1563,13 +1563,13 @@ var API_BIBLE_IDS={
   'NIV':'78a9f6124f344018-01',
   'MSG':'6f11a7de016f942e-01'
 };
-// Order matters: render order in the picker.  ESV first as the default.
+// Order matters: render order in the picker.  Alphabetical, like the app's.
 var TRANSLATIONS=[
   {abbr:'ESV', name:'English Standard Version',     source:'esv'},
-  {abbr:'NLT', name:'New Living Translation',       source:'apibible'},
-  {abbr:'NIV', name:'New International Version',    source:'apibible'},
+  {abbr:'KJV', name:'King James Version',           source:'kjv'},
   {abbr:'MSG', name:'The Message',                  source:'apibible'},
-  {abbr:'KJV', name:'King James Version',           source:'kjv'}
+  {abbr:'NIV', name:'New International Version',    source:'apibible'},
+  {abbr:'NLT', name:'New Living Translation',       source:'apibible'}
 ];
 // Korean translations — same set, same labels and same routes as the app's
 // KO_TRANSLATION_INFO / fetchRawKoreanChapter.  A route of 'apibible' (with a

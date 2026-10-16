@@ -2278,6 +2278,68 @@ async function handleEnglishSearch(env, url, cors) {
   }), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
+// ---- /bundle/{translation}/{bookNum} ----
+//
+// Every chapter of one book in one response, for offline downloads.  A
+// download used to be 1,189 requests, one per chapter;  each was a round trip
+// from the phone, and the round trips, not the 3 MB of text, were what took
+// minutes.  By book it is 66.
+//
+// Each chapter is produced by the translation's own chapter route, called
+// in-process, so a bundled chapter is byte-for-byte what the single route
+// serves:  every clean-up applied on the way out (KLB/MSG markers, Psalm 119
+// letters, 새한글 numbering) comes along with nothing duplicated here.
+//
+// FROM STORE ONLY.  A chapter whose stored copy is missing is listed in
+// `missing` and left out, never fetched upstream:  one request must not fan
+// out into a hundred and fifty ESV or api.bible calls.  The app fetches a
+// missing chapter on its own, through the ordinary route.
+const BUNDLE_SOURCES = {
+  NKRV:    (b, c) => ({ path: `/nkrv/${b}/${c}`,    kv: `nkrv_v4_${b}_${c}` }),
+  SAEBEON: (b, c) => ({ path: `/saebeon/${b}/${c}`, kv: `saebeon_v1_${b}_${c}` }),
+  NKT:     (b, c) => ({ path: `/nkt/${b}/${c}`,     kv: `nkt_v1_${b}_${c}` }),
+  WOORI:   (b, c) => ({ path: `/woori/${b}/${c}` }),   // the route is store-only already
+  KJV:     (b, c) => ({ path: `/kjv/${b}/${c}` }),     // likewise
+  ESV:     (b, c) => {
+    const q = `${BOOK_NAMES_EN[b - 1]} ${c}`;
+    return { path: `/esv/?q=${encodeURIComponent(q)}&extras=1`, kv: `esv_raw_v6_x1_${q}` };
+  },
+};
+for (const [id, t] of Object.entries(API_BIBLE_TRANSLATIONS)) {
+  BUNDLE_SOURCES[t.abbreviation] = (b, c) => ({
+    path: `/apibible/${id}/${b}/${c}`,
+    kv: `apibible_raw_v2_${id}_${USFM_CODES[b - 1]}.${c}`,
+  });
+}
+
+async function handleBundle(env, cors, tr, bookNum) {
+  const headers = { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+  const source = BUNDLE_SOURCES[tr];
+  if (!source || !(bookNum >= 1 && bookNum <= 66)) {
+    return new Response(JSON.stringify({ error: 'bad_bundle', tr, bookNum }), { status: 400, headers });
+  }
+  const chapters = {};
+  const missing = [];
+  const queue = Array.from({ length: BOOK_CHAPTERS[bookNum - 1] }, (_, i) => i + 1);
+  async function one(c) {
+    const { path, kv } = source(bookNum, c);
+    try {
+      if (kv && !(await env.COMMENTARY_KV.get(kv))) { missing.push(c); return; }
+      const r = await worker.fetch(new Request('https://bundle.internal' + path), env);
+      const j = r.ok ? await r.json() : null;
+      // The Korean routes answer a failure with 200 and an `error` field.
+      if (!j || j.error) { missing.push(c); return; }
+      chapters[c] = j;
+    } catch (e) {
+      missing.push(c);
+    }
+  }
+  const lane = async () => { for (let c = queue.shift(); c != null; c = queue.shift()) await one(c); };
+  await Promise.all(Array.from({ length: 8 }, lane));
+  missing.sort((a, b) => a - b);
+  return new Response(JSON.stringify({ translation: tr, book: bookNum, chapters, missing }), { headers });
+}
+
 // ---- KJV chapter handler ----
 // Route: GET /kjv/{bookNum}/{chapter}
 //
@@ -5087,7 +5149,7 @@ async function votdStagePhoto(dateET, env) {
   return null;
 }
 
-export default {
+const worker = {
   async fetch(request, env) {
     const cors = {
       "Access-Control-Allow-Origin": "*",
@@ -5525,6 +5587,10 @@ Only output valid JSON, no markdown, no preamble.`;
 
     // ---- /search/kjv (fast in-memory index, public-domain KJV) ----
     if (path.startsWith('/search/kjv')) return handleKjvSearch(env, url, cors);
+
+    // ---- /bundle/{translation}/{bookNum} — a whole book, for downloads ----
+    const bundleMatch = path.match(/^\/bundle\/([A-Z]+)\/(\d+)\/?$/);
+    if (bundleMatch) return handleBundle(env, cors, bundleMatch[1], parseInt(bundleMatch[2]));
 
     // ---- /kjv/{bookNum}/{chapter} (public domain, KV-only, no api.bible) ----
     const kjvm = path.match(/^\/kjv\/(\d+)\/(\d+)\/?$/);
@@ -6644,3 +6710,5 @@ Only output valid JSON, no markdown, no preamble.`;
     );
   }
 };
+
+export default worker;
