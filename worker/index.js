@@ -3010,7 +3010,11 @@ function apiBibleStripTags(text) {
 function apiBibleHtmlToText(html) {
   let s = html;
   // Verse markers first, so one inside a table cell survives the table pass.
-  s = s.replace(/<span[^>]*\bdata-number="(\d+)"[^>]*>[^<]*<\/span>/g, '[$1] ');
+  // A marker can be a range ("1-2"):  The Message joins verses constantly and
+  // NLT now and then.  Matching only a single number let a range fall through
+  // as bare text, "1-2Josiah was...", which no client reads as a verse, so
+  // the whole run of verses lost its place beside the Korean.
+  s = s.replace(/<span[^>]*\bdata-number="(\d+(?:-\d+)?)"[^>]*>[^<]*<\/span>/g, '[$1] ');
   s = s.replace(/<table[^>]*>([\s\S]*?)<\/table>/g, (_m, body) => {
     const rows = [];
     for (const r of body.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)) {
