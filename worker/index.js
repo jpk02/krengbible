@@ -996,10 +996,18 @@ const WOORI_STRAY_BY_VERSE = {
   '47_9_9': [['기록되기를? ', '기록되기를 ']],
 };
 
+// The import also wrote the syllable 웻 as "3", in the two names that use
+// it:  아스마웻 (Azmaveth) and 하살마웻 (Hazarmaveth) read "아스마3" and
+// "하살마3".  11 verses, found by scanning every chapter for a digit glued
+// to a Hangul syllable on 17 October 2026;  every "마3" in the text is one of
+// them, and the other hits ("제7일", the seventh day) are real numerals.
+const WOORI_WET = /마3(?!\d)/g;
+
 function cleanWooriVerse(text, fixes) {
   if (typeof text !== 'string' || !text) return text;
   let t = text;
   if (fixes) for (const [from, to] of fixes) t = t.split(from).join(to);
+  t = t.replace(WOORI_WET, '마웻');
   if (t.indexOf('?') === -1) return t;
   t = t.replace(/(?<=[가-힣A-Za-z0-9])\?(?=[가-힣A-Za-z0-9])/g, ' ');
   // Left to right over the original, so a run like ’?? loses both marks:
