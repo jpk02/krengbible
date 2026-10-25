@@ -24,6 +24,8 @@
 //   /admin/votd-next?date=YYYY-MM-DD      -> (X-Admin-Secret) re-roll the photo for a date.  Allowed over
 //                                            the same window /votd serves — ET-today-minus-2 forward — so
 //                                            any photo a reader can still be shown can still be changed.
+//   /admin/votd-textup?date=...&v=0..1    -> (X-Admin-Secret) move the verse up the card for a STAGED
+//                                            photo.  See votdWithTextUp.
 //   /votd/reroll?date=...&t=<hmac>        -> One-tap re-roll from the preview email.  HMAC of the date,
 //                                            keyed by ADMIN_SECRET — scoped to one day, secret never in URL.
 //                                            Same window as /admin/votd-next.
@@ -5067,6 +5069,25 @@ function votdWithFilter(rec, name) {
 }
 
 /**
+ * Where the verse sits on the card, as a share of the card's spare height
+ * above the default:  0 is the bottom (where it always sat), 1 the top, 0.5
+ * halfway.  A share rather than points because the spare height depends on
+ * the phone and the verse's length;  a long verse that fills the card has
+ * none, and then the setting moves nothing, which is the honest answer.
+ *
+ * Chosen per photo on the picker, so the verse can sit clear of the photo's
+ * subject.  Rides on the photo record like `filter`, and the app places the
+ * text by it (VotdCard).  0 is stored as no field at all, so a record left at
+ * the default is byte-for-byte what it was before this existed.
+ */
+function votdWithTextUp(rec, raw) {
+  if (!rec) return rec;
+  const v = Math.round(Math.max(0, Math.min(1, Number(raw) || 0)) * 100) / 100;
+  const { textUp: _old, ...rest } = rec;
+  return v > 0 ? { ...rest, textUp: v } : rest;
+}
+
+/**
  * One step of undo for a date's staged photo.
  *
  * Every admin route that overwrites `votdphoto2_<date>` first copies what
@@ -5171,6 +5192,8 @@ async function votdStagePhoto(dateET, env) {
          * id the API answers to, so the lookup 404'd on a plausible-looking
          * string.  Cheap to store, and it makes the record self-sufficient. */
         id: photo.id ?? null,
+        // Where the picker placed the verse, when it moved it.  See votdWithTextUp.
+        ...(photo.textUp > 0 ? { textUp: photo.textUp } : {}),
       }),
       { expirationTtl: votdKeyTtl(dateET) }
     );
@@ -5873,7 +5896,8 @@ Only output valid JSON, no markdown, no preamble.`;
             // The filter chosen on the board rides in with the photo — see
             // VOTD_FILTERS.  Unknown or absent means the original.
             const filtered = votdWithFilter(rec, url.searchParams.get('filter') || 'original');
-            queue.push({ ...filtered, source: 'picker', addedAt: new Date().toISOString() });
+            const placed = votdWithTextUp(filtered, url.searchParams.get('textUp'));
+            queue.push({ ...placed, source: 'picker', addedAt: new Date().toISOString() });
             await votdWriteJson(env, 'votd_queue', queue);
           }
         } else if (action === 'refilter') {
@@ -6227,6 +6251,30 @@ Only output valid JSON, no markdown, no preamble.`;
       // revert only the filter, when what the person wants back is the
       // photo.  See votdRememberPrev.
       photo = votdWithFilter(photo, name);
+      await env.COMMENTARY_KV.put(`votdphoto2_${date}`, JSON.stringify(photo), { expirationTtl: votdKeyTtl(date) });
+      return json({ date, photo });
+    }
+
+    // ---- /admin/votd-textup — move the verse on a STAGED photo ----
+    // ?date=YYYY-MM-DD&v=0..1.  Rewrites votdphoto2_<date> with the same photo
+    // and the verse placed at `v` (see votdWithTextUp).  Same guards as
+    // /admin/votd-filter, and like it, sets no undo point:  the arrows put it
+    // back.
+    if (path === '/admin/votd-textup') {
+      const secret = request.headers.get('X-Admin-Secret') || url.searchParams.get('secret');
+      const json = (obj, status = 200) => new Response(JSON.stringify(obj), {
+        status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      });
+      if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) return json({ error: 'forbidden' }, 403);
+      const date = url.searchParams.get('date') || votdDateEarliest(1);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: 'bad date' }, 400);
+      if (date < votdDateET(-2)) return json({ error: 'date already past' }, 400);
+      if (!env.COMMENTARY_KV) return json({ error: 'kv_unset' }, 503);
+      const raw = await env.COMMENTARY_KV.get(`votdphoto2_${date}`);
+      let photo = null;
+      try { photo = raw ? JSON.parse(raw) : null; } catch { photo = null; }
+      if (!photo || !photo.url) return json({ error: 'nothing staged' }, 404);
+      photo = votdWithTextUp(photo, url.searchParams.get('v'));
       await env.COMMENTARY_KV.put(`votdphoto2_${date}`, JSON.stringify(photo), { expirationTtl: votdKeyTtl(date) });
       return json({ date, photo });
     }

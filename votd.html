@@ -109,6 +109,12 @@
       font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif;
       background:linear-gradient(rgba(0,0,0,0) 0%,rgba(0,0,0,.15) 50%,rgba(0,0,0,.65) 100%)}
   body.noverse .ov{display:none}
+  /* Where the verse sits:  --up is the photo's textUp, the share of the
+   * card's spare height that goes BELOW the verse (0 bottom, 1 top).  The
+   * app splits the spare height the same way (VotdCard), so a long verse
+   * that leaves none moves nowhere here either. */
+  .ov::before{content:'';flex:calc(1 - var(--up, 0)) 0 0}
+  .ov::after{content:'';flex:var(--up, 0) 0 0}
   /* The app's glow around the lettering (VotdCard's photoHalo:  10pt at 50%,
    * a point of drop), in the tile's own points so it is the same share of the
    * letter at any tile width.  Without it these previews showed the verse
@@ -141,6 +147,8 @@
   .fx button{font-size:11px;padding:3px 9px;border-radius:999px;line-height:1.3}
   .fx button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
   .live .fx{padding:0 0 10px}
+  .fx .pos{font-size:11px;color:var(--dim);align-self:center;margin-right:2px}
+  .fx .gap{width:8px}
   /* The tile's buttons run full width;  its chips must not. */
   .live .fx button{width:auto}
 
@@ -344,9 +352,9 @@ const SAMPLE = {
  * The grid uses SAMPLE, so its tiles compare like for like.  The two live
  * tiles pass the day's REAL verse (see verseFor), so "on screen now" is what
  * readers are looking at and "tomorrow" is what they will be. */
-function photoTile(src, verse){
+function photoTile(src, verse, up){
   const v = verse || SAMPLE;
-  return '<div class="ph"><img loading="lazy" src="' + src + '" alt="">' +
+  return '<div class="ph" style="--up:' + (Number(up) || 0) + '"><img loading="lazy" src="' + src + '" alt="">' +
     '<div class="ov">' +
       '<div class="lab">' + esc(v.label) + '</div>' +
       '<div class="ref">' + esc(v.ko ? v.koRef : v.enRef) + '</div>' +
@@ -414,6 +422,41 @@ function filterRow(active, onPick){
     };
     row.appendChild(b);
   }
+  return row;
+}
+
+/* Move the verse up or down the card, a quarter of the spare height a step.
+ * `up` is the photo's textUp (0 bottom, 1 top);  `onMove` gets the new one.
+ * Sits at the end of the filter row, so a tile's adjustments are one line. */
+const UP_STEP = 0.25;
+const UP_LABEL = { 0: 'bottom', 0.25: '¼ up', 0.5: 'middle', 0.75: '¾ up', 1: 'top' };
+function posControls(row, up, onMove){
+  let v = Number(up) || 0;
+  const gap = document.createElement('span');
+  gap.className = 'gap';
+  const lab = document.createElement('span');
+  lab.className = 'pos';
+  const upBtn = document.createElement('button');
+  const downBtn = document.createElement('button');
+  upBtn.type = downBtn.type = 'button';
+  upBtn.textContent = '▲';
+  downBtn.textContent = '▼';
+  upBtn.title = 'Move the verse up';
+  downBtn.title = 'Move the verse down';
+  const show = () => {
+    lab.textContent = 'Verse: ' + (UP_LABEL[v] || Math.round(v * 100) + '% up');
+    upBtn.disabled = v >= 1;
+    downBtn.disabled = v <= 0;
+  };
+  const step = (d) => {
+    v = Math.round(Math.max(0, Math.min(1, v + d)) * 100) / 100;
+    show();
+    onMove(v);
+  };
+  upBtn.onclick = () => step(UP_STEP);
+  downBtn.onclick = () => step(-UP_STEP);
+  show();
+  row.append(gap, lab, upBtn, downBtn);
   return row;
 }
 
@@ -493,12 +536,17 @@ function render(b, keepView){
     // The filter chosen here previews on the tile and goes with the photo
     // when it is queued.  Chosen per card;  the board does not remember it.
     let filter = 'original';
+    let up = 0;
     const img = el.querySelector('img');
-    el.insertBefore(filterRow(filter, (name) => {
+    const ph = el.querySelector('.ph');
+    const row = filterRow(filter, (name) => {
       filter = name;
       img.src = big(filterUrl(c.url, name), 900);
-    }), el.querySelector('.row'));
-    el.querySelector('.add').onclick = () => act(el, 'queue', c.slug, filter);
+    });
+    // The verse's place goes with the photo when it is queued, like the filter.
+    posControls(row, up, (v) => { up = v; ph.style.setProperty('--up', v); });
+    el.insertBefore(row, el.querySelector('.row'));
+    el.querySelector('.add').onclick = () => act(el, 'queue', c.slug, filter, up);
     el.querySelector('.x').onclick   = async () => {
       if(await act(el, 'reject', c.slug)) offerUndo(c.slug, idx);
     };
@@ -526,7 +574,8 @@ function render(b, keepView){
       '<span class="n">' + (i + 1) + '</span>' +
       '<img src="' + big(item.url, 200) + '" alt="">' +
       '<span class="t">' + (item.alt || 'Untitled') +
-        (item.filter && item.filter !== 'original' ? ' · ' + esc(item.filter) : '') + '</span>' +
+        (item.filter && item.filter !== 'original' ? ' · ' + esc(item.filter) : '') +
+        (item.textUp > 0 ? ' · verse ' + (UP_LABEL[item.textUp] || Math.round(item.textUp * 100) + '% up') : '') + '</span>' +
       '<button class="rm" title="Remove from queue">✕</button>';
     el.querySelector('.rm').onclick = () => act(el, 'unqueue', item.slug);
     // An <img> is natively draggable and would hijack the row's drag with an
@@ -597,10 +646,11 @@ function moveTo(slug, beforeSlug){
   commit(next);
 }
 
-async function act(el, action, slug, filter){
+async function act(el, action, slug, filter, textUp){
   el.classList.add('busy');
   const q = '/admin/votd-act?action=' + action + '&slug=' + encodeURIComponent(slug) +
-    (filter ? '&filter=' + encodeURIComponent(filter) : '');
+    (filter ? '&filter=' + encodeURIComponent(filter) : '') +
+    (textUp > 0 ? '&textUp=' + textUp : '');
   try{ render(await call(q)); return true; }
   catch(e){
     el.classList.remove('busy');
@@ -723,7 +773,7 @@ async function renderDay(elId, date, when){
   const again = () => renderDay(elId, date, when);
   el.textContent = '';
   if(photo && photo.url){
-    el.insertAdjacentHTML('beforeend', photoTile(big(photo.url, 640), verse));
+    el.insertAdjacentHTML('beforeend', photoTile(big(photo.url, 640), verse, photo.textUp));
     el.querySelector('img').onclick = () => lightbox(photo);
   }
   const cap = document.createElement('p');
@@ -732,9 +782,9 @@ async function renderDay(elId, date, when){
     ? (photo.credit || 'Unknown') + ' · ' + served + ' · ' + when
     : 'No photo stored for ' + served + ' — readers see a tinted card.';
   el.appendChild(cap);
-  // No filter chips on a day that is already live:  phones store the photo at
-  // first open and the edge caches /votd, so a change now reaches almost
-  // nobody.  Tomorrow's tile is where a filter belongs.
+  // No filter chips or verse arrows on a day that is already live:  phones
+  // store the photo at first open and the edge caches /votd, so a change now
+  // reaches almost nobody.  Tomorrow's tile is where those belong.
 
   const btn = document.createElement('button');
   btn.className = 'add';
@@ -847,7 +897,7 @@ async function renderNext(dates){
     return;
   }
   if(photo && photo.url){
-    el.insertAdjacentHTML('beforeend', photoTile(big(photo.url, 640), verse));
+    el.insertAdjacentHTML('beforeend', photoTile(big(photo.url, 640), verse, photo.textUp));
     el.querySelector('img').onclick = () => lightbox(photo);
   }
   const cap = document.createElement('p');
@@ -857,7 +907,20 @@ async function renderNext(dates){
              : 'Staged for ' + date + ' but unreadable — roll again.')
     : 'Nothing staged yet for ' + date + '. The top of the queue is taken at 08:00 UTC (04:00 ET); until then it stays in the queue.';
   el.appendChild(cap);
-  if(photo && photo.url) el.appendChild(filterRow(photo.filter, (name) => refilter(el, date, name, renderNext)));
+  if(photo && photo.url){
+    const row = filterRow(photo.filter, (name) => refilter(el, date, name, renderNext));
+    // Moved on the tile at once, then saved;  a failed save redraws from what
+    // the worker actually holds.  Saves go one after another, so quick clicks
+    // cannot land out of order and leave an earlier position stored.
+    let saving = Promise.resolve();
+    posControls(row, photo.textUp, (v) => {
+      el.querySelector('.ph').style.setProperty('--up', v);
+      saving = saving
+        .then(() => call('/admin/votd-textup?date=' + encodeURIComponent(date) + '&v=' + v))
+        .catch((e) => { alert(e.message); renderNext(); });
+    });
+    el.appendChild(row);
+  }
 
   if(staged){
     // Two ways to move on from a staged photo, and they are not the same
