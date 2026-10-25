@@ -147,7 +147,7 @@
   .fx button{font-size:11px;padding:3px 9px;border-radius:999px;line-height:1.3}
   .fx button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
   .live .fx{padding:0 0 10px}
-  .fx .pos{font-size:11px;color:var(--dim);align-self:center;margin-right:2px}
+  .fx .pos{font-size:11px;color:var(--dim);align-self:center;margin-left:2px}
   .fx .gap{width:8px}
   /* The tile's buttons run full width;  its chips must not. */
   .live .fx button{width:auto}
@@ -456,7 +456,8 @@ function posControls(row, up, onMove){
   upBtn.onclick = () => step(UP_STEP);
   downBtn.onclick = () => step(-UP_STEP);
   show();
-  row.append(gap, lab, upBtn, downBtn);
+  // Arrows before the label, so they stay put while the label changes width.
+  row.append(gap, upBtn, downBtn, lab);
   return row;
 }
 
