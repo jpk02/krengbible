@@ -170,6 +170,23 @@
         pointer-events:none}
   .q button{padding:1px 5px;font-size:11px;color:var(--dim);line-height:1.2}
   .hint{font-size:11px;color:var(--dim);margin:0 0 8px}
+
+  /* Swipe left to archive.  The item slides over an Archive button that sits
+     behind it;  a short swipe leaves the button showing to tap, a long one
+     archives outright.  pan-y keeps vertical scrolling native while the page
+     handles the sideways drag itself. */
+  .sw{position:relative;overflow:hidden;border-radius:12px}
+  .sw.row{border-radius:0}
+  .sw > .swa{position:absolute;top:0;right:0;bottom:0;width:100%;display:flex;justify-content:flex-end;
+             align-items:stretch;background:#5b6470}
+  .sw > .swa button{border:0;border-radius:0;background:transparent;color:#fff;font-weight:600;
+                    font-size:13px;width:96px;padding:0;cursor:pointer}
+  .sw > .swi{position:relative;touch-action:pan-y;transition:transform .2s ease}
+  .sw > .swi.dragging{transition:none}
+  /* The archive list, under the queue. */
+  .q.ar{cursor:default}
+  .q.ar .from{color:var(--dim)}
+  .q.ar button.go{color:var(--ink);font-weight:600}
   .live .ph{border-radius:8px}
   .live img{width:100%;aspect-ratio:var(--votd-crop);object-fit:cover;border-radius:8px;display:block;
             background:var(--line);cursor:zoom-in}
@@ -284,6 +301,11 @@
     <div id="next" class="live"><div class="empty">Loading…</div></div>
     <h2>Queue — <span id="qn">0</span></h2>
     <div id="queue"></div>
+    <!-- Photos kept aside with a swipe:  off the board and out of the queue,
+         never suggested again, and never spent by a random roll, until they
+         are queued or sent back from here. -->
+    <h2>Archive — <span id="an">0</span></h2>
+    <div id="archive"></div>
   </aside>
 </div>
 
@@ -549,10 +571,18 @@ function render(b, keepView){
     el.insertBefore(row, el.querySelector('.row'));
     el.querySelector('.add').onclick = () => act(el, 'queue', c.slug, filter, up);
     el.querySelector('.x').onclick   = async () => {
-      if(await act(el, 'reject', c.slug)) offerUndo(c.slug, idx);
+      if(await act(el, 'reject', c.slug)){
+        offerUndo('Photo blocked.', '/admin/votd-act?action=unreject&slug=' + encodeURIComponent(c.slug) + '&at=' + idx);
+      }
     };
-    grid.appendChild(el);
+    grid.appendChild(swipeToArchive(el, false, async () => {
+      if(await act(el, 'archive', c.slug)){
+        offerUndo('Photo archived.', '/admin/votd-act?action=unarchive&to=board&slug=' + encodeURIComponent(c.slug) + '&at=' + idx);
+      }
+    }));
   });
+
+  renderArchive(b.archive || []);
 
   const q = document.getElementById('queue');
   queueDepth = b.queue.length;
@@ -566,6 +596,7 @@ function render(b, keepView){
   if(b.queue.length > 1){
     q.innerHTML = '<p class="hint">Drag to reorder. The top row is taken at 08:00 UTC (04:00 ET) and becomes Tomorrow. Click a thumbnail to enlarge.</p>';
   }
+  q.insertAdjacentHTML('beforeend', '<p class="hint">Swipe a row left to archive it.</p>');
   b.queue.forEach((item, i) => {
     const el = document.createElement('div');
     el.className = 'q';
@@ -601,8 +632,112 @@ function render(b, keepView){
     el.ondragleave = () => el.classList.remove('over');
     el.ondrop      = (e) => { e.preventDefault(); el.classList.remove('over');
                               if(dragging && dragging !== item.slug) moveTo(dragging, item.slug); };
-    q.appendChild(el);
+    q.appendChild(swipeToArchive(el, true, async () => {
+      if(await act(el, 'archive', item.slug)){
+        offerUndo('Photo archived.', '/admin/votd-act?action=unarchive&to=queue&slug=' + encodeURIComponent(item.slug) + '&at=' + i);
+      }
+    }));
   });
+}
+
+/* The archive, newest first.  Each row can go back into the queue (at the
+ * end, with the filter and verse position it was archived with) or back onto
+ * the board to be judged again.  ✕ blocks it for good, as on the board. */
+function renderArchive(list){
+  const box = document.getElementById('archive');
+  document.getElementById('an').textContent = list.length;
+  box.innerHTML = '';
+  if(!list.length){
+    box.innerHTML = '<div class="empty">Nothing archived. Swipe a photo on the board, or a queue row, to the left to keep it here.</div>';
+    return;
+  }
+  for(const item of list){
+    const el = document.createElement('div');
+    el.className = 'q ar';
+    el.innerHTML =
+      '<img src="' + big(item.url, 200) + '" alt="">' +
+      '<span class="t">' + esc(item.alt || 'Untitled') +
+        (item.filter && item.filter !== 'original' ? ' · ' + esc(item.filter) : '') +
+        (item.from === 'queue' ? ' <span class="from">· was queued</span>' : '') + '</span>' +
+      '<button class="go" title="Add to the end of the queue">Queue</button>' +
+      '<button class="back" title="Put back on the board">Board</button>' +
+      '<button class="rm" title="Never show this photo">✕</button>';
+    el.querySelector('img').onclick = () => lightbox(item);
+    el.querySelector('.go').onclick = () => act(el, 'queue', item.slug);
+    el.querySelector('.back').onclick = () => act(el, 'unarchive', item.slug);
+    el.querySelector('.rm').onclick = () => act(el, 'reject', item.slug);
+    box.appendChild(el);
+  }
+}
+
+/**
+ * Wrap `el` so a swipe to the left archives it.
+ *
+ * The item slides over an Archive button.  Let go after a short swipe and it
+ * rests open with the button showing, to tap;  swipe past half its width and
+ * it archives without the tap.  A vertical move is left to the page, so the
+ * board still scrolls, and a swipe never also counts as a tap on whatever it
+ * started on.  Touch and pen only on queue rows (`row`), because a mouse
+ * there already drags to reorder;  anywhere on the board a mouse can swipe
+ * too.  One item open at a time.
+ */
+const ACT_W = 96;
+let openSwipe = null;
+function swipeToArchive(el, row, onArchive){
+  const wrap = document.createElement('div');
+  wrap.className = 'sw' + (row ? ' row' : '');
+  const back = document.createElement('div');
+  back.className = 'swa';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Archive';
+  back.appendChild(btn);
+  el.classList.add('swi');
+  wrap.append(back, el);
+
+  let x0 = 0, y0 = 0, base = 0, off = 0, mode = null, id = null;
+  const place = (v) => { off = v; el.style.transform = v ? 'translateX(' + v + 'px)' : ''; };
+  const close = () => { place(0); if(openSwipe === close) openSwipe = null; };
+  const archive = () => { place(-wrap.offsetWidth); onArchive().then(() => close()); };
+  btn.onclick = archive;
+
+  el.addEventListener('pointerdown', (e) => {
+    if(row && e.pointerType === 'mouse') return;
+    if(e.pointerType === 'mouse' && e.button !== 0) return;
+    if(openSwipe && openSwipe !== close) openSwipe();
+    x0 = e.clientX; y0 = e.clientY; base = off; mode = 'pending'; id = e.pointerId;
+  });
+  el.addEventListener('pointermove', (e) => {
+    if(e.pointerId !== id || !mode || mode === 'scroll') return;
+    const dx = e.clientX - x0, dy = e.clientY - y0;
+    if(mode === 'pending'){
+      if(Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)){ mode = 'scroll'; return; }
+      if(Math.abs(dx) < 10) return;
+      mode = 'swipe';
+      el.classList.add('dragging');
+      try{ el.setPointerCapture(id); }catch(_){}
+    }
+    place(Math.max(-wrap.offsetWidth, Math.min(0, base + dx)));
+  });
+  const end = (e) => {
+    if(e.pointerId !== id) return;
+    const was = mode;
+    mode = null; id = null;
+    if(was !== 'swipe') return;
+    el.classList.remove('dragging');
+    // The click that follows a swipe is not a tap on the photo or a button.
+    // Removed again shortly, since a touch swipe often sends no click at all
+    // and a lingering blocker would swallow the next real tap.
+    const stop = (c) => { c.stopPropagation(); c.preventDefault(); };
+    el.addEventListener('click', stop, true);
+    setTimeout(() => el.removeEventListener('click', stop, true), 400);
+    if(-off > wrap.offsetWidth / 2) archive();
+    else if(-off > ACT_W / 2){ place(-ACT_W); openSwipe = close; }
+    else close();
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', (e) => { if(e.pointerId === id){ mode = null; id = null; el.classList.remove('dragging'); close(); } });
+  return wrap;
 }
 
 // Full-size view for a queued photo — the 52px rail thumbnail is a locator,
@@ -661,21 +796,22 @@ async function act(el, action, slug, filter, textUp){
   }
 }
 
-/* Undo for the ✕ on a candidate.  A block is permanent and a mis-tap is easy,
- * so for a few seconds after one, a bar offers to take it back:  the worker
- * unblocks the photo and puts it back where it was on the board (`at`).
- * One at a time;  a second ✕ replaces the offer with its own. */
+/* Undo for a block or an archive.  A block is permanent, a swipe is easy to
+ * make by accident, and a mis-tap is easy, so for a few seconds after one a
+ * bar offers to take it back:  `undoPath` is the worker call that puts the
+ * photo back where it was (`at`), on the board or in the queue.  One at a
+ * time;  a second action replaces the offer with its own. */
 let undoTimer = null;
-function offerUndo(slug, at){
+function offerUndo(message, undoPath){
   const bar = document.getElementById('undo');
-  bar.querySelector('.msg').textContent = 'Photo blocked.';
+  bar.querySelector('.msg').textContent = message;
   bar.classList.add('on');
   const btn = bar.querySelector('button');
   btn.disabled = false;
   btn.onclick = async () => {
     btn.disabled = true;
     try{
-      render(await call('/admin/votd-act?action=unreject&slug=' + encodeURIComponent(slug) + '&at=' + at));
+      render(await call(undoPath));
       hideUndo();
     }catch(e){
       btn.disabled = false;

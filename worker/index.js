@@ -4733,9 +4733,11 @@ async function votdBoard(env, n = 10) {
   const used = await votdReadJson(env, 'votd_used', {});
   const rejected = await votdReadJson(env, 'votd_rejected', {});
   const queue = await votdReadQueue(env);
+  const archive = await votdReadJson(env, 'votd_archive', []) || [];
   const seen = new Set([
     ...Object.keys(used || {}), ...Object.keys(rejected || {}),
     ...(queue || []).map((q) => q.slug),
+    ...archive.map((a) => a && a.slug),
   ]);
 
   // `votd_candidates` is persisted, so it can still hold Unsplash+ photos
@@ -4778,6 +4780,7 @@ async function votdBoard(env, n = 10) {
     /** Bench depth, so the picker can say when a refill is due or failing. */
     bench: cands.length,
     queue: queue || [],
+    archive,
     usedCount: Object.keys(used || {}).length,
     rejectedCount: Object.keys(rejected || {}).length,
     // Why the board is short, when it is.  Without this a quota failure looks
@@ -4811,7 +4814,8 @@ async function votdSendChooserEmail(dateET, staged, env) {
   const usedMap = await votdReadJson(env, 'votd_used', {});
   const rejectedMap = await votdReadJson(env, 'votd_rejected', {});
   const queue = await votdReadQueue(env);
-  const seen = new Set([...Object.keys(usedMap || {}), ...Object.keys(rejectedMap || {}), ...(queue || []).map(q => q.slug)]);
+  const archived = (await votdReadJson(env, 'votd_archive', []) || []).map((a) => a && a.slug);
+  const seen = new Set([...Object.keys(usedMap || {}), ...Object.keys(rejectedMap || {}), ...(queue || []).map(q => q.slug), ...archived]);
   const cands = await votdRollCandidates(10, seen, env);
 
   const rows = [];
@@ -5215,7 +5219,10 @@ async function votdStagePhoto(dateET, env) {
 
   const usedMap = await votdReadJson(env, 'votd_used', {});
   const rejectedMap = await votdReadJson(env, 'votd_rejected', {});
-  const seen = new Set([...Object.keys(usedMap || {}), ...Object.keys(rejectedMap || {})]);
+  // Archived photos are being kept for a day of their own choosing, so a
+  // random roll must not spend one.
+  const archived = (await votdReadJson(env, 'votd_archive', []) || []).map((a) => a && a.slug);
+  const seen = new Set([...Object.keys(usedMap || {}), ...Object.keys(rejectedMap || {}), ...archived]);
   const photo = await votdRollPhoto(null, seen, env);
 
   // Only stage a REAL photo.  votdRollPhoto returns null both when every roll
@@ -5870,11 +5877,60 @@ Only output valid JSON, no markdown, no preamble.`;
           return json(await votdBoard(env, 10));
         }
 
-        const rec = (cands || []).find((c) => c.slug === slug)
-          || (queued || []).find((q) => q.slug === slug);
-        if (!rec) return json({ error: 'unknown slug' }, 400);
+        // Put an archived photo back where it was taken from:  the board
+        // (?to=board, the default) or the queue (?to=queue), at `at`.  Both
+        // the swipe's Undo and the archive list's "Back to board" use this.
+        if (action === 'unarchive') {
+          const archive = await votdReadJson(env, 'votd_archive', []) || [];
+          const kept = archive.find((a) => a && a.slug === slug);
+          if (!kept) return json({ error: 'nothing to undo' }, 400);
+          await votdWriteJson(env, 'votd_archive', archive.filter((a) => a && a.slug !== slug));
+          const { archivedAt: _a, from: _f, ...photo } = kept;
+          const at = Math.max(0, parseInt(url.searchParams.get('at') || '0', 10) || 0);
+          if (url.searchParams.get('to') === 'queue') {
+            const queue = await votdReadJson(env, 'votd_queue', []) || [];
+            if (!queue.some((q) => q && q.slug === slug)) {
+              queue.splice(Math.min(at, queue.length), 0, photo);
+              await votdWriteJson(env, 'votd_queue', queue);
+            }
+          } else {
+            const list = (cands || []).filter((c) => c && c.slug !== slug);
+            list.splice(Math.min(at, list.length), 0, photo);
+            await votdWriteJson(env, 'votd_candidates', list);
+          }
+          return json(await votdBoard(env, 10));
+        }
 
-        if (action === 'reject') {
+        const archiveList = await votdReadJson(env, 'votd_archive', []) || [];
+        const rec = (cands || []).find((c) => c.slug === slug)
+          || (queued || []).find((q) => q.slug === slug)
+          || archiveList.find((a) => a && a.slug === slug);
+        if (!rec) return json({ error: 'unknown slug' }, 400);
+        // A photo leaves the archive whatever is done with it next:  queued or
+        // blocked, it is no longer being kept aside.
+        const leaveArchive = async () => {
+          if (archiveList.some((a) => a && a.slug === slug)) {
+            await votdWriteJson(env, 'votd_archive', archiveList.filter((a) => a && a.slug !== slug));
+          }
+        };
+
+        if (action === 'archive') {
+          // Kept aside:  off the board and out of the queue, never suggested
+          // again, and never spent by a random roll, until it is queued or
+          // sent back from the archive list.  Newest first.  A queued photo
+          // keeps its filter and verse position;  `from` says which list it
+          // left, so the archive list can say so.
+          if (!archiveList.some((a) => a && a.slug === slug)) {
+            const from = (queued || []).some((q) => q.slug === slug) ? 'queue' : 'board';
+            archiveList.unshift({ ...rec, from, archivedAt: new Date().toISOString() });
+            await votdWriteJson(env, 'votd_archive', archiveList);
+          }
+          const queue = await votdReadJson(env, 'votd_queue', []) || [];
+          if (queue.some((q) => q && q.slug === slug)) {
+            await votdWriteJson(env, 'votd_queue', queue.filter((q) => q && q.slug !== slug));
+          }
+        } else if (action === 'reject') {
+          await leaveArchive();
           const rejected = await votdReadJson(env, 'votd_rejected', {});
           // topic and colour ride along for the photo report.  A block used to
           // store only who took it and what it showed, which is enough to stop
@@ -5892,11 +5948,19 @@ Only output valid JSON, no markdown, no preamble.`;
         } else if (action === 'queue') {
           const queue = await votdReadJson(env, 'votd_queue', []);
           const used = await votdReadJson(env, 'votd_used', {});
+          await leaveArchive();
           if (!queue.some((q) => q.slug === slug) && !used[slug]) {
             // The filter chosen on the board rides in with the photo — see
-            // VOTD_FILTERS.  Unknown or absent means the original.
-            const filtered = votdWithFilter(rec, url.searchParams.get('filter') || 'original');
-            const placed = votdWithTextUp(filtered, url.searchParams.get('textUp'));
+            // VOTD_FILTERS.  Unknown or absent means the original.  A photo
+            // queued from the archive keeps what it was archived with unless
+            // the request names something else.
+            const { archivedAt: _a, from: _f, ...base } = rec;
+            const filtered = url.searchParams.has('filter')
+              ? votdWithFilter(base, url.searchParams.get('filter') || 'original')
+              : base;
+            const placed = url.searchParams.has('textUp') || !(base.textUp > 0)
+              ? votdWithTextUp(filtered, url.searchParams.get('textUp'))
+              : filtered;
             queue.push({ ...placed, source: 'picker', addedAt: new Date().toISOString() });
             await votdWriteJson(env, 'votd_queue', queue);
           }
