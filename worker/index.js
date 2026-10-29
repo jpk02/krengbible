@@ -5914,6 +5914,21 @@ Only output valid JSON, no markdown, no preamble.`;
           }
         };
 
+        // A photo as it goes into the queue.  The filter chosen on the board
+        // rides in with it — see VOTD_FILTERS;  unknown or absent means the
+        // original.  A photo queued from the archive keeps the filter and
+        // verse position it was archived with unless the request names others.
+        const queueRecord = () => {
+          const { archivedAt: _a, from: _f, ...base } = rec;
+          const filtered = url.searchParams.has('filter')
+            ? votdWithFilter(base, url.searchParams.get('filter') || 'original')
+            : base;
+          const placed = url.searchParams.has('textUp') || !(base.textUp > 0)
+            ? votdWithTextUp(filtered, url.searchParams.get('textUp'))
+            : filtered;
+          return { ...placed, source: 'picker', addedAt: new Date().toISOString() };
+        };
+
         if (action === 'archive') {
           // Kept aside:  off the board and out of the queue, never suggested
           // again, and never spent by a random roll, until it is queued or
@@ -5950,20 +5965,24 @@ Only output valid JSON, no markdown, no preamble.`;
           const used = await votdReadJson(env, 'votd_used', {});
           await leaveArchive();
           if (!queue.some((q) => q.slug === slug) && !used[slug]) {
-            // The filter chosen on the board rides in with the photo — see
-            // VOTD_FILTERS.  Unknown or absent means the original.  A photo
-            // queued from the archive keeps what it was archived with unless
-            // the request names something else.
-            const { archivedAt: _a, from: _f, ...base } = rec;
-            const filtered = url.searchParams.has('filter')
-              ? votdWithFilter(base, url.searchParams.get('filter') || 'original')
-              : base;
-            const placed = url.searchParams.has('textUp') || !(base.textUp > 0)
-              ? votdWithTextUp(filtered, url.searchParams.get('textUp'))
-              : filtered;
-            queue.push({ ...placed, source: 'picker', addedAt: new Date().toISOString() });
+            queue.push(queueRecord());
             await votdWriteJson(env, 'votd_queue', queue);
           }
+        } else if (action === 'top') {
+          // To the head of the queue -- next to be staged -- from wherever the
+          // photo is:  moved up if it is queued already, otherwise queued
+          // there from the board or the archive.
+          await leaveArchive();
+          const queue = await votdReadJson(env, 'votd_queue', []) || [];
+          const at = queue.findIndex((q) => q && q.slug === slug);
+          if (at >= 0) {
+            queue.unshift(...queue.splice(at, 1));
+          } else {
+            const used = await votdReadJson(env, 'votd_used', {});
+            if (used[slug]) return json({ error: 'already used' }, 400);
+            queue.unshift(queueRecord());
+          }
+          await votdWriteJson(env, 'votd_queue', queue);
         } else if (action === 'refilter') {
           // Change a QUEUED photo's filter in place.  Resolves against the
           // queue, like unqueue, since that is where the photo is.

@@ -181,9 +181,13 @@
      between rows moves from the row to the wrapper. */
   .sw.sw-row{border-radius:0;border-bottom:1px solid var(--line)}
   .sw.sw-row:last-child{border-bottom:0}
-  .sw > .swa{position:absolute;top:0;right:0;bottom:0;width:100%;display:flex;justify-content:flex-end;
-             align-items:stretch;background:#5b6470;visibility:hidden}
+  /* Two halves:  swiping left uncovers the right half (Archive, grey),
+     swiping right the left half (To top, green). */
+  .sw > .swa{position:absolute;inset:0;display:flex;visibility:hidden}
   .sw.moved > .swa{visibility:visible}
+  .sw > .swa > div{flex:1;display:flex;align-items:stretch}
+  .sw > .swa > .l{background:#2f7d4f;justify-content:flex-start}
+  .sw > .swa > .r{background:#5b6470;justify-content:flex-end}
   .sw > .swa button{border:0;border-radius:0;background:transparent;color:#fff;font-weight:600;
                     font-size:13px;width:96px;padding:0;cursor:pointer}
   .sw > .swi{position:relative;touch-action:pan-y;transition:transform .2s ease;
@@ -581,10 +585,17 @@ function render(b, keepView){
         offerUndo('Photo blocked.', '/admin/votd-act?action=unreject&slug=' + encodeURIComponent(c.slug) + '&at=' + idx);
       }
     };
-    grid.appendChild(swipeToArchive(el, false, async () => {
-      if(await act(el, 'archive', c.slug)){
-        offerUndo('Photo archived.', '/admin/votd-act?action=unarchive&to=board&slug=' + encodeURIComponent(c.slug) + '&at=' + idx);
-      }
+    grid.appendChild(swipeActions(el, false, {
+      left: { label: 'Archive', run: async () => {
+        if(await act(el, 'archive', c.slug)){
+          offerUndo('Photo archived.', '/admin/votd-act?action=unarchive&to=board&slug=' + encodeURIComponent(c.slug) + '&at=' + idx);
+        }
+      }},
+      // Straight to the head of the queue, with this tile's filter and verse
+      // position, as "Add to queue" would take them.
+      right: { label: 'To top', run: async () => {
+        if(await act(el, 'top', c.slug, filter, up)) offerUndo('Photo is next in the queue.', null);
+      }},
     }));
   });
 
@@ -602,7 +613,7 @@ function render(b, keepView){
   if(b.queue.length > 1){
     q.innerHTML = '<p class="hint">Drag to reorder. The top row is taken at 08:00 UTC (04:00 ET) and becomes Tomorrow. Click a thumbnail to enlarge.</p>';
   }
-  q.insertAdjacentHTML('beforeend', '<p class="hint">Swipe a row left, then tap Archive, to keep it aside.</p>');
+  q.insertAdjacentHTML('beforeend', '<p class="hint">Swipe a row left for Archive, right for To top.</p>');
   b.queue.forEach((item, i) => {
     const el = document.createElement('div');
     el.className = 'q';
@@ -638,10 +649,19 @@ function render(b, keepView){
     el.ondragleave = () => el.classList.remove('over');
     el.ondrop      = (e) => { e.preventDefault(); el.classList.remove('over');
                               if(dragging && dragging !== item.slug) moveTo(dragging, item.slug); };
-    q.appendChild(swipeToArchive(el, true, async () => {
-      if(await act(el, 'archive', item.slug)){
-        offerUndo('Photo archived.', '/admin/votd-act?action=unarchive&to=queue&slug=' + encodeURIComponent(item.slug) + '&at=' + i);
-      }
+    q.appendChild(swipeActions(el, true, {
+      left: { label: 'Archive', run: async () => {
+        if(await act(el, 'archive', item.slug)){
+          offerUndo('Photo archived.', '/admin/votd-act?action=unarchive&to=queue&slug=' + encodeURIComponent(item.slug) + '&at=' + i);
+        }
+      }},
+      // The top row is already at the top.  Undo puts the old order back.
+      right: i === 0 ? null : { label: 'To top', run: async () => {
+        const before = order.slice();
+        if(await act(el, 'top', item.slug)){
+          offerUndo('Moved to the top of the queue.', '/admin/votd-act?action=reorder&slugs=' + before.map(encodeURIComponent).join(','));
+        }
+      }},
     }));
   });
 }
@@ -657,6 +677,7 @@ function renderArchive(list){
     box.innerHTML = '<div class="empty">Nothing archived. Swipe a photo on the board, or a queue row, to the left and tap Archive to keep it here.</div>';
     return;
   }
+  box.insertAdjacentHTML('beforeend', '<p class="hint">Swipe a row right for To top.</p>');
   for(const item of list){
     const el = document.createElement('div');
     el.className = 'q ar';
@@ -672,21 +693,28 @@ function renderArchive(list){
     el.querySelector('.go').onclick = () => act(el, 'queue', item.slug);
     el.querySelector('.back').onclick = () => act(el, 'unarchive', item.slug);
     el.querySelector('.rm').onclick = () => act(el, 'reject', item.slug);
-    box.appendChild(el);
+    box.appendChild(swipeActions(el, false, {
+      right: { label: 'To top', run: async () => {
+        if(await act(el, 'top', item.slug)) offerUndo('Photo is next in the queue.', null);
+      }},
+    }));
   }
 }
 
 /**
- * Wrap `el` so a swipe to the left reveals an Archive button.
+ * Wrap `el` so a sideways swipe reveals an action button behind it:  `left`
+ * is uncovered by swiping left (Archive, on the right), `right` by swiping
+ * right (To top, on the left).  Either may be null, and that way is then
+ * locked.  Each is { label, run }, run returning a promise.
  *
- * The swipe only ever OPENS the item;  archiving is the tap on the button.  An
+ * The swipe only ever OPENS the item;  acting is the tap on the button.  An
  * earlier version also archived on a long swipe, and a scroll that drifted
  * sideways was enough to archive a photo nobody meant to touch.  For the same
  * reason a gesture counts as a swipe only when it is clearly sideways -- 16px
  * across before 8px down, and twice as far across as down -- and anything
  * else is left to the page as a scroll.  A tap anywhere else, or a scroll,
  * closes an open item.  Touch and pen only on queue rows (`row`), because a
- * mouse there already drags to reorder;  on the board a mouse can swipe too.
+ * mouse there already drags to reorder;  elsewhere a mouse can swipe too.
  */
 const ACT_W = 96;
 let openSwipe = null;
@@ -696,15 +724,16 @@ document.addEventListener('pointerdown', (e) => {
 }, true);
 window.addEventListener('scroll', closeOpenSwipe, { passive: true });
 
-function swipeToArchive(el, row, onArchive){
+function swipeActions(el, row, acts){
   const wrap = document.createElement('div');
   wrap.className = 'sw' + (row ? ' sw-row' : '');
   const back = document.createElement('div');
   back.className = 'swa';
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.textContent = 'Archive';
-  back.appendChild(btn);
+  const sideL = document.createElement('div');
+  sideL.className = 'l';
+  const sideR = document.createElement('div');
+  sideR.className = 'r';
+  back.append(sideL, sideR);
   el.classList.add('swi');
   wrap.append(back, el);
 
@@ -717,14 +746,25 @@ function swipeToArchive(el, row, onArchive){
   const close = () => {
     place(0);
     // Hidden again once the slide back has finished, not before, or the
-    // button would vanish from under a row still moving.
+    // button would vanish from under an item still moving.
     setTimeout(() => { if(!off) wrap.classList.remove('moved'); }, 220);
     if(openSwipe === close) openSwipe = null;
   };
-  btn.onclick = () => {
-    btn.disabled = true;
-    onArchive().finally(() => { btn.disabled = false; close(); });
+  const button = (side, act) => {
+    if(!act) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = act.label;
+    btn.onclick = () => {
+      btn.disabled = true;
+      act.run().finally(() => { btn.disabled = false; close(); });
+    };
+    side.appendChild(btn);
   };
+  button(sideR, acts.left);
+  button(sideL, acts.right);
+  const minOff = acts.left ? -ACT_W * 1.5 : 0;
+  const maxOff = acts.right ? ACT_W * 1.5 : 0;
 
   el.addEventListener('pointerdown', (e) => {
     if(row && e.pointerType === 'mouse') return;
@@ -742,7 +782,7 @@ function swipeToArchive(el, row, onArchive){
       el.classList.add('dragging');
       try{ el.setPointerCapture(id); }catch(_){}
     }
-    place(Math.max(-ACT_W * 1.5, Math.min(0, base + dx)));
+    place(Math.max(minOff, Math.min(maxOff, base + dx)));
   });
   const end = (e) => {
     if(e.pointerId !== id) return;
@@ -757,6 +797,7 @@ function swipeToArchive(el, row, onArchive){
     el.addEventListener('click', stop, true);
     setTimeout(() => el.removeEventListener('click', stop, true), 400);
     if(-off > ACT_W / 2){ place(-ACT_W); openSwipe = close; }
+    else if(off > ACT_W / 2){ place(ACT_W); openSwipe = close; }
     else close();
   };
   el.addEventListener('pointerup', end);
@@ -834,6 +875,8 @@ let undoTimer = null;
 function offerUndo(message, undoPath){
   const bar = document.getElementById('undo');
   bar.querySelector('.msg').textContent = message;
+  // A notice with nothing to take back (undoPath null) shows no button.
+  bar.querySelector('button').hidden = !undoPath;
   bar.classList.add('on');
   const btn = bar.querySelector('button');
   btn.disabled = false;
