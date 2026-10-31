@@ -1,0 +1,73 @@
+name: VOTD State
+
+# What the verse-of-the-day photo records say right now, read from KV:  the
+# staged photo for each date around today, the undo record for each (which
+# carries WHEN that date's photo last changed, and what it replaced), the head
+# of the queue, and what the used log says about those dates.  For answering
+# "why did this day's photo change?" without the admin secret.
+#
+# READ-ONLY.  Photo slugs, captions, credits and timestamps only.  Each line is
+# also a ::notice:: so it can be read from the run's annotations.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "${CLOUDFLARE_API_TOKEN}" ]; then
+            echo "::error::Repository secret CLOUDFLARE_API_TOKEN is not set."
+            exit 1
+          fi
+
+      - name: Read
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          get() { npx --yes wrangler kv key get --binding=COMMENTARY_KV "$1" --remote 2>/dev/null || true; }
+          mkdir -p "$RUNNER_TEMP/kv"
+          for off in -2 -1 0 1 2; do
+            d=$(TZ=America/New_York date -d "$off day" +%F)
+            get "votdphoto2_$d" > "$RUNNER_TEMP/kv/photo_$d.json"
+            get "votdprev_$d"   > "$RUNNER_TEMP/kv/prev_$d.json"
+          done
+          get votd_queue   > "$RUNNER_TEMP/kv/queue.json"
+          get votd_used    > "$RUNNER_TEMP/kv/used.json"
+          get votd_archive > "$RUNNER_TEMP/kv/archive.json"
+          node - "$RUNNER_TEMP/kv" <<'JS' | tee "$RUNNER_TEMP/out.txt"
+          const fs = require('fs'), path = require('path');
+          const dir = process.argv[2];
+          const read = (f) => { try { const t = fs.readFileSync(path.join(dir, f), 'utf8').trim(); return t ? JSON.parse(t) : null; } catch { return null; } };
+          const slug = (p) => p && (p.slug || (String(p.url || '').match(/photo-[\w-]+/) || [''])[0]);
+          const say = (p) => p ? `${slug(p)} "${(p.alt || '').slice(0, 50)}" by ${p.credit || '?'}` : 'none';
+          const out = (l) => { console.log(l); console.log('::notice::' + l); };
+          const used = read('used.json') || {};
+          const dates = fs.readdirSync(dir).filter((f) => f.startsWith('photo_')).map((f) => f.slice(6, 16)).sort();
+          for (const d of dates) {
+            const p = read(`photo_${d}.json`);
+            const prev = read(`prev_${d}.json`);
+            out(`${d}: ${say(p)}${p && p.textUp ? ' textUp=' + p.textUp : ''}`);
+            if (prev) out(`${d} last changed ${prev.at}: replaced ${say(prev.photo)}${prev.displaced ? ' displaced=' + JSON.stringify(prev.displaced) : ''}`);
+            const s = slug(p);
+            if (s && used[s]) out(`${d} used-log for ${s}: dates=${(used[s].dates || []).join(',')} note=${used[s].note}`);
+          }
+          const q = read('queue.json') || [];
+          out(`queue: ${q.length}; head: ${q.slice(0, 3).map(say).join(' | ')}`);
+          const a = read('archive.json') || [];
+          out(`archive: ${a.length}; newest: ${a.slice(0, 3).map((x) => say(x) + ' at ' + x.archivedAt).join(' | ')}`);
+          JS
+          { echo '## VOTD state'; echo; echo '```'; grep -v '^::' "$RUNNER_TEMP/out.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
