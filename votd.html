@@ -30,7 +30,7 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
        font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-  header{display:flex;align-items:baseline;gap:14px;padding:18px 22px;border-bottom:1px solid var(--line)}
+  header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;padding:18px 22px;border-bottom:1px solid var(--line)}
   h1{font-size:17px;margin:0;font-weight:640;letter-spacing:-.01em}
   .stats{font-size:13px;color:var(--dim)}
   .wrap{padding:22px}
@@ -193,6 +193,9 @@
   .sw > .swi{position:relative;touch-action:pan-y;transition:transform .2s ease;
              width:100%;box-sizing:border-box;margin:0}
   .sw > .swi.dragging{transition:none}
+  /* The row a "Show" lands on, so the eye finds it. */
+  .sw.flash > .swi{animation:flash 1.8s ease}
+  @keyframes flash{0%,40%{box-shadow:inset 0 0 0 2px #2f7d4f;background:#e6f2ea}100%{box-shadow:none}}
   /* The archive list, under the queue. */
   .q.ar{cursor:default}
   .q.ar .from{color:var(--dim)}
@@ -215,7 +218,10 @@
      and `error` for exactly this, but the page used to drop them, so a
      spent Unsplash quota was indistinguishable from a thin harvest —
      the board just showed fewer photos with each pick and said nothing. */
-  .warn{font-size:12px;line-height:1.45;color:#8a5a00;background:#fff6e0;
+  /* Its own line under the header's row:  sharing the row squeezed the title,
+     the counts and the buttons into a column a word wide on a phone. */
+  .warn{flex-basis:100%;box-sizing:border-box;
+        font-size:12px;line-height:1.45;color:#8a5a00;background:#fff6e0;
         border:1px solid #f0d9a0;border-radius:8px;padding:8px 10px;margin:8px 0 0}
 
   /* Sized in viewport UNITS, not inset:0.
@@ -275,7 +281,7 @@
 <div class="report" id="report" hidden></div>
 <div id="boot" class="msg">Loading…</div>
 <div id="lb"><button class="x" type="button" aria-label="Close">✕</button><img alt=""><div class="cap"></div></div>
-<div id="undo" role="status"><span class="msg"></span><button type="button">Undo</button></div>
+<div id="undo" role="status"><span class="msg"></span><button type="button" class="show" hidden>Show</button><button type="button" class="u">Undo</button></div>
 <nav class="tabs" id="tabs" hidden>
   <button type="button" data-tab="pick">Pick photos</button>
   <button type="button" data-tab="review">On screen · Tomorrow · Queue <span id="qtab"></span></button>
@@ -594,7 +600,10 @@ function render(b, keepView){
       // Straight to the head of the queue, with this tile's filter and verse
       // position, as "Add to queue" would take them.
       right: { label: 'To top', run: async () => {
-        if(await act(el, 'top', c.slug, filter, up)) offerUndo('Photo is next in the queue.', null);
+        if(await act(el, 'top', c.slug, filter, up)){
+          offerUndo('Moved to the top of the queue.',
+            '/admin/votd-act?action=unqueue&back=board&slug=' + encodeURIComponent(c.slug) + '&at=' + idx, true);
+        }
       }},
     }));
   });
@@ -659,7 +668,7 @@ function render(b, keepView){
       right: i === 0 ? null : { label: 'To top', run: async () => {
         const before = order.slice();
         if(await act(el, 'top', item.slug)){
-          offerUndo('Moved to the top of the queue.', '/admin/votd-act?action=reorder&slugs=' + before.map(encodeURIComponent).join(','));
+          offerUndo('Moved to the top of the queue.', '/admin/votd-act?action=reorder&slugs=' + before.map(encodeURIComponent).join(','), true);
         }
       }},
     }));
@@ -695,7 +704,10 @@ function renderArchive(list){
     el.querySelector('.rm').onclick = () => act(el, 'reject', item.slug);
     box.appendChild(swipeActions(el, false, {
       right: { label: 'To top', run: async () => {
-        if(await act(el, 'top', item.slug)) offerUndo('Photo is next in the queue.', null);
+        if(await act(el, 'top', item.slug)){
+          offerUndo('Moved to the top of the queue.',
+            '/admin/votd-act?action=archive&slug=' + encodeURIComponent(item.slug), true);
+        }
       }},
     }));
   }
@@ -872,13 +884,19 @@ async function act(el, action, slug, filter, textUp){
  * photo back where it was (`at`), on the board or in the queue.  One at a
  * time;  a second action replaces the offer with its own. */
 let undoTimer = null;
-function offerUndo(message, undoPath){
+function offerUndo(message, undoPath, showsQueueTop){
   const bar = document.getElementById('undo');
   bar.querySelector('.msg').textContent = message;
-  // A notice with nothing to take back (undoPath null) shows no button.
-  bar.querySelector('button').hidden = !undoPath;
+  // A notice with nothing to take back (undoPath null) shows no Undo.
+  bar.querySelector('.u').hidden = !undoPath;
+  // "To top" moves a photo off the screen it was on -- the board or the
+  // archive -- to the queue on the other tab, which read as the photo simply
+  // vanishing.  Show goes there and points at it.
+  const show = bar.querySelector('.show');
+  show.hidden = !showsQueueTop;
+  show.onclick = () => { hideUndo(); showQueueTop(); };
   bar.classList.add('on');
-  const btn = bar.querySelector('button');
+  const btn = bar.querySelector('.u');
   btn.disabled = false;
   btn.onclick = async () => {
     btn.disabled = true;
@@ -893,6 +911,17 @@ function offerUndo(message, undoPath){
   clearTimeout(undoTimer);
   undoTimer = setTimeout(hideUndo, 8000);
 }
+/* Open the queue and light up its first row. */
+function showQueueTop(){
+  showTab('review');
+  const first = document.querySelector('#queue .sw');
+  if(!first) return;
+  first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  first.classList.remove('flash');
+  void first.offsetWidth;
+  first.classList.add('flash');
+}
+
 function hideUndo(){
   clearTimeout(undoTimer);
   document.getElementById('undo').classList.remove('on');

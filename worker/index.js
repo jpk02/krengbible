@@ -5995,6 +5995,17 @@ Only output valid JSON, no markdown, no preamble.`;
           // photo — it simply goes back to being suggestible.
           const queue = await votdReadJson(env, 'votd_queue', []);
           await votdWriteJson(env, 'votd_queue', queue.filter((q) => q.slug !== slug));
+          // ?back=board&at=N — the Undo for "To top" from the board:  the
+          // photo goes back on the board where it was, not just out of the
+          // queue (the board had already dropped it, so it would otherwise
+          // be nowhere to be seen).
+          if (url.searchParams.get('back') === 'board') {
+            const { source: _s, addedAt: _d, ...photo } = rec;
+            const list = (cands || []).filter((c) => c && c.slug !== slug);
+            const at = Math.max(0, parseInt(url.searchParams.get('at') || '0', 10) || 0);
+            list.splice(Math.min(at, list.length), 0, photo);
+            await votdWriteJson(env, 'votd_candidates', list);
+          }
         } else {
           return json({ error: 'bad action' }, 400);
         }
