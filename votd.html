@@ -854,7 +854,7 @@ function commit(next){
   const el = document.getElementById('queue');
   el.style.opacity = '.5';
   call('/admin/votd-act?action=reorder&slugs=' + next.map(encodeURIComponent).join(','))
-    .then(render)
+    .then((b) => render(b, true))
     .catch(e => { alert(e.message); location.reload(); })
     .finally(() => { el.style.opacity = ''; });
 }
@@ -869,7 +869,7 @@ async function act(el, action, slug, filter, textUp){
   const q = '/admin/votd-act?action=' + action + '&slug=' + encodeURIComponent(slug) +
     (filter ? '&filter=' + encodeURIComponent(filter) : '') +
     (textUp > 0 ? '&textUp=' + textUp : '');
-  try{ render(await call(q)); return true; }
+  try{ render(await call(q), true); return true; }
   catch(e){
     el.classList.remove('busy');
     alert(e.stale ? e.message + '\n\nReloading the board.' : e.message);
@@ -901,7 +901,7 @@ function offerUndo(message, undoPath, showsQueueTop){
   btn.onclick = async () => {
     btn.disabled = true;
     try{
-      render(await call(undoPath));
+      render(await call(undoPath), true);
       hideUndo();
     }catch(e){
       btn.disabled = false;
@@ -1027,7 +1027,7 @@ async function renderDay(elId, date, when){
   const btn = document.createElement('button');
   btn.className = 'add';
   btn.textContent = photo ? 'Change this photo' : 'Roll a photo';
-  btn.onclick = () => reroll(btn, served, [again]);
+  btn.onclick = () => reroll(btn, served, [again], false, elId === 'prev' ? 'yesterday' : 'today');
   el.appendChild(btn);
   await undoButton(el, served, [again]);
 }
@@ -1171,12 +1171,12 @@ async function renderNext(dates){
     swap.className = 'add';
     swap.textContent = 'Swap with next';
     swap.title = 'Stage the next queued photo;  this one goes to the front of the queue';
-    swap.onclick = () => reroll(swap, date, [renderNext], true);
+    swap.onclick = () => reroll(swap, date, [renderNext], true, 'tomorrow');
     const drop = document.createElement('button');
     drop.className = 'ghost';
     drop.textContent = 'Replace and drop';
     drop.title = 'Stage the next queued photo;  this one is dropped';
-    drop.onclick = () => reroll(drop, date, [renderNext]);
+    drop.onclick = () => reroll(drop, date, [renderNext], false, 'tomorrow');
     acts.appendChild(swap);
     acts.appendChild(drop);
     el.appendChild(acts);
@@ -1184,7 +1184,7 @@ async function renderNext(dates){
     const btn = document.createElement('button');
     btn.className = 'add';
     btn.textContent = 'Stage now from the queue';
-    btn.onclick = () => reroll(btn, date, [renderNext]);
+    btn.onclick = () => reroll(btn, date, [renderNext], false, 'tomorrow');
     el.appendChild(btn);
   }
   await undoButton(el, date, [renderNext]);
@@ -1212,7 +1212,7 @@ async function undoButton(el, date, after){
     try{
       await call('/admin/votd-undo?date=' + encodeURIComponent(date));
       await Promise.all(after.map((f) => f()));
-      render(await call('/admin/votd-board'));
+      render(await call('/admin/votd-board'), true);
     }catch(e){
       btn.disabled = false;
       btn.textContent = 'Undo';
@@ -1246,7 +1246,23 @@ async function refilter(el, date, name, redraw){
  * The board is re-fetched afterwards because a queued photo that gets staged
  * is REMOVED from the queue, and a stale rail would still show it waiting.
  */
-async function reroll(btn, date, after = [renderLive], keep = false){
+/* `role` names the tile -- 'yesterday', 'today' or 'tomorrow' -- so the date
+ * it was drawn with can be checked against the worker's calendar first.  A
+ * page left open across the 10:00 UTC turnover still shows the old dates, and
+ * its Tomorrow tile's Swap then changed a day already on readers' screens:
+ * that is how a "To top" followed by a Swap replaced a live photo. */
+async function reroll(btn, date, after = [renderLive], keep = false, role = null){
+  if(role){
+    let now = null;
+    try{ now = await pickerDates(); }catch(e){ /* checked again by the worker's own guard */ }
+    if(now && now[role] !== date){
+      alert('This page is out of date:  ' + date + ' is no longer ' + role + ' (the day turns over at 10:00 UTC). Reloading so you act on the right day.');
+      location.reload();
+      return;
+    }
+  }
+  if(role !== 'tomorrow' &&
+     !confirm('Change the photo for ' + date + '?  Readers are already seeing this day.')) return;
   const label = btn.textContent;
   btn.disabled = true;
   btn.textContent = keep ? 'Swapping…' : 'Rolling…';
@@ -1256,7 +1272,7 @@ async function reroll(btn, date, after = [renderLive], keep = false){
       throw new Error('Every roll came back unusable just now — people shots, too dark, or Unsplash+. Nothing was changed. Try again.');
     }
     await Promise.all(after.map((f) => f()));
-    render(await call('/admin/votd-board'));
+    render(await call('/admin/votd-board'), true);
   }catch(e){
     btn.disabled = false;
     btn.textContent = label;
@@ -1330,6 +1346,22 @@ async function showReport(btn){
 }
 document.getElementById('reportBtn').addEventListener('click', (e) => showReport(e.currentTarget));
 
+/* The dates the day tiles were drawn with.  Coming back to the page (a phone
+ * keeps a tab for days) re-reads the calendar, and redraws the tiles and the
+ * board when the day has turned over since. */
+let shownDates = null;
+document.addEventListener('visibilitychange', async () => {
+  if(document.visibilityState !== 'visible' || !shownDates) return;
+  let now;
+  try{ now = await pickerDates(); }catch(e){ return; }
+  if(now.today === shownDates.today && now.tomorrow === shownDates.tomorrow) return;
+  shownDates = now;
+  renderPrev(now);
+  renderLive(now);
+  renderNext(now);
+  call('/admin/votd-board').then((b) => render(b, true)).catch(() => {});
+});
+
 (async () => {
   try{
     render(await call('/admin/votd-board'));
@@ -1339,6 +1371,7 @@ document.getElementById('reportBtn').addEventListener('click', (e) => showReport
     // otherwise straddle 10:00 UTC on exactly the load where it matters, and
     // show the same date twice or skip one.
     const dates = await pickerDates();
+    shownDates = dates;
     renderPrev(dates);
     renderLive(dates);
     renderNext(dates);
