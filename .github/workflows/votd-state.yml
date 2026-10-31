@@ -40,7 +40,7 @@ jobs:
         run: |
           get() { npx --yes wrangler kv key get --binding=COMMENTARY_KV "$1" --remote 2>/dev/null || true; }
           mkdir -p "$RUNNER_TEMP/kv"
-          for off in -2 -1 0 1 2; do
+          for off in -1 0 1 2 3; do
             d=$(TZ=America/New_York date -d "$off day" +%F)
             get "votdphoto2_$d" > "$RUNNER_TEMP/kv/photo_$d.json"
             get "votdprev_$d"   > "$RUNNER_TEMP/kv/prev_$d.json"
@@ -57,13 +57,15 @@ jobs:
           const out = (l) => { console.log(l); console.log('::notice::' + l); };
           const used = read('used.json') || {};
           const dates = fs.readdirSync(dir).filter((f) => f.startsWith('photo_')).map((f) => f.slice(6, 16)).sort();
+          // One line per date:  GitHub keeps only ten annotations a step.
           for (const d of dates) {
             const p = read(`photo_${d}.json`);
             const prev = read(`prev_${d}.json`);
-            out(`${d}: ${say(p)}${p && p.textUp ? ' textUp=' + p.textUp : ''}`);
-            if (prev) out(`${d} last changed ${prev.at}: replaced ${say(prev.photo)}${prev.displaced ? ' displaced=' + JSON.stringify(prev.displaced) : ''}`);
             const s = slug(p);
-            if (s && used[s]) out(`${d} used-log for ${s}: dates=${(used[s].dates || []).join(',')} note=${used[s].note}`);
+            const u = s && used[s];
+            out(`${d}: ${say(p)}${p && p.textUp ? ' textUp=' + p.textUp : ''}` +
+              (u ? ` | used-log: dates=${(u.dates || []).join(',')} note=${u.note}` : ' | not in used-log') +
+              (prev ? ` | last changed ${prev.at}, replacing ${say(prev.photo)}${prev.displaced ? ' (from queue=' + !!prev.displaced.fromQueue + ', kept=' + (prev.displaced.kept || '-') + ')' : ''}` : ' | no change record'));
           }
           const q = read('queue.json') || [];
           out(`queue: ${q.length}; head: ${q.slice(0, 3).map(say).join(' | ')}`);
