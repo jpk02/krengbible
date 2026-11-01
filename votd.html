@@ -273,6 +273,7 @@
   <span class="stats" id="stats"></span>
   <button class="reportbtn" id="reportBtn" type="button">Why am I blocking?</button>
   <button class="reportbtn" id="ovBtn" type="button">Hide verse</button>
+  <button class="reportbtn" id="redrawBtn" type="button" title="Replace the photos on the board with a fresh draw">Redraw board</button>
   <div class="warn" id="warn" hidden></div>
 </header>
 <!-- The report reads the used and blocked lists together and shows only where
@@ -550,6 +551,7 @@ function render(b, keepView){
     'no-key':     'VOTD_UNSPLASH_KEY is not set on the worker, so no new photos can be fetched at all.',
     'forbidden':  'Unsplash rejected the API key. Check VOTD_UNSPLASH_KEY.',
     'network':    'Could not reach Unsplash. Usually transient — try again shortly.',
+    'empty':      'The fresh draw found nothing that passed the filters, so the old board was kept. Try again later.',
     'bad-json':   'Unsplash returned something unreadable. Usually transient.',
   };
   if(b.error){
@@ -1345,6 +1347,24 @@ async function showReport(btn){
   }
 }
 document.getElementById('reportBtn').addEventListener('click', (e) => showReport(e.currentTarget));
+
+/* A fresh board:  the worker drops the unjudged photos and draws new ones
+ * (see 'redraw' in /admin/votd-act).  If the draw comes back empty it keeps
+ * the old board and says why, through the same warning as a short board. */
+document.getElementById('redrawBtn').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  btn.textContent = 'Drawing…';
+  try{
+    render(await call('/admin/votd-act?action=redraw'), true);
+    showTab('pick');
+  }catch(err){
+    alert(err.message);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Redraw board';
+  }
+});
 
 /* The dates the day tiles were drawn with.  Coming back to the page (a phone
  * keeps a tab for days) re-reads the calendar, and redraws the tiles and the

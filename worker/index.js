@@ -6029,6 +6029,22 @@ Only output valid JSON, no markdown, no preamble.`;
           return json(await votdBoard(env, 10));
         }
 
+        // Throw the unjudged board away and draw a fresh one, for when the
+        // search or the filters have changed and the bench still holds photos
+        // drawn the old way.  Nothing is blocked or used by it:  the old ones
+        // simply go back to being findable.  If the fresh draw brings back
+        // nothing at all (the hourly Unsplash limit, say), the old board is
+        // put back rather than leaving it empty.
+        if (action === 'redraw') {
+          await votdWriteJson(env, 'votd_candidates', []);
+          const fresh = await votdBoard(env, 10);
+          if (fresh.candidates.length === 0 && (cands || []).length) {
+            await votdWriteJson(env, 'votd_candidates', cands);
+            return json({ ...(await votdBoard(env, 10)), error: fresh.error || 'empty' });
+          }
+          return json(fresh);
+        }
+
         // Undo a block:  the photo is off the board by now, so it is restored
         // from the record kept with the block, at the position it had (`at`).
         if (action === 'unreject') {
