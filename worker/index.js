@@ -4114,15 +4114,70 @@ function votdTopics(date = new Date()) {
   return [...VOTD_TOPICS_ALL_YEAR, ...VOTD_TOPICS_BY_SEASON[votdSeason(date)]];
 }
 
+/**
+ * How each search topic has fared with the person choosing:  photos kept
+ * (queued, archived, or run after being chosen) against photos blocked.
+ * Every record carries the topic it was found under, so this is a count over
+ * data already stored.  A photo the cron rolled on its own ('auto-rolled') was
+ * never judged, so it is not counted as kept.
+ */
+function votdTopicStats(used, rejected, queue, archive) {
+  const stats = new Map();
+  const bump = (topic, field) => {
+    if (!topic) return;
+    const st = stats.get(topic) || { kept: 0, blocked: 0 };
+    st[field] += 1;
+    stats.set(topic, st);
+  };
+  for (const e of Object.values(used || {})) if (e && e.note !== 'auto-rolled') bump(e.topic, 'kept');
+  for (const q of queue || []) bump(q && q.topic, 'kept');
+  for (const a of archive || []) bump(a && a.topic, 'kept');
+  for (const r of Object.values(rejected || {})) bump(r && r.topic, 'blocked');
+  return stats;
+}
+
 /** `k` DISTINCT topics.  A refill that draws every photo from one topic comes
  *  back as thirty variations of the same scene, which is what a single random
  *  pick per call produced.  Fewer photos from more topics costs exactly the
- *  same number of requests. */
-function votdPickTopics(k) {
+ *  same number of requests.
+ *
+ *  Weighted by what has been KEPT from each topic (votdTopicStats), so the
+ *  board leans toward the scenes that get picked and away from the ones that
+ *  get blocked.  Each topic's keep rate is pulled toward the overall rate until
+ *  it has a record of its own (ten photos' worth), so a new or rarely drawn
+ *  topic is neither favoured nor starved on a handful of judgements.  A topic
+ *  with twenty or more judgements that keeps under 40% of the overall rate is
+ *  dropped -- unless that would leave fewer than `k` to draw from. */
+function votdPickTopics(k, stats) {
   const pool = votdTopics();
+  let weights = pool.map(() => 1);
+  if (stats && stats.size) {
+    let kept = 0, judged = 0;
+    for (const st of stats.values()) { kept += st.kept; judged += st.kept + st.blocked; }
+    const overall = (kept + 1) / (judged + 2);
+    const PRIOR = 10;
+    weights = pool.map((t) => {
+      const st = stats.get(t) || { kept: 0, blocked: 0 };
+      const n = st.kept + st.blocked;
+      const rate = (st.kept + PRIOR * overall) / (n + PRIOR);
+      return n >= 20 && rate < overall * 0.4 ? 0 : rate;
+    });
+    if (weights.filter((w) => w > 0).length < k) {
+      weights = weights.map((w) => w || overall * 0.1);
+    }
+  }
   const out = [];
-  while (out.length < k && pool.length) {
-    out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  const idx = pool.map((_, i) => i);
+  while (out.length < k && idx.length) {
+    const total = idx.reduce((sum, i) => sum + weights[i], 0);
+    let r = Math.random() * total;
+    let at = 0;
+    for (; at < idx.length - 1; at++) {
+      r -= weights[idx[at]];
+      if (r <= 0) break;
+    }
+    out.push(pool[idx[at]]);
+    idx.splice(at, 1);
   }
   return out;
 }
@@ -4301,6 +4356,58 @@ const votdFetchPhotos = async (count, env, topic) => {
 };
 
 const votdFetchOnePhoto = async (env) => (await votdFetchPhotos(1, env)).photos[0] || null;
+
+/**
+ * Photos for the picker's board and the chooser email:  Unsplash SEARCH,
+ * ranked by relevance, rather than photos/random.
+ *
+ * Random gave every photo matching a topic the same chance, so the board was
+ * mostly whatever happened to be tagged "hills" -- nine in ten were blocked.
+ * Search puts the strongest, best-liked photos for a query first.  Each topic
+ * keeps its own page in `votd_search_pages`, so successive refills walk down
+ * the ranking instead of drawing the same top page again;  after
+ * VOTD_SEARCH_MAX_PAGE pages (where the ranking has run out of its best) or
+ * the last page, it starts again from the top, and the seen filter skips what
+ * has already been judged.  `pages` is that map, read and written by the
+ * caller once per refill.  Same filters, same normalized records, one request
+ * per call as before.
+ *
+ * The one-off re-roll (votdRollPhoto) still draws at random:  it runs only
+ * when the queue is empty, and wants any acceptable photo at once.
+ */
+/* Twelve a page, so one refill's three topics each contribute a share of the
+ * bench instead of the first topic's page filling it and the rest of that
+ * page being skipped;  twelve pages, so a topic is drawn from its best 144. */
+const VOTD_SEARCH_PER_PAGE = 12;
+const VOTD_SEARCH_MAX_PAGE = 12;
+const votdSearchPhotos = async (env, topic, pages) => {
+  const key = env && env.VOTD_UNSPLASH_KEY;
+  if (!key) return { photos: [], error: 'no-key' };
+  const page = Math.max(1, (pages[topic] | 0) || 1);
+  let r;
+  try {
+    r = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(topic)}` +
+      `&orientation=landscape&content_filter=high&order_by=relevant&per_page=${VOTD_SEARCH_PER_PAGE}&page=${page}&client_id=${key}`
+    );
+  } catch {
+    return { photos: [], error: 'network' };
+  }
+  if (r.status === 403) {
+    const remaining = r.headers.get('x-ratelimit-remaining');
+    return { photos: [], error: remaining === '0' ? 'rate-limit' : 'forbidden' };
+  }
+  if (!r.ok) return { photos: [], error: `http-${r.status}` };
+  let j;
+  try {
+    j = await r.json();
+  } catch {
+    return { photos: [], error: 'bad-json' };
+  }
+  const last = Math.min(VOTD_SEARCH_MAX_PAGE, Math.max(1, j.total_pages | 0));
+  pages[topic] = page >= last ? 1 : page + 1;
+  return { photos: Array.isArray(j.results) ? j.results : [], error: null };
+};
 
 /**
  * One photo's BlurHash, by its Unsplash id.
@@ -4666,9 +4773,18 @@ async function votdRollCandidates(n, seen, env) {
   // Batched: 30 per call rather than one, so filling this costs a couple of
   // requests instead of dozens.  Bounded rounds so a quota failure returns
   // promptly rather than retrying into a wall.
-  const topics = votdPickTopics(3);
+  // Searched best first, from topics weighted by what has been kept -- see
+  // votdSearchPhotos and votdPickTopics.
+  const stats = votdTopicStats(
+    await votdReadJson(env, 'votd_used', {}),
+    await votdReadJson(env, 'votd_rejected', {}),
+    await votdReadJson(env, 'votd_queue', []),
+    await votdReadJson(env, 'votd_archive', []),
+  );
+  const topics = votdPickTopics(3, stats);
+  const pages = (await votdReadJson(env, 'votd_search_pages', {})) || {};
   for (let round = 0; round < topics.length && picks.length < n; round++) {
-    const { photos, error } = await votdFetchPhotos(15, env, topics[round]);
+    const { photos, error } = await votdSearchPhotos(env, topics[round], pages);
     if (error) break;
     for (const pd of photos) {
       if (picks.length >= n) break;
@@ -4680,6 +4796,7 @@ async function votdRollCandidates(n, seen, env) {
       picks.push(votdNormalize(pd, topics[round]));
     }
   }
+  await votdWriteJson(env, 'votd_search_pages', pages);
   // Parked so the emailed links can resolve a slug back to a full record —
   // the email itself carries only slugs, never whole photo objects in a URL.
   //
@@ -4758,9 +4875,12 @@ async function votdBoard(env, n = 10) {
     // Three rounds of 15 across three DIFFERENT topics rather than one round
     // of 30 from one.  Same request count, but the bench ends up mixed instead
     // of thirty near-identical frames from whichever topic happened to win.
-    const topics = votdPickTopics(3);
+    // Searched best first, from topics weighted by what has been kept -- see
+    // votdSearchPhotos and votdPickTopics.
+    const topics = votdPickTopics(3, votdTopicStats(used, rejected, queue, archive));
+    const pages = (await votdReadJson(env, 'votd_search_pages', {})) || {};
     for (let round = 0; round < topics.length && cands.length < VOTD_BENCH; round++) {
-      const { photos, error } = await votdFetchPhotos(15, env, topics[round]);
+      const { photos, error } = await votdSearchPhotos(env, topics[round], pages);
       if (error) { fetchError = error; break; }
       for (const pd of photos) {
         if (cands.length >= VOTD_BENCH) break;
@@ -4772,6 +4892,7 @@ async function votdBoard(env, n = 10) {
         cands.push(votdNormalize(pd, topics[round]));
       }
     }
+    await votdWriteJson(env, 'votd_search_pages', pages);
   }
   await votdWriteJson(env, 'votd_candidates', cands);
   return {
