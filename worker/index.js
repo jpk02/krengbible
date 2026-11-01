@@ -4030,22 +4030,25 @@ async function handleKoreanSearch(env, url, cors) {
 // Winter topics name the sun or a clear sky for the same reason:  a snowy
 // scene under cloud is grey, and the brightness gate below drops it.
 const VOTD_TOPICS_ALL_YEAR = [
-  // sun
+  // sun.  Soft light, not strong sun:  the picker prefers gentle, quiet
+  // photos and clean compositions over a blazing sky, so 'sunbeams over
+  // rolling countryside' went, and the searches added for this lean on soft
+  // and calm rather than golden hour and sunrise.
   'scenic landscape golden hour sunlight',
   'sunrise over green valley landscape',
-  'sunbeams over rolling countryside',
-  'golden light over rolling hills sunrise',
   // hills
   'rolling green hills scenic landscape',
   'mountain valley landscape clear day',
   'green hillside overlooking valley',
   'scenic highland vista sunlight',
-  // More of what the picker keeps most:  highland vistas in golden light and
-  // at sunrise (see the VOTD Topics workflow for the counts behind this).
-  'misty highland valley golden light',
-  'mountain ridge sunrise vista',
-  'golden hour mountain valley landscape',
-  'sunlit highland meadow panorama',
+  // soft and clean:  highland vistas (kept most -- see the VOTD Topics
+  // workflow) in gentle light, and simple, uncluttered scenes.
+  'misty highland valley soft light',
+  'soft morning light rolling hills minimal',
+  'gentle light mountain valley serene',
+  'calm minimal landscape pastel sky',
+  'quiet meadow soft light clean landscape',
+  'pastel sky over green hills',
   // pasture.  'green pasture rolling countryside scenic' was dropped:  none
   // of its 39 photos was kept.
   'lush pasture valley sunlight landscape',
@@ -4090,8 +4093,8 @@ const VOTD_TOPICS_BY_SEASON = {
     'autumn foliage mountain valley sunlight',
     'autumn hillside golden trees sunlight',
     'golden autumn meadow landscape',
-    'autumn highland vista golden hour',
-    'golden autumn mountain sunrise',
+    'soft autumn hills muted colors',
+    'calm autumn valley soft morning light',
     'autumn lake fall colors clear sky',
     'harvest fields autumn countryside sunlight'
   ],
@@ -4202,9 +4205,12 @@ const VOTD_PEOPLE_KEYWORDS = [
 // VOTD backgrounds bright and hopeful.  Deliberately omits 'mist'/'clouds'
 // (a misty sunrise or puffy white clouds are fine); targets the genuinely
 // dreary signals.
+// Not 'fog', 'foggy' or 'overcast':  soft mist and a bright overcast sky are
+// the gentle light the picker likes, and a photo that is actually dark is
+// caught by votdTooDark on its colour, whatever its tags say.
 const VOTD_GLOOMY_KEYWORDS = [
-  'overcast','storm','stormy','gloomy','moody','bleak','ominous',
-  'dreary','grey','gray','fog','foggy','rain','rainy','drizzle',
+  'storm','stormy','gloomy','moody','bleak','ominous',
+  'dreary','grey','gray','rain','rainy','drizzle',
   'thunder','dusk','twilight','dark clouds','dramatic sky','night'
 ];
 const votdMetaText = (pd) => [
@@ -4307,6 +4313,38 @@ const votdHexLuminance = (hex) => {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 };
 const votdTooDark = (pd) => votdHexLuminance(pd.color) < VOTD_DARK_THRESHOLD;
+
+/* Too strong a sun:  the sun itself blazing in frame, or a sky so orange it
+ * floods the photo.  The picker wants soft light, and these were blocked on
+ * sight.  Two tests:  the tags, for a sunburst or flare;  and the photo's
+ * dominant colour, for a strong orange-to-red -- a fiery sunset fills the
+ * frame with it, where soft golden light stays pale. */
+const VOTD_INTENSE_KEYWORDS = [
+  'sunburst','sun burst','sun flare','lens flare','flare','sunstar','sun star',
+  'blazing','fiery','burning sky','sun rays','sunrays'
+];
+const votdHexWarmIntensity = (hex) => {
+  const m = String(hex || '').replace('#', '');
+  if (m.length < 6) return 0;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m.slice(i, i + 2), 16) / 255);
+  if ([r, g, b].some(Number.isNaN)) return 0;
+  // Chroma, not HSL saturation:  HSL calls a pale sand colour as saturated
+  // as a flame, where chroma -- how far the colour is from grey -- tells the
+  // soft gold from the fierce orange.
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const chroma = max - min;
+  let hue = 0;
+  if (max !== min) {
+    if (max === r) hue = (60 * ((g - b) / (max - min)) + 360) % 360;
+    else if (max === g) hue = 60 * ((b - r) / (max - min)) + 120;
+    else hue = 60 * ((r - g) / (max - min)) + 240;
+  }
+  const warm = hue <= 45 || hue >= 340;
+  return warm ? chroma : 0;
+};
+const votdTooIntense = (pd) =>
+  VOTD_INTENSE_KEYWORDS.some((k) => new RegExp(`\\b${k}\\b`).test(votdMetaText(pd))) ||
+  votdHexWarmIntensity(pd.color) > 0.55;
 
 /**
  * Fetch up to `count` random photos in ONE Unsplash call.
@@ -4458,7 +4496,7 @@ async function votdRollPhoto(first, seen, env) {
   const isRepeat = (pd) => !!(seen && seen.has(votdSlug(pd?.urls?.regular)));
   const unusable = (pd) =>
     votdIsPlus(pd) || votdHasPeople(pd) || votdIsGloomy(pd) || votdTooDark(pd) ||
-    votdIsManmade(pd) || isRepeat(pd);
+    votdTooIntense(pd) || votdIsManmade(pd) || isRepeat(pd);
   let pd = first ?? await votdFetchOnePhoto(env);
   let attempts = 1;
   while (pd && unusable(pd) && attempts < 8) {
@@ -4797,7 +4835,7 @@ async function votdRollCandidates(n, seen, env) {
     for (const pd of photos) {
       if (picks.length >= n) break;
       if (!pd || !pd.urls) continue;
-      if (votdIsPlus(pd) || votdHasPeople(pd) || votdIsGloomy(pd) || votdTooDark(pd) || votdIsManmade(pd)) continue;
+      if (votdIsPlus(pd) || votdHasPeople(pd) || votdIsGloomy(pd) || votdTooDark(pd) || votdTooIntense(pd) || votdIsManmade(pd)) continue;
       const slug = votdSlug(pd.urls.regular);
       if (!slug || taken.has(slug)) continue;
       taken.add(slug);
@@ -4893,7 +4931,7 @@ async function votdBoard(env, n = 10) {
       for (const pd of photos) {
         if (cands.length >= VOTD_BENCH) break;
         if (!pd || !pd.urls) continue;
-        if (votdIsPlus(pd) || votdHasPeople(pd) || votdIsGloomy(pd) || votdTooDark(pd) || votdIsManmade(pd)) continue;
+        if (votdIsPlus(pd) || votdHasPeople(pd) || votdIsGloomy(pd) || votdTooDark(pd) || votdTooIntense(pd) || votdIsManmade(pd)) continue;
         const slug = votdSlug(pd.urls.regular);
         if (!slug || seen.has(slug) || have.has(slug)) continue;
         have.add(slug);
