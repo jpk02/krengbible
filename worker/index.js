@@ -4034,17 +4034,23 @@ const VOTD_TOPICS_ALL_YEAR = [
   'scenic landscape golden hour sunlight',
   'sunrise over green valley landscape',
   'sunbeams over rolling countryside',
+  'golden light over rolling hills sunrise',
   // hills
   'rolling green hills scenic landscape',
   'mountain valley landscape clear day',
   'green hillside overlooking valley',
   'scenic highland vista sunlight',
-  // pasture
-  'green pasture rolling countryside scenic',
+  // More of what the picker keeps most:  highland vistas in golden light and
+  // at sunrise (see the VOTD Topics workflow for the counts behind this).
+  'misty highland valley golden light',
+  'mountain ridge sunrise vista',
+  'golden hour mountain valley landscape',
+  'sunlit highland meadow panorama',
+  // pasture.  'green pasture rolling countryside scenic' was dropped:  none
+  // of its 39 photos was kept.
   'lush pasture valley sunlight landscape',
   'open pastureland scenic horizon',
-  // flock
-  'sheep grazing green pasture landscape',
+  // flock.  'sheep grazing green pasture landscape' was dropped:  none of 57.
   'flock of sheep rolling hills scenic',
   // plains
   'vast open plains scenic horizon',
@@ -4078,12 +4084,14 @@ const VOTD_TOPICS_BY_SEASON = {
     'green rolling hills summer sky'
   ],
   fall: [
+    // Dropped, kept one photo or none in about forty each:  'fall trees
+    // colorful countryside landscape', 'fall foliage river valley sunny',
+    // 'autumn countryside rolling hills scenic'.
     'autumn foliage mountain valley sunlight',
-    'fall trees colorful countryside landscape',
     'autumn hillside golden trees sunlight',
-    'fall foliage river valley sunny',
-    'autumn countryside rolling hills scenic',
     'golden autumn meadow landscape',
+    'autumn highland vista golden hour',
+    'golden autumn mountain sunrise',
     'autumn lake fall colors clear sky',
     'harvest fields autumn countryside sunlight'
   ],
