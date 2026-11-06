@@ -1576,10 +1576,9 @@ var TRANSLATIONS=[
 // bibleId) would come from api.bible instead;  none does today.
 var KO_TRANSLATIONS=[
   {abbr:'NKRV',    name:'개역개정판',              route:'nkrv'},
-  {abbr:'SAEBEON', name:'표준새번역 개정판',       route:'saebeon'},
-  {abbr:'NKT',     name:'새한글성경 (2024)',       route:'nkt'}
+  {abbr:'SAEBEON', name:'표준새번역 개정판',       route:'saebeon'}
 ];
-var KO_LABELS={NKRV:'개역개정',SAEBEON:'새번역',NKT:'새한글'};
+var KO_LABELS={NKRV:'개역개정',SAEBEON:'새번역'};
 // The menu chip shows both sides now, in the reader's preferred order.
 function translationChipLabel(){
   var ko=KO_LABELS[currentKoTranslation]||currentKoTranslation;

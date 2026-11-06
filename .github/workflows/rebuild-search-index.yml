@@ -19,7 +19,7 @@ on:
         required: true
         default: 'WOORI'
         type: choice
-        options: [WOORI, NKRV, SAEBEON, NKT]
+        options: [WOORI, NKRV, SAEBEON]
 
 permissions:
   contents: read

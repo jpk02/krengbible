@@ -181,14 +181,13 @@ async function getSearchIndex(env) {
 // ---- Per-Korean-version search indexes ----
 // The scraped Korean versions each get their own flat index in KV
 // (`{prefix}_search_index`), built the same way as NKRV.  NKRV keeps its
-// original getSearchIndex path untouched (lowest risk); SAEBEON/NKT load
+// original getSearchIndex path untouched (lowest risk); SAEBEON/WOORI load
 // through a small per-prefix cache.  KLB is NOT here — it searches via
 // api.bible (/search/apibible) instead.  `fetch` is the version's
 // fetchAndCache*, `verseKey` its per-chapter KV cache key (for refetch busting).
 const KO_INDEX_CONFIG = {
   NKRV:    { prefix: 'nkrv',    fetch: fetchAndCacheNkrv,    verseKey: (b, c) => `nkrv_v4_${b}_${c}` },
   SAEBEON: { prefix: 'saebeon', fetch: fetchAndCacheSaebeon, verseKey: (b, c) => `saebeon_v1_${b}_${c}` },
-  NKT:     { prefix: 'nkt',     fetch: fetchAndCacheNkt,     verseKey: (b, c) => `nkt_v1_${b}_${c}` },
   WOORI:   { prefix: 'woori',   fetch: fetchAndCacheWoori,   verseKey: (b, c) => `woori_${b}_${c}` },
 };
 function koIndexConfig(v) {
@@ -795,146 +794,9 @@ async function fetchAndCacheSaebeon(bookNum, chapter, env) {
   return { ok: true, cached: false, data };
 }
 
-// ---- 새한글성경 (New Korean Translation, NKT) — the 2024 KBS translation ----
-// Unlike GAE/SAENEW (scraped from the legacy korbibReadpage.php reader, which
-// does NOT serve 새한글), NKT lives on bskorea's newer Angular platform at
-// bible.bskorea.or.kr, addressed by USFM code (e.g. GEN.1).  Verses are in the
-// prerendered HTML but the host (CloudFront) 403s a bare fetch — it needs
-// browser-like headers.  See parseNktHtml for the markup shape.
-async function fetchChapterFromNktPlatform(bookNum, chapter) {
-  const book = USFM_CODES[bookNum - 1];
-  const url = `https://bible.bskorea.or.kr/bible/NKT/${book}.${chapter}`;
-  const resp = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "ko-KR,ko;q=0.9",
-      "Referer": "https://bible.bskorea.or.kr/"
-    }
-  });
-  if (!resp.ok) throw new Error(`nkt ${resp.status} for ${book} ${chapter}`);
-  // Book + chapter are passed through so the parser can bind its anchors to
-  // the chapter we ASKED for — see parseNktHtml.
-  return parseNktHtml(await resp.text(), book, chapter);
-}
-
-// Parse a bible.bskorea.or.kr NKT chapter page.  Each verse is anchored by
-// id="NKT.<BOOK>.<CHAP>.<V>", and a single verse's text can be SPLIT across
-// several <ibep-verse-text-renderer> segments (새한글's poetic line breaks), so
-// we concatenate the distinct segments per verse number in document order
-// (deduping identical strings so a repeated pane can't double the text).
-// Returns the same shape as parseNkrvHtml, minus headings/footnotes (not
-// extracted for NKT yet).
-//
-// `book` and `chapter` are the USFM code and chapter we requested, and the
-// anchor pattern is built to match THOSE.  It used to wildcard both, keying
-// only off the trailing verse number, which was wrong twice over:
-//
-//   1. A page carrying more than one chapter's anchors merged them.  Joel is
-//      the clear case — 새한글 follows the Hebrew division where 2:28-32 is its
-//      own chapter 3, that chapter's markup sits on the same page, and its
-//      verses 1-5 were concatenated onto chapter 2's verses 1-5.  요엘 2:1 read
-//      as its own text followed by "내가 내 영을 모든 생명체 위에 쏟아부어 주겠다"
-//      — the Acts 2 passage, silently glued onto an unrelated verse.
-//   2. A chapter that does not exist (Joel 4, Genesis 51) makes the platform
-//      serve its default page, which is GEN.1.  Wildcard anchors matched it
-//      happily, so the route returned Genesis 1 as though it were the chapter
-//      asked for — and fetchAndCacheNkt then WROTE that to KV.  Scoped
-//      anchors find nothing on that page, so the fetch reports parse_failed
-//      and caches nothing.
-function parseNktHtml(html, book, chapter) {
-  const stripTags = (s) => s
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/​/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  // Escaped even though USFM codes are plain A-Z0-9 — the value reaches here
-  // from a route parameter, and a pattern built from input is not the place to
-  // rely on that staying true.
-  const esc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const anchor = new RegExp(`\\bid="NKT\\.${esc(book)}\\.${esc(chapter)}\\.(\\d+)"`, 'g');
-  const segs = {};
-  let m;
-  while ((m = anchor.exec(html)) !== null) {
-    const v = parseInt(m[1], 10);
-    const after = html.slice(m.index, m.index + 12000);
-    const r = /<ibep-verse-text-renderer[^>]*>([\s\S]*?)<\/ibep-verse-text-renderer>/.exec(after);
-    if (!r) continue;
-    const t = stripTags(r[1]);
-    if (!t) continue;
-    (segs[v] = segs[v] || []).push(t);
-  }
-
-  const verses = [];
-  for (const v of Object.keys(segs).map(Number).sort((a, b) => a - b)) {
-    const seen = new Set();
-    const parts = [];
-    for (const t of segs[v]) if (!seen.has(t)) { seen.add(t); parts.push(t); }
-    const text = parts.join(' ')
-      .replace(/\s+/g, ' ')
-      .replace(/“\s+/g, '“')
-      .replace(/\s+”/g, '”')
-      .trim();
-    if (text) verses.push({ verse: v, text });
-  }
-  return { verses, footnotes: {}, headings: [] };
-}
-
-// ---- 새한글 (NKT) -> canonical verse numbering ----
-//
-// 새한글 follows the Hebrew versification, which numbers a psalm's
-// superscription as verse 1 and, in a number of other places, draws a chapter's
-// first verse further in.  The app, 개역개정 and the ESV all use the canonical
-// numbering, and a note or highlight is stored against a bare verse number — so
-// left alone, a highlight made in 새한글 lands on the wrong line the moment you
-// switch translations.
-//
-// Every entry here has the SAME verse count as the canonical chapter and simply
-// starts N higher, which makes the mapping pure subtraction.  Chapters whose
-// chapter BOUNDARY differs (Joel 2, Malachi 4, Hosea 1 and 43 others) are NOT
-// here: a count cannot say which verses moved, and guessing misattributes
-// scripture.  They are listed under "review" in worker/nktVersification.json.
-//
-// Derived offline from the 1,189 cached nkt_v1_* chapters against the app's
-// VERSE_COUNTS — not by re-scraping.
-const NKT_VERSE_SHIFT = {
-  '1_32':1, '4_17':15, '4_30':1, '5_13':1, '5_23':1, '9_21':1, '9_24':1, '10_19':1,
-  '11_5':14, '12_12':1, '16_10':1, '19_3':1, '19_4':1, '19_5':1, '19_6':1, '19_7':1,
-  '19_8':1, '19_9':1, '19_12':1, '19_18':1, '19_19':1, '19_20':1, '19_21':1, '19_22':1,
-  '19_30':1, '19_31':1, '19_34':1, '19_36':1, '19_38':1, '19_39':1, '19_40':1, '19_41':1,
-  '19_42':1, '19_44':1, '19_45':1, '19_46':1, '19_47':1, '19_48':1, '19_49':1, '19_51':2,
-  '19_52':2, '19_53':1, '19_54':2, '19_55':1, '19_56':1, '19_57':1, '19_58':1, '19_59':1,
-  '19_60':2, '19_61':1, '19_62':1, '19_63':1, '19_64':1, '19_65':1, '19_67':1, '19_68':1,
-  '19_69':1, '19_70':1, '19_75':1, '19_76':1, '19_77':1, '19_80':1, '19_81':1, '19_83':1,
-  '19_84':1, '19_85':1, '19_88':1, '19_89':1, '19_92':1, '19_102':1, '19_108':1, '19_140':1, '19_142':1,
-  '22_7':1, '26_21':5, '27_6':1, '28_2':2, '28_12':1, '28_14':1, '32_2':1, '34_2':1,
-  '38_2':4, '39_4':18,
-};
-
-// Rewrites a fetched NKT chapter into canonical numbering.
-//
-// Guarded on the chapter actually starting where the shift says it does, which
-// makes this idempotent: a chapter already stored canonically (Joel 2 was
-// repaired in place) passes through untouched, and re-running it can never
-// double-shift.
-function nktToCanonical(bookNum, chapter, data) {
-  const offset = NKT_VERSE_SHIFT[`${bookNum}_${chapter}`];
-  if (!offset || !data || !Array.isArray(data.verses) || data.verses.length === 0) return data;
-  if (data.verses[0].verse !== offset + 1) return data;
-  return { ...data, verses: data.verses.map((v) => ({ ...v, verse: v.verse - offset })) };
-}
-
-// NKT fetch + cache, mirroring fetchAndCacheSaebeon.  No heading-translation
-// step (NKT headings aren't extracted), so the cache write is unconditional.
 // ---- 우리말성경 chapter read ----
 // Licensed, and imported into KV wholesale from the publisher's own text rather
-// than scraped a chapter at a time — so unlike NKRV/새번역/새한글 there is no
+// than scraped a chapter at a time — so unlike NKRV/새번역 there is no
 // upstream to fall back to.  A miss means the import has not run for that
 // chapter, and saying so beats inventing a fetch that cannot succeed.
 //
@@ -1037,22 +899,6 @@ function cleanWooriStrays(bookNum, chapter, data) {
     return { ...v, text };
   });
   return changed ? { ...data, verses } : data;
-}
-
-async function fetchAndCacheNkt(bookNum, chapter, env) {
-  const verseKey = `nkt_v1_${bookNum}_${chapter}`;
-  if (env.COMMENTARY_KV) {
-    const cached = await env.COMMENTARY_KV.get(verseKey);
-    if (cached) return { ok: true, cached: true, data: JSON.parse(cached) };
-  }
-  const data = await fetchChapterFromNktPlatform(bookNum, chapter);
-  if (data.verses.length === 0) {
-    return { ok: false, error: 'parse_failed' };
-  }
-  if (env.COMMENTARY_KV) {
-    await env.COMMENTARY_KV.put(verseKey, JSON.stringify(data));
-  }
-  return { ok: true, cached: false, data };
 }
 
 // Generates (or returns the cached) QT reflection for one (book,
@@ -1317,7 +1163,7 @@ async function handleBuildIndex(env, url, cors) {
   const from = Math.max(0, parseInt(url.searchParams.get('from') || '0'));
   const size = Math.min(400, Math.max(1, parseInt(url.searchParams.get('size') || '250')));
   const refetch = url.searchParams.get('refetch') === '1';
-  const cfg = koIndexConfig(url.searchParams.get('v')); // NKRV (default) | SAEBEON | NKT
+  const cfg = koIndexConfig(url.searchParams.get('v')); // NKRV (default) | SAEBEON | WOORI
   // Parallel fetches per batch.  Default 12 for cache-hit-heavy rebuilds; pass
   // a low value when building from cold (SAEBEON's uncached chapters each do an
   // Anthropic heading-translation call, which rate-limits at high concurrency).
@@ -1561,55 +1407,6 @@ async function handleWarmSaebeon(env, url, cors, request) {
   }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
-// ---- /admin/warm-nkt — same as warm-saebeon but for 새한글 (NKT).  Each
-// uncached chapter is a single bskorea-platform scrape (no heading-translation
-// step), so concurrency defaults a touch higher.
-async function handleWarmNkt(env, url, cors, request) {
-  const secret = request.headers.get('X-Admin-Secret') || url.searchParams.get('secret');
-  if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
-    return new Response(JSON.stringify({error:'forbidden'}), {status:403, headers:{...cors,'Content-Type':'application/json'}});
-  }
-  const from = Math.max(0, parseInt(url.searchParams.get('from') || '0'));
-  const size = Math.min(100, Math.max(1, parseInt(url.searchParams.get('size') || '25')));
-  const concurrency = Math.min(4, Math.max(1, parseInt(url.searchParams.get('concurrency') || '2')));
-
-  const ordinals = [];
-  for (let o = from; o < Math.min(from + size, TOTAL_CHAPTERS); o++) ordinals.push(o);
-
-  let warmed = 0, alreadyCached = 0, errored = 0;
-  const errors = [];
-
-  for (let i = 0; i < ordinals.length; i += concurrency) {
-    const batch = ordinals.slice(i, i + concurrency);
-    await Promise.all(batch.map(async (ord) => {
-      const [bookIdx, chapter] = ordinalToBookChapter(ord);
-      const bookNum = bookIdx + 1;
-      try {
-        const result = await fetchAndCacheNkt(bookNum, chapter, env);
-        if (!result.ok) {
-          errored++;
-          errors.push({ bookNum, chapter, error: result.error });
-          return;
-        }
-        if (result.cached) alreadyCached++; else warmed++;
-      } catch (e) {
-        errored++;
-        errors.push({ bookNum, chapter, error: e.message });
-      }
-    }));
-  }
-
-  const nextFrom = from + size < TOTAL_CHAPTERS ? from + size : null;
-  return new Response(JSON.stringify({
-    from, size, warmed, alreadyCached, errored,
-    errors: errors.slice(0, 20),
-    totalChapters: TOTAL_CHAPTERS,
-    nextFrom,
-    nextUrl: nextFrom === null ? null : `/admin/warm-nkt?from=${nextFrom}&size=${size} (with X-Admin-Secret header)`,
-    done: nextFrom === null
-  }, null, 2), {headers:{...cors,'Content-Type':'application/json'}});
-}
-
 async function handleMergeIndex(env, url, cors) {
   const secret = url.searchParams.get('secret');
   if (!env.ADMIN_SECRET || secret !== env.ADMIN_SECRET) {
@@ -1617,7 +1414,7 @@ async function handleMergeIndex(env, url, cors) {
   }
   if (!env.COMMENTARY_KV) return new Response(JSON.stringify({error:'no_kv'}), {status:500, headers:{...cors,'Content-Type':'application/json'}});
 
-  const cfg = koIndexConfig(url.searchParams.get('v')); // NKRV (default) | SAEBEON | NKT
+  const cfg = koIndexConfig(url.searchParams.get('v')); // NKRV (default) | SAEBEON | WOORI
   const chunkPrefix = `${cfg.prefix}_search_chunk_`;
   const indexKey = `${cfg.prefix}_search_index`;
 
@@ -2298,7 +2095,7 @@ async function handleEnglishSearch(env, url, cors) {
 // Each chapter is produced by the translation's own chapter route, called
 // in-process, so a bundled chapter is byte-for-byte what the single route
 // serves:  every clean-up applied on the way out (KLB/MSG markers, Psalm 119
-// letters, 새한글 numbering) comes along with nothing duplicated here.
+// letters) comes along with nothing duplicated here.
 //
 // FROM STORE ONLY.  A chapter whose stored copy is missing is listed in
 // `missing` and left out, never fetched upstream:  one request must not fan
@@ -2307,7 +2104,6 @@ async function handleEnglishSearch(env, url, cors) {
 const BUNDLE_SOURCES = {
   NKRV:    (b, c) => ({ path: `/nkrv/${b}/${c}`,    kv: `nkrv_v4_${b}_${c}` }),
   SAEBEON: (b, c) => ({ path: `/saebeon/${b}/${c}`, kv: `saebeon_v1_${b}_${c}` }),
-  NKT:     (b, c) => ({ path: `/nkt/${b}/${c}`,     kv: `nkt_v1_${b}_${c}` }),
   WOORI:   (b, c) => ({ path: `/woori/${b}/${c}` }),   // the route is store-only already
   KJV:     (b, c) => ({ path: `/kjv/${b}/${c}` }),     // likewise
   ESV:     (b, c) => {
@@ -2371,7 +2167,7 @@ async function handleBundle(env, cors, tr, bookNum) {
 //
 //   ?date=YYYY-MM-DD   the reader's LOCAL date, exactly as the app asks /votd
 //   ?lang=ko|en        which language the card is in
-//   ?kotr=NKRV|WOORI|SAEBEON|NKT   Korean translation  (others -> NKRV)
+//   ?kotr=NKRV|WOORI|SAEBEON       Korean translation  (others -> NKRV)
 //   ?entr=ESV|KJV                  English translation (others -> ESV)
 //
 // Read-only and KV-only:  it never populates a VOTD key (the /votd route owns
@@ -2415,7 +2211,7 @@ async function handleWidgetVerse(env, url, cors) {
     try {
       if (lang === 'ko' && kotr !== 'NKRV' && KO_INDEX_CONFIG[kotr]) {
         const r = await KO_INDEX_CONFIG[kotr].fetch(bookIdx + 1, chapter, env);
-        const data = r.ok ? (kotr === 'NKT' ? nktToCanonical(bookIdx + 1, chapter, r.data) : r.data) : null;
+        const data = r.ok ? r.data : null;
         const v = data && (data.verses || []).find((x) => covers(x.verse));
         if (v && v.text) { text = cleanForSearch(v.text); translation = kotr; }
       } else if (lang === 'en' && entr === 'KJV') {
@@ -2576,7 +2372,6 @@ const SMART_SOURCES = {
   ko: [
     { label: 'NKRV', kv: 'nkrv_search_index', cached: () => SEARCH_INDEX, load: (env) => getKoSearchIndexByPrefix(env, 'nkrv') },
     { label: 'SAEBEON', kv: 'saebeon_search_index', cached: () => KO_INDEX_CACHE.get('saebeon'), load: (env) => getKoSearchIndexByPrefix(env, 'saebeon') },
-    { label: 'NKT', kv: 'nkt_search_index', cached: () => KO_INDEX_CACHE.get('nkt'), load: (env) => getKoSearchIndexByPrefix(env, 'nkt') },
     { label: 'WOORI', kv: 'woori_search_index', cached: () => KO_INDEX_CACHE.get('woori'), load: (env) => getKoSearchIndexByPrefix(env, 'woori') },
   ],
 };
@@ -5663,7 +5458,6 @@ Only output valid JSON, no markdown, no preamble.`;
     if (path === '/admin/build-index') return handleBuildIndex(env, url, cors);
     if (path === '/admin/warm-esv') return handleWarmEsv(env, url, cors, request);
     if (path === '/admin/warm-saebeon') return handleWarmSaebeon(env, url, cors, request);
-    if (path === '/admin/warm-nkt') return handleWarmNkt(env, url, cors, request);
     if (path === '/admin/merge-index') return handleMergeIndex(env, url, cors);
     if (path === '/admin/build-en-index') return handleBuildEnIndex(env, url, cors);
     if (path === '/admin/merge-en-index') return handleMergeEnIndex(env, url, cors);
@@ -6912,7 +6706,7 @@ Only output valid JSON, no markdown, no preamble.`;
       }
     }
 
-    // ---- 우리말성경 chapter — KV only, see fetchAndCacheWoori.  Like /nkt it
+    // ---- 우리말성경 chapter — KV only, see fetchAndCacheWoori.  It
     // must run before the nkrv fallback so it does not fall through to the
     // "Use /nkrv/..." error. ----
     const wooriMatch = path.match(/^\/woori\/(\d+)\/(\d+)\/?$/);
@@ -6931,25 +6725,13 @@ Only output valid JSON, no markdown, no preamble.`;
       });
     }
 
-    // ---- 새한글성경 (NKT) chapter fetch — bskorea's new platform, see
-    // fetchAndCacheNkt.  Must run before the nkrv fallback so /nkt/... doesn't
-    // fall through to the "Use /nkrv/..." error. ----
-    const nktMatch = path.match(/\/nkt\/(\d+)\/(\d+)/);
-    if (nktMatch) {
-      const bookNum = +nktMatch[1], chapter = +nktMatch[2];
-      try {
-        const result = await fetchAndCacheNkt(bookNum, chapter, env);
-        if (!result.ok) {
-          return new Response(JSON.stringify({error: result.error || 'nkt_fetch_failed'}), {headers:{...cors,"Content-Type":"application/json"}});
-        }
-        // Normalised on the way OUT, not on the way in: KV keeps the numbering
-        // 새한글 actually publishes, so the mapping stays reviewable and a
-        // correction here needs no re-scrape of anything.
-        const canonical = nktToCanonical(bookNum, chapter, result.data);
-        return new Response(JSON.stringify(canonical), {headers:{...cors,"Content-Type":"application/json","Cache-Control":"public, max-age=2592000, stale-while-revalidate=86400"}});
-      } catch (e) {
-        return new Response(JSON.stringify({error: e.message}), {status:500, headers:{...cors,"Content-Type":"application/json"}});
-      }
+    // ---- 새한글성경 (NKT):  taken down at 대한성서공회's request (not licensed
+    // outside the society until about 2027).  Older app builds still ask for
+    // it, so the route answers 410 rather than falling through to the nkrv
+    // fallback, which would serve 개역개정 under the wrong name.  The text stays
+    // in KV (nkt_v1_*) but nothing serves it. ----
+    if (/\/nkt\//.test(path)) {
+      return new Response(JSON.stringify({ error: 'withdrawn' }), { status: 410, headers: { ...cors, 'Content-Type': 'application/json' } });
     }
 
     // ---- Korean Bible (nkrv) chapter fetch ----
