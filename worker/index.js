@@ -3096,6 +3096,8 @@ async function handleApiBibleChapter(env, url, cors, translationId, bookNum, cha
   const apiUrl = `https://rest.api.bible/v1/bibles/${translationId}/chapters/${chapterId}?${params}`;
 
   const resp = await fetch(apiUrl, { headers: { 'api-key': env.API_BIBLE_KEY } });
+  // A reader's own request counts against the month too (see refreshApiBibleStore).
+  if (resp.ok) await countApiBibleCall(env);
   if (!resp.ok) {
     const body = await resp.text().catch(() => '');
     return new Response(JSON.stringify({error: 'apibible_status_' + resp.status, body: body.slice(0, 500)}), {
@@ -3334,23 +3336,53 @@ async function fetchChapterFromApiBible(translationId, usfmCode, chapter, env) {
 // an api.bible call each.  This runs hourly (wrangler.toml) and refreshes a
 // few chapters each time:  any that are missing first, then the oldest, but
 // only once they are at least STALE_AFTER_DAYS old, so a chapter is fetched
-// about every three weeks and the store never lapses.  Three translations of
-// 1,189 chapters is ~180 refreshes a day;  REFRESH_PER_RUN x 24 runs = 480.
+// about once a month and the store never lapses.
 //
-// Twenty days, not 25:  the three stores were filled within days of each
-// other, so their chapters come due together.  A 10-day window before expiry
-// holds 4,800 refreshes, comfortably more than the 3,567 chapters;  a 5-day
-// one held 2,400, which the 2,378 MSG and NLT chapters due on the same day
-// would only just have fitted.  After the first round the dates spread.
+// THE MONTHLY LIMIT.  The plan allows 5,000 api.bible calls a month, and this
+// job is nearly all of them.  At 20 days it refreshed all 3,567 chapters every
+// 20 days -- about 5,350 calls a month -- and hit the limit on 8 November 2026.
+// Now:
+//   - 29 days, a day before the 30-day expiry:  3,567 every 29 days is about
+//     3,700 a month.
+//   - Staggered:  at most REFRESH_PER_RUN an hour, 192 a day against the ~123
+//     a day needed, so the refreshes run steadily through the month instead of
+//     in bursts, and chapters that come due together spread out on their own.
+//     A chapter the window misses expires and is refetched as missing, first,
+//     on a later run -- one call either way, never two.
+//   - Capped:  every api.bible call is counted per month (countApiBibleCall),
+//     and this job stops for the month at CRON_MONTHLY_BUDGET, leaving the
+//     rest of the 5,000 for readers' own requests.
 //
 // KLB is left out:  no longer offered, only builds from before The Message
 // came back still read it, and those reads cache it as they always did.
 const API_BIBLE_KEEP_STORED = ['d6e14a625393b4da-01', '78a9f6124f344018-01', '6f11a7de016f942e-01'];
-const REFRESH_PER_RUN = 20;
-const STALE_AFTER_DAYS = 20;
+const REFRESH_PER_RUN = 8;
+const STALE_AFTER_DAYS = 29;
+const CRON_MONTHLY_BUDGET = 4500;
+
+/** This calendar month's api.bible call count, by UTC month. */
+function apiBibleCallKey(d = new Date()) {
+  return `apibible_calls_${d.toISOString().slice(0, 7)}`;
+}
+async function apiBibleCallsThisMonth(env) {
+  if (!env.COMMENTARY_KV) return 0;
+  return parseInt((await env.COMMENTARY_KV.get(apiBibleCallKey())) || '0', 10) || 0;
+}
+/** Count one api.bible call.  Read-modify-write, so two at once can count as
+ *  one;  it is a budget, not a ledger.  Kept 40 days. */
+async function countApiBibleCall(env) {
+  if (!env.COMMENTARY_KV) return;
+  const n = await apiBibleCallsThisMonth(env);
+  await env.COMMENTARY_KV.put(apiBibleCallKey(), String(n + 1), { expirationTtl: 40 * 86400 });
+}
 
 async function refreshApiBibleStore(env) {
   if (!env.COMMENTARY_KV || !env.API_BIBLE_KEY) return;
+  const used = await apiBibleCallsThisMonth(env);
+  if (used >= CRON_MONTHLY_BUDGET) {
+    console.log(`apibible-store: ${used} calls this month, at the budget;  waiting for next month`);
+    return;
+  }
   const now = Date.now() / 1000;
   const staleBefore = now + (30 - STALE_AFTER_DAYS) * 86400; // expiry earlier than this = old enough
   const due = [];
@@ -3374,9 +3406,10 @@ async function refreshApiBibleStore(env) {
   }
   due.sort((a, b) => a.at - b.at);
   let refreshed = 0, failed = 0;
-  for (const d of due.slice(0, REFRESH_PER_RUN)) {
+  for (const d of due.slice(0, Math.min(REFRESH_PER_RUN, CRON_MONTHLY_BUDGET - used))) {
     try {
       const payload = await fetchChapterFromApiBible(d.id, d.usfm, d.chapter, env);
+      await countApiBibleCall(env);
       await env.COMMENTARY_KV.put(
         `apibible_raw_v2_${d.id}_${d.usfm}.${d.chapter}`,
         JSON.stringify({ data: payload.data, meta: payload.meta }),
