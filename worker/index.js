@@ -545,11 +545,30 @@ async function parseEsvHtmlForHeadingsAndCrossrefs(htmlStr) {
   return { headings, crossrefs: [] };
 }
 
+// ---- One-chapter books:  "2 John 1" is VERSE 1 to the ESV API ----
+// The app asks for every chapter as "<Book> <chapter>".  For a book with one
+// chapter the ESV API reads the number as a VERSE:  "2 John 1" came back as
+// 2 John 1:1 alone (parsed [63001001, 63001001]), was cached forever, and the
+// Reader showed one English verse beside thirteen Korean ones.  Obadiah,
+// Philemon, 3 John and Jude the same.  Asked by the book's name alone, the
+// API returns the whole book, which is the whole chapter.  The cache key
+// follows the upstream query, so the bad one-verse entries are simply never
+// read again.
+const ESV_ONE_CHAPTER_BOOKS = new Set(['Obadiah', 'Philemon', '2 John', '3 John', 'Jude']);
+function esvUpstreamQuery(q) {
+  const m = String(q).match(/^(.+?) 1$/);
+  return m && ESV_ONE_CHAPTER_BOOKS.has(m[1]) ? m[1] : q;
+}
+function esvCacheKey(q, wantsExtras) {
+  return 'esv_raw_v6_' + (wantsExtras ? 'x1_' : 'x0_') + esvUpstreamQuery(q);
+}
+
 // ---- ESV fetch + cache, shared by the live /esv/ route and the
 // /admin/warm-esv batch job.  Cache-hit short-circuits before any
 // network call — the admin warmer relies on this to skip chapters
 // that are already warm without burning a request on them. ----
-async function fetchAndCacheEsv(q, wantsExtras, env) {
+async function fetchAndCacheEsv(asked, wantsExtras, env) {
+  const q = esvUpstreamQuery(asked);
   // Cache forever per query — ESV text is static.  Key is versioned so
   // response-shape changes (e.g. adding headings) bust every
   // previously-cached chapter automatically instead of silently
@@ -569,7 +588,7 @@ async function fetchAndCacheEsv(q, wantsExtras, env) {
   // v6: heading parser now strips cross-ref / footnote <sup> markers that
   // were being glued into titles (e.g. Psalm 73 "A Psalm of bAsaph.").
   // Bump busts every cached heading so corrupted ones re-fetch clean.
-  const cacheKey = 'esv_raw_v6_' + (wantsExtras ? 'x1_' : 'x0_') + q;
+  const cacheKey = esvCacheKey(q, wantsExtras);
   if (env.COMMENTARY_KV) {
     const cached = await env.COMMENTARY_KV.get(cacheKey);
     if (cached) return { ok: true, cached: true, body: cached };
@@ -2108,7 +2127,7 @@ const BUNDLE_SOURCES = {
   KJV:     (b, c) => ({ path: `/kjv/${b}/${c}` }),     // likewise
   ESV:     (b, c) => {
     const q = `${BOOK_NAMES_EN[b - 1]} ${c}`;
-    return { path: `/esv/?q=${encodeURIComponent(q)}&extras=1`, kv: `esv_raw_v6_x1_${q}` };
+    return { path: `/esv/?q=${encodeURIComponent(q)}&extras=1`, kv: esvCacheKey(q, true) };
   },
 };
 for (const [id, t] of Object.entries(API_BIBLE_TRANSLATIONS)) {
