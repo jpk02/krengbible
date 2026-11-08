@@ -42,12 +42,21 @@
   .tabs button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 
   /* The Undo bar after blocking a photo — see offerUndo. */
-  #undo{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  /* width:max-content, because a fixed box at left:50% is otherwise only
+     allowed the right half of the screen and wrapped its message a word to a
+     line on a phone.  Capped to the screen, the message wraps only if it must,
+     and the buttons never do. */
+  #undo{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;pointer-events:none;
+        width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box;
         display:flex;align-items:center;gap:14px;padding:10px 12px 10px 16px;border-radius:12px;
         background:#222;color:#fff;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);
         transition:opacity .18s,transform .18s;z-index:50}
   #undo.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-  #undo button{background:transparent;border:0;color:#8ab4ff;font-weight:600;font-size:14px;cursor:pointer;padding:4px 6px}
+  /* Not the page's .msg (a padded, dim status line), which this shares a
+     class name with:  its 22px of padding is what squeezed the text to a word
+     a line, and its colour is what greyed it. */
+  #undo .msg{flex:1 1 auto;min-width:0;padding:0;color:#fff}
+  #undo button{background:transparent;border:0;color:#8ab4ff;font-weight:600;font-size:14px;cursor:pointer;padding:4px 6px;white-space:nowrap;flex:none}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
   /* THE SHAPE THE APP ACTUALLY SHOWS.
    *
