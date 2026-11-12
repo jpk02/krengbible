@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Memory Game</title>
+<meta name="description" content="A memory game for teams.">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- Opened from the Home Screen, the page runs without the browser's bars.
+     That is the only way on an iPhone, where Safari will not put a page
+     full screen from a button. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Memory">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f1eb;
+    --ink: #1a1a1a;
+    --dim: #6b6660;
+    --panel: #ffffff;
+    --line: #e3ddd2;
+    --face: #ffffff;
+    --face-edge: #e3ddd2;
+    --back: #1b2a4a;
+    --back-edge: #2c3f66;
+    --back-mark: rgba(255, 255, 255, 0.14);
+    --accent: #1b2a4a;
+    --accent-ink: #ffffff;
+    --found: #2f8f4e;
+    --odd: #d9a21b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --ink: #eeeeee;
+      --dim: #9a948c;
+      --panel: #242424;
+      --line: #3a3a3a;
+      --face: #2a2a2a;
+      --face-edge: #3a3a3a;
+      --back: #34466e;
+      --back-edge: #4a5d88;
+      --back-mark: rgba(255, 255, 255, 0.16);
+      --accent: #e9e4da;
+      --accent-ink: #1a1a1a;
+      --found: #5cc47f;
+      --odd: #f0bd3c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 28px 16px 40px;
+  }
+  main { width: 100%; max-width: 520px; }
+  h1 { font-size: 28px; line-height: 34px; margin: 0 0 18px; letter-spacing: -0.3px; }
+  [hidden] { display: none !important; }
+
+  /* Playing:  the board takes the whole screen, a slim bar above it. */
+  body.playing {
+    height: 100vh;
+    height: 100dvh;
+    padding:
+      max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+  body.playing main { max-width: none; height: 100%; display: flex; flex-direction: column; }
+  body.playing h1 { display: none; }
+
+  button { font: inherit; }
+  button.primary, button.secondary {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button.primary { border: none; background: var(--accent); color: var(--accent-ink); }
+  button.secondary { border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button:focus-visible, select:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
+
+  /* ---- Setup ---- */
+  .setup {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px;
+    display: grid;
+    gap: 14px;
+  }
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; }
+  .field select {
+    font: inherit;
+    font-size: 16px;
+    min-width: 96px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .setup button.primary { padding: 12px; font-size: 16px; }
+  .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .names[hidden] { display: none; }
+  .names input, #renameInput {
+    font: inherit;
+    font-size: 16px;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+  }
+  #renameInput { margin-bottom: 14px; }
+  .rename-actions { display: flex; gap: 10px; }
+  .rename-actions button { flex: 1; padding: 11px; font-size: 16px; }
+  .names input:focus-visible, #renameInput:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
+
+  /* ---- Game ---- */
+  #game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--dim);
+  }
+  .bar strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+  /* The buttons wrap as one group, so on a narrow screen they drop to their
+     own line together rather than splitting. */
+  .bar .tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .result { color: var(--ink); font-weight: 600; }
+  .result strong { color: var(--found); }
+
+  .teams { display: flex; flex-wrap: wrap; gap: 6px; }
+  .team {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .team .score { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .team.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .team.winner { border-color: var(--found); box-shadow: inset 0 0 0 1px var(--found); }
+
+  /* The board fills what is left;  each square is sized in script to the
+     largest that fits both across and down. */
+  .board { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .grid { display: grid; }
+
+  /* A card is a button with two faces, turned by rotating the inner layer. */
+  .card {
+    position: relative;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    perspective: 800px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card:focus-visible { border-radius: var(--radius, 14px); }
+  .inner {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transition: transform 0.38s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .card.up .inner { transform: rotateY(180deg); }
+  .side {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius, 14px);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .back {
+    background: var(--bk);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  /* Row letter and column number, for calling a card out across the room.
+     A dark pill under the text, so it reads on every design. */
+  .tag {
+    display: none;
+    padding: 0.12em 0.4em;
+    border-radius: 0.4em;
+    background: rgba(0, 0, 0, 0.42);
+    color: #fff;
+    font-size: var(--tag, 18px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .grid.labels .tag { display: block; }
+
+  /* The other place labels can go:  letters down the left of the rows and
+     numbers across the top of the columns, leaving the cards blank.  The
+     heads take the grid's own column and row sizes from script, so each
+     label sits squarely against its row or column. */
+  .frame {
+    display: grid;
+    grid-template-columns: var(--band, 0px) auto;
+    grid-template-rows: var(--band, 0px) auto;
+  }
+  .frame .grid { grid-column: 2; grid-row: 2; }
+  .colhead, .rowhead { display: none; }
+  .frame.edges .colhead { display: grid; grid-column: 2; grid-row: 1; }
+  .frame.edges .rowhead { display: grid; grid-column: 1; grid-row: 2; }
+  .colhead span, .rowhead span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--dim);
+    font-size: var(--edge, 14px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Card backs ----
+     Each design is one background, drawn by the page itself, with its tile
+     sizes in percent so a pattern reads the same on a 2 by 2 board as on a
+     12 by 12.  The board and the swatches in Options both take a d-* class. */
+  .d-classic {
+    --bk: radial-gradient(circle, var(--back-mark) 0 18%, transparent 19%),
+          radial-gradient(circle, transparent 0 30%, var(--back-mark) 31% 33%, transparent 34%),
+          var(--back);
+  }
+  .d-diamonds {
+    --bk: conic-gradient(from 45deg, #8e2536 25%, #ad3446 0 50%, #8e2536 0 75%, #ad3446 0) 50% 50% / 33.34% 33.34%;
+  }
+  .d-stripes { --bk: repeating-linear-gradient(135deg, #1f6b4a 0 7%, #2b8b60 7% 14%); }
+  .d-dots {
+    --bk: radial-gradient(circle, rgba(255, 255, 255, 0.32) 0 24%, transparent 26%) 0 0 / 25% 25%, #0f7c85;
+  }
+  .d-checker {
+    --bk: conic-gradient(#4a5770 25%, #2f394b 0 50%, #4a5770 0 75%, #2f394b 0) 0 0 / 25% 25%;
+  }
+  .d-sunburst {
+    --bk: radial-gradient(circle, rgba(255, 240, 200, 0.6) 0 10%, transparent 42%),
+          repeating-conic-gradient(#d4721a 0 9deg, #eea032 9deg 18deg);
+  }
+  .d-aurora {
+    --bk: radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.4), transparent 45%),
+          linear-gradient(135deg, #5a3fd4, #c23f8e 55%, #f07b4b);
+  }
+  .d-waves {
+    --bk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 20'%3E%3Cpath d='M0 10 Q10 0 20 10 T40 10' fill='none' stroke='white' stroke-opacity='.38' stroke-width='2.4'/%3E%3C/svg%3E") 0 0 / 50% 25%, #1d5fa8;
+  }
+  .d-night {
+    --bk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cpolygon points='15,8 16.8,13 22,13 17.8,16.2 19.4,21 15,18 10.6,21 12.2,16.2 8,13 13.2,13' fill='%23f3d27a' fill-opacity='.9'/%3E%3Ccircle cx='4' cy='5' r='.9' fill='white' fill-opacity='.7'/%3E%3Ccircle cx='26' cy='25' r='.7' fill='white' fill-opacity='.6'/%3E%3Ccircle cx='25' cy='4' r='.5' fill='white' fill-opacity='.5'/%3E%3C/svg%3E") 0 0 / 33.34% 33.34%, #1a2142;
+  }
+  .front {
+    background: var(--face);
+    border: 1px solid var(--face-edge);
+    transform: rotateY(180deg);
+    container-type: size;
+  }
+  .card.found { cursor: default; }
+  .card.found .front { border-color: var(--found); box-shadow: inset 0 0 0 2px var(--found); }
+  /* The card with no pair, turned up at the end. */
+  .card.odd .front { border-color: var(--odd); box-shadow: inset 0 0 0 2px var(--odd); }
+
+  /* The picture is the device's own colour emoji, drawn at card size:  on an
+     iPhone or a Mac that is Apple's glossy 3D set.  A soft shadow lifts it off
+     the card;  it pops in as the card turns and bounces when it is matched. */
+  .pic {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    font-size: 60cqh;
+    line-height: 1;
+    filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.22));
+    transform: scale(0.55);
+    transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) 0.14s;
+  }
+  .card.up .pic { transform: scale(1); }
+  .card.found .pic, .card.odd .pic { animation: bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes bounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.22) rotate(-6deg); }
+    70% { transform: scale(0.94) rotate(3deg); }
+    100% { transform: scale(1); }
+  }
+
+  /* ---- Options ---- */
+  button.icon {
+    width: 38px;
+    height: 36px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  button.icon svg { width: 20px; height: 20px; }
+  #fullscreen .exit, #fullscreen.on .enter { display: none; }
+  #fullscreen.on .exit { display: block; }
+  .setup .row2 { display: flex; gap: 10px; }
+  .setup .row2 button { flex: 1; padding: 12px; font-size: 16px; }
+  dialog {
+    width: min(92vw, 440px);
+    max-height: 88vh;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--panel);
+    color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+  dialog h2 { font-size: 20px; margin: 0 0 14px; }
+  dialog h3 { font-size: 14px; font-weight: 600; color: var(--dim); margin: 0 0 10px; }
+  .designs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+  .design {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--ink);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .design .sample {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    background: var(--bk);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 0 0 2px transparent;
+    transition: box-shadow 0.15s;
+  }
+  .design[aria-checked="true"] .sample { box-shadow: 0 0 0 3px var(--found); }
+  .design[aria-checked="true"] { font-weight: 700; }
+  dialog .done { width: 100%; padding: 11px; font-size: 16px; }
+  .choice { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
+  .choice button {
+    padding: 10px 6px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: none;
+    color: var(--ink);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .choice button[aria-checked="true"] {
+    border-color: var(--found);
+    box-shadow: inset 0 0 0 1px var(--found);
+    font-weight: 700;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .inner, .pic, .team { transition: none; }
+    .card.found .pic, .card.odd .pic { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Memory Game</h1>
+
+  <form class="setup" id="setup">
+    <label class="field">Rows <select id="rows"></select></label>
+    <label class="field">Columns <select id="cols"></select></label>
+    <label class="field">Teams <select id="teamCount"></select></label>
+    <div class="names" id="names"></div>
+    <div class="row2">
+      <button type="button" class="secondary" id="optionsSetup">Options</button>
+      <button type="submit" class="primary">Start</button>
+    </div>
+  </form>
+
+  <section id="game" hidden>
+    <div class="bar">
+      <span>Pairs <strong id="pairs">0</strong> / <span id="pairTotal">0</span></span>
+      <div class="teams" id="teams" aria-live="polite"></div>
+      <span class="result" id="result" aria-live="polite"></span>
+      <div class="tools">
+      <button type="button" class="secondary" id="undo" disabled>Undo</button>
+      <button type="button" class="secondary icon" id="fullscreen" aria-label="Full screen" hidden>
+        <svg class="enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        <svg class="exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+      </button>
+      <button type="button" class="secondary icon" id="optionsGame" aria-label="Options">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+      <button type="button" class="primary" id="new">New Game</button>
+      </div>
+    </div>
+    <div class="board" id="board">
+      <div class="frame" id="frame">
+        <div class="colhead" id="colhead" aria-hidden="true"></div>
+        <div class="rowhead" id="rowhead" aria-hidden="true"></div>
+        <div class="grid" id="grid" role="grid" aria-label="Memory cards"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="options" aria-labelledby="optionsTitle">
+  <h2 id="optionsTitle">Options</h2>
+  <h3>Card Back</h3>
+  <div class="designs" id="designs" role="radiogroup" aria-label="Card back"></div>
+  <h3>Row and Column Labels</h3>
+  <div class="choice" id="labels" role="radiogroup" aria-label="Row and column labels">
+    <button type="button" role="radio" data-mode="cards">On Cards</button>
+    <button type="button" role="radio" data-mode="edges">Along Edges</button>
+    <button type="button" role="radio" data-mode="off">Off</button>
+  </div>
+  <button type="button" class="primary done" id="optionsDone">Done</button>
+</dialog>
+
+<dialog id="rename" aria-labelledby="renameTitle">
+  <form id="renameForm">
+    <h2 id="renameTitle">Team Name</h2>
+    <input type="text" id="renameInput" maxlength="20" autocomplete="off" aria-labelledby="renameTitle">
+    <div class="rename-actions">
+      <button type="button" class="secondary" id="renameCancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  // Seventy-six objects;  each game picks as many as its board needs, up to
+  // seventy-two pairs for 12 by 12.  Code points rather than the characters
+  // themselves, so this file stays plain ASCII.
+  const OBJECTS = [
+    ['Apple', '\u{1F34E}'], ['Watermelon', '\u{1F349}'], ['Pineapple', '\u{1F34D}'], ['Strawberry', '\u{1F353}'],
+    ['Grapes', '\u{1F347}'], ['Cherries', '\u{1F352}'], ['Lemon', '\u{1F34B}'], ['Peach', '\u{1F351}'],
+    ['Pear', '\u{1F350}'], ['Blueberries', '\u{1FAD0}'], ['Coconut', '\u{1F965}'], ['Avocado', '\u{1F951}'],
+    ['Tomato', '\u{1F345}'], ['Carrot', '\u{1F955}'], ['Corn', '\u{1F33D}'], ['Mushroom', '\u{1F344}'],
+    ['Sunflower', '\u{1F33B}'], ['Tulip', '\u{1F337}'], ['Cactus', '\u{1F335}'], ['Clover', '\u{1F340}'],
+    ['Rocket', '\u{1F680}'], ['Balloon', '\u{1F388}'], ['Airplane', '\u{2708}\u{FE0F}'], ['Train', '\u{1F684}'],
+    ['Car', '\u{1F697}'], ['Sailboat', '\u{26F5}\u{FE0F}'], ['Bicycle', '\u{1F6B2}'], ['Kite', '\u{1FA81}'],
+    ['Soccer ball', '\u{26BD}\u{FE0F}'], ['Basketball', '\u{1F3C0}'], ['Tennis ball', '\u{1F3BE}'], ['Drum', '\u{1F941}'],
+    ['Guitar', '\u{1F3B8}'], ['Trumpet', '\u{1F3BA}'], ['Butterfly', '\u{1F98B}'], ['Dolphin', '\u{1F42C}'],
+    ['Whale', '\u{1F433}'], ['Octopus', '\u{1F419}'], ['Turtle', '\u{1F422}'], ['Frog', '\u{1F438}'],
+    ['Lion', '\u{1F981}'], ['Tiger', '\u{1F42F}'], ['Panda', '\u{1F43C}'], ['Koala', '\u{1F428}'],
+    ['Elephant', '\u{1F418}'], ['Fox', '\u{1F98A}'], ['Penguin', '\u{1F427}'], ['Owl', '\u{1F989}'],
+    ['Parrot', '\u{1F99C}'], ['Unicorn', '\u{1F984}'], ['Rainbow', '\u{1F308}'], ['Crescent moon', '\u{1F319}'],
+    ['Star', '\u{2B50}'], ['Umbrella', '\u{2614}\u{FE0F}'], ['Snowman', '\u{26C4}\u{FE0F}'], ['Crown', '\u{1F451}'],
+    ['Gem', '\u{1F48E}'], ['Gift', '\u{1F381}'], ['Cupcake', '\u{1F9C1}'], ['Doughnut', '\u{1F369}'],
+    ['Pizza', '\u{1F355}'], ['Ice cream', '\u{1F366}'],
+    ['Banana', '\u{1F34C}'], ['Kiwi', '\u{1F95D}'], ['Broccoli', '\u{1F966}'], ['Rose', '\u{1F339}'],
+    ['Maple leaf', '\u{1F341}'], ['Bus', '\u{1F68C}'], ['Helicopter', '\u{1F681}'], ['Baseball', '\u{26BE}'],
+    ['Violin', '\u{1F3BB}'], ['Crab', '\u{1F980}'], ['Bee', '\u{1F41D}'], ['Ladybug', '\u{1F41E}'],
+    ['Rabbit', '\u{1F430}'], ['Hamburger', '\u{1F354}'],
+  ].map(([name, pic]) => ({ name, pic }));
+  const DESIGNS = [
+    ['classic', 'Classic'], ['diamonds', 'Diamonds'], ['stripes', 'Stripes'],
+    ['dots', 'Dots'], ['checker', 'Checker'], ['sunburst', 'Sunburst'],
+    ['aurora', 'Aurora'], ['waves', 'Waves'], ['night', 'Night Sky'],
+  ];
+  const BACK_STORE = 'memorygame.back';
+  const LABELS_STORE = 'memorygame.labels';
+  const MIN = 2, MAX = 12, MAX_TEAMS = 6;
+  const MISMATCH_MS = 850;
+  const STORE = 'memorygame.setup';
+
+  const $ = (id) => document.getElementById(id);
+  const setupEl = $('setup'), gameEl = $('game'), board = $('board'), grid = $('grid');
+  const rowsEl = $('rows'), colsEl = $('cols'), teamCountEl = $('teamCount');
+  const pairsEl = $('pairs'), pairTotalEl = $('pairTotal'), teamsEl = $('teams'), resultEl = $('result');
+  const undoEl = $('undo');
+  const optionsEl = $('options'), designsEl = $('designs');
+
+  // ---- Card back ----
+  let design = 'classic';
+  try {
+    const d = localStorage.getItem(BACK_STORE);
+    if (DESIGNS.some(([id]) => id === d)) design = d;
+  } catch (e) { /* storage unavailable:  classic */ }
+  // Where the row and column labels go, for calling cards out:  on each card
+  // ("cards"), along the top and left of the board ("edges"), or nowhere.
+  // On the edges a card has to be found by counting along from the label,
+  // which is a little harder than reading it off the card.  The switch this
+  // replaced stored '1' and '0', read here as cards and off.
+  const LABEL_MODES = ['cards', 'edges', 'off'];
+  let labels = 'cards';
+  try {
+    const v = localStorage.getItem(LABELS_STORE);
+    labels = v === '0' ? 'off' : LABEL_MODES.includes(v) ? v : 'cards';
+  } catch (e) { /* on cards */ }
+  const labelsEl = $('labels'), frame = $('frame');
+  labelsEl.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      labels = b.dataset.mode;
+      try { localStorage.setItem(LABELS_STORE, labels); } catch (e) { /* fine */ }
+      applyDesign();
+      layout();
+    });
+  });
+  function applyDesign() {
+    grid.className = 'grid d-' + design + (labels === 'cards' ? ' labels' : '');
+    frame.classList.toggle('edges', labels === 'edges');
+    labelsEl.querySelectorAll('button').forEach((b) => {
+      b.setAttribute('aria-checked', String(b.dataset.mode === labels));
+    });
+    designsEl.querySelectorAll('.design').forEach((el) => {
+      el.setAttribute('aria-checked', String(el.dataset.design === design));
+    });
+  }
+  DESIGNS.forEach(([id, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'design';
+    b.dataset.design = id;
+    b.setAttribute('role', 'radio');
+    b.innerHTML = '<span class="sample d-' + id + '"></span><span>' + label + '</span>';
+    b.addEventListener('click', () => {
+      design = id;
+      try { localStorage.setItem(BACK_STORE, id); } catch (e) { /* fine */ }
+      applyDesign();
+    });
+    designsEl.appendChild(b);
+  });
+  applyDesign();
+  function openOptions() { optionsEl.showModal(); }
+  $('optionsSetup').addEventListener('click', openOptions);
+  $('optionsGame').addEventListener('click', openOptions);
+  $('optionsDone').addEventListener('click', () => optionsEl.close());
+  // A tap outside the panel closes it, as Escape does.
+  // By position, not target:  the panel's own padding is the dialog too.
+  optionsEl.addEventListener('click', (e) => {
+    const r = optionsEl.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (!inside) optionsEl.close();
+  });
+
+  function fillSelect(el, from, to, value) {
+    for (let v = from; v <= to; v++) {
+      const o = document.createElement('option');
+      o.value = String(v);
+      o.textContent = String(v);
+      el.appendChild(o);
+    }
+    el.value = String(Math.min(to, Math.max(from, value)));
+  }
+
+  let saved = { rows: 4, cols: 4, teams: 2 };
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (s && s.rows && s.cols && s.teams) saved = s;
+  } catch (e) { /* storage unavailable:  defaults */ }
+  fillSelect(rowsEl, MIN, MAX, saved.rows);
+  fillSelect(colsEl, MIN, MAX, saved.cols);
+  fillSelect(teamCountEl, 1, MAX_TEAMS, saved.teams);
+
+  // Team names, one box per team, blank meaning "Team 1" and so on.  Kept
+  // for every slot even when fewer teams are playing, so dropping to two
+  // teams and back to four does not lose the other two names.
+  const namesEl = $('names');
+  const nameDraft = new Array(MAX_TEAMS).fill('');
+  (Array.isArray(saved.names) ? saved.names : []).slice(0, MAX_TEAMS).forEach((n, i) => {
+    if (typeof n === 'string') nameDraft[i] = n;
+  });
+  function renderNameInputs() {
+    const t = Number(teamCountEl.value);
+    namesEl.hidden = t < 2;
+    namesEl.innerHTML = '';
+    for (let i = 0; i < t; i++) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = 20;
+      input.placeholder = 'Team ' + (i + 1);
+      input.setAttribute('aria-label', 'Team ' + (i + 1) + ' name');
+      input.autocomplete = 'off';
+      input.value = nameDraft[i];
+      input.addEventListener('input', () => { nameDraft[i] = input.value; });
+      namesEl.appendChild(input);
+    }
+  }
+  teamCountEl.addEventListener('change', renderNameInputs);
+  renderNameInputs();
+
+  let deck = [], first = null, locked = false, pending = null, oddTimer = null;
+  let rows = 4, cols = 4, pairTotal = 0, pairsFound = 0, teamCount = 1, turn = 0, scores = [];
+  let teamNames = [];
+  const teamName = (t) => teamNames[t] || 'Team ' + (t + 1);
+  let history = [];
+
+  function shuffle(list) {
+    const a = list.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  setupEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const r = Number(rowsEl.value), c = Number(colsEl.value), t = Number(teamCountEl.value);
+    try { localStorage.setItem(STORE, JSON.stringify({ rows: r, cols: c, teams: t, names: nameDraft })); } catch (err) { /* fine */ }
+    teamNames = nameDraft.slice(0, t).map((n) => n.trim());
+    start(r, c, t);
+  });
+  $('new').addEventListener('click', () => {
+    clearTimers();
+    document.body.classList.remove('playing');
+    gameEl.hidden = true;
+    setupEl.hidden = false;
+    renderNameInputs();
+  });
+  undoEl.addEventListener('click', undo);
+
+  // ---- Renaming a team mid-game ----
+  // Tapping a team's chip opens a box for its name.  A box, not the chip
+  // itself, because the chips are rebuilt on every turn and would take a
+  // half-typed name with them.  Saved names go back into the setup too, so
+  // the next game starts with them.  Blank returns to "Team 1" and so on.
+  const renameEl = $('rename'), renameInput = $('renameInput');
+  let renaming = -1;
+  function openRename(t) {
+    renaming = t;
+    renameInput.value = teamNames[t] || '';
+    renameInput.placeholder = 'Team ' + (t + 1);
+    renameEl.showModal();
+    renameInput.select();
+  }
+  $('renameForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (renaming >= 0) {
+      const v = renameInput.value.trim();
+      teamNames[renaming] = v;
+      nameDraft[renaming] = v;
+      try {
+        const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+        if (s) localStorage.setItem(STORE, JSON.stringify({ ...s, names: nameDraft }));
+      } catch (err) { /* fine */ }
+      render();
+    }
+    renameEl.close();
+  });
+  $('renameCancel').addEventListener('click', () => renameEl.close());
+  renameEl.addEventListener('close', () => { renaming = -1; });
+  renameEl.addEventListener('click', (e) => {
+    // Only a tap on the backdrop itself.  Enter in the box "clicks" Save at
+    // 0,0, which by position alone would read as a tap outside.
+    if (e.target !== renameEl) return;
+    const r = renameEl.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (!inside) renameEl.close();
+  });
+
+  // ---- Full screen ----
+  // Hides the browser's tab and address bars.  Shown only where the browser
+  // can do it (not iPhone Safari, which allows it for video alone) and not
+  // when already launched from the Home Screen, which has no bars to hide.
+  const fsEl = $('fullscreen'), root = document.documentElement;
+  const fsNow = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const installed = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
+  const canFs = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) &&
+    !!(root.requestFullscreen || root.webkitRequestFullscreen);
+  fsEl.hidden = !canFs || installed;
+  fsEl.addEventListener('click', () => {
+    if (fsNow()) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const p = (root.requestFullscreen || root.webkitRequestFullscreen).call(root, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(() => { /* refused:  stay as is */ });
+    }
+  });
+  function syncFullscreen() {
+    const on = !!fsNow();
+    fsEl.classList.toggle('on', on);
+    fsEl.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+  }
+  document.addEventListener('fullscreenchange', syncFullscreen);
+  document.addEventListener('webkitfullscreenchange', syncFullscreen);
+
+  function clearTimers() {
+    if (pending) { clearTimeout(pending.timer); pending = null; }
+    if (oddTimer) { clearTimeout(oddTimer); oddTimer = null; }
+  }
+
+  function start(r, c, teams) {
+    clearTimers();
+    rows = r;
+    cols = c;
+    const n = rows * cols;
+    pairTotal = Math.floor(n / 2);
+    const picked = shuffle(OBJECTS).slice(0, pairTotal + (n % 2));
+    const pairs = picked.slice(0, pairTotal);
+    const cards = pairs.concat(pairs).map((obj) => ({ obj, odd: false }));
+    if (n % 2) cards.push({ obj: picked[pairTotal], odd: true });
+    deck = shuffle(cards).map((card) => ({ ...card, up: false, found: false, shownOdd: false }));
+
+    first = null;
+    locked = false;
+    pairsFound = 0;
+    teamCount = teams;
+    turn = 0;
+    scores = new Array(teams).fill(0);
+    history = [];
+
+    grid.innerHTML = '';
+    deck.forEach((card, i) => {
+      // Row as a letter from the top, column as a number from the left.
+      card.tag = String.fromCharCode(65 + Math.floor(i / cols)) + (i % cols + 1);
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'card';
+      el.setAttribute('aria-label', 'Face-down card ' + card.tag);
+      el.innerHTML =
+        '<span class="inner">' +
+          '<span class="side back"><span class="tag">' + card.tag + '</span></span>' +
+          '<span class="side front"><span class="pic" aria-hidden="true">' + card.obj.pic + '</span></span>' +
+        '</span>';
+      el.addEventListener('click', () => flip(card));
+      card.el = el;
+      grid.appendChild(el);
+    });
+
+    const colhead = $('colhead'), rowhead = $('rowhead');
+    colhead.innerHTML = '';
+    for (let c = 1; c <= cols; c++) colhead.insertAdjacentHTML('beforeend', '<span>' + c + '</span>');
+    rowhead.innerHTML = '';
+    for (let r = 0; r < rows; r++) rowhead.insertAdjacentHTML('beforeend', '<span>' + String.fromCharCode(65 + r) + '</span>');
+
+    pairTotalEl.textContent = String(pairTotal);
+    setupEl.hidden = true;
+    gameEl.hidden = false;
+    document.body.classList.add('playing');
+    render();
+    layout();
+  }
+
+  // The largest square that fits the board both across and down.  The gap
+  // and corner scale with the square, so a 12 by 12 board keeps its pictures.
+  function layout() {
+    if (gameEl.hidden) return;
+    const w = board.clientWidth, h = board.clientHeight;
+    if (!w || !h) return;
+    // With edge labels a band along the top and left holds them, taken out of
+    // the room before the squares are sized.  It scales with the square, so
+    // the passes settle all three together.
+    const edges = labels === 'edges';
+    let gap = 8, size = 0, band = edges ? 20 : 0;
+    for (let pass = 0; pass < 3; pass++) {
+      size = Math.floor(Math.min((w - band - gap * (cols - 1)) / cols, (h - band - gap * (rows - 1)) / rows));
+      gap = Math.max(3, Math.min(10, Math.round(size * 0.06)));
+      if (edges) band = Math.max(16, Math.min(40, Math.round(size * 0.36)));
+    }
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ', ' + size + 'px)';
+    grid.style.gridAutoRows = size + 'px';
+    grid.style.gap = gap + 'px';
+    const colhead = $('colhead'), rowhead = $('rowhead');
+    colhead.style.gridTemplateColumns = grid.style.gridTemplateColumns;
+    colhead.style.columnGap = gap + 'px';
+    rowhead.style.gridAutoRows = size + 'px';
+    rowhead.style.rowGap = gap + 'px';
+    frame.style.setProperty('--band', band + 'px');
+    frame.style.setProperty('--edge', Math.max(11, Math.min(30, Math.round(band * 0.62))) + 'px');
+    grid.style.setProperty('--radius', Math.max(6, Math.min(16, Math.round(size * 0.13))) + 'px');
+    grid.style.setProperty('--tag', Math.max(10, Math.min(44, Math.round(size * 0.26))) + 'px');
+  }
+  new ResizeObserver(layout).observe(board);
+
+  // ---- State ----
+
+  function snapshot() {
+    return {
+      cards: deck.map((c) => ({ up: c.up, found: c.found, shownOdd: c.shownOdd })),
+      first: first ? deck.indexOf(first) : -1,
+      pairsFound,
+      turn,
+      scores: scores.slice(),
+    };
+  }
+
+  function restore(s) {
+    deck.forEach((c, i) => Object.assign(c, s.cards[i]));
+    first = s.first >= 0 ? deck[s.first] : null;
+    pairsFound = s.pairsFound;
+    turn = s.turn;
+    scores = s.scores.slice();
+    locked = false;
+    render();
+  }
+
+  // Undo goes back to the start of a turn:  both cards face down, the same
+  // team to play.  Mid-turn it takes back the card just turned;  after a turn
+  // it takes back the whole turn, match and point included.  It reaches into
+  // the pause after a miss, and past the end of a game.
+  function undo() {
+    if (!history.length) return;
+    clearTimers();
+    restore(history.pop());
+  }
+
+  function render(winners) {
+    deck.forEach((c) => {
+      c.el.classList.toggle('up', c.up);
+      c.el.classList.toggle('found', c.found);
+      c.el.classList.toggle('odd', c.shownOdd);
+      c.el.setAttribute('aria-label',
+        !c.up ? 'Face-down card ' + c.tag : c.found ? c.obj.name + ', matched' : c.shownOdd ? c.obj.name + ', no pair' : c.obj.name);
+    });
+    pairsEl.textContent = String(pairsFound);
+    undoEl.disabled = history.length === 0;
+
+    const done = pairsFound === pairTotal;
+    if (done && !winners) winners = winnersOf();
+    teamsEl.hidden = teamCount < 2;
+    teamsEl.innerHTML = '';
+    for (let t = 0; t < teamCount; t++) {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.addEventListener('click', () => openRename(t));
+      el.className = 'team' +
+        (!done && t === turn ? ' active' : '') +
+        (done && winners.includes(t) ? ' winner' : '');
+      const name = document.createElement('span');
+      name.textContent = teamName(t);
+      const score = document.createElement('span');
+      score.className = 'score';
+      score.textContent = String(scores[t]);
+      el.append(name, score);
+      el.setAttribute('aria-label', teamName(t) + ', ' + scores[t] + ', rename');
+      if (!done && t === turn) el.setAttribute('aria-current', 'true');
+      teamsEl.appendChild(el);
+    }
+
+    if (!done) {
+      resultEl.textContent = '';
+    } else if (teamCount < 2) {
+      resultEl.innerHTML = '<strong>All pairs found.</strong>';
+    } else {
+      const best = scores[winners[0]];
+      const names = winners.map(teamName);
+      const lead = document.createElement('strong');
+      resultEl.textContent = '';
+      if (winners.length === 1) {
+        lead.textContent = names[0] + ' wins.';
+        resultEl.append(lead);
+      } else {
+        lead.textContent = 'Tie:';
+        resultEl.append(lead, ' ' + names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ', ' + best + ' each.');
+      }
+    }
+  }
+
+  function winnersOf() {
+    const best = Math.max(...scores);
+    return scores.map((s, t) => (s === best ? t : -1)).filter((t) => t >= 0);
+  }
+
+  function flip(card) {
+    if (locked || card.up || card.found || pairsFound === pairTotal) return;
+    // Saved at the start of each turn only -- what Undo returns to.
+    if (!first) history.push(snapshot());
+    card.up = true;
+    if (!first) {
+      first = card;
+      render();
+      return;
+    }
+    const a = first, b = card;
+    first = null;
+
+    if (a.obj === b.obj) {
+      // A match stays face up, scores for the team whose turn it is, and that
+      // team goes again.
+      a.found = b.found = true;
+      pairsFound += 1;
+      scores[turn] += 1;
+      render();
+      if (pairsFound === pairTotal) {
+        // The card without a pair turns up on its own once every pair is found.
+        const odd = deck.find((c) => c.odd);
+        if (odd) {
+          oddTimer = setTimeout(() => {
+            oddTimer = null;
+            odd.up = odd.shownOdd = true;
+            render();
+          }, 450);
+        }
+      }
+      return;
+    }
+
+    // Not a match:  both stay showing long enough to remember, turn back over,
+    // and the turn passes to the next team.
+    render();
+    locked = true;
+    pending = {
+      timer: setTimeout(() => {
+        pending = null;
+        a.up = b.up = false;
+        locked = false;
+        turn = (turn + 1) % teamCount;
+        render();
+      }, MISMATCH_MS),
+    };
+  }
+})();
+</script>
+</body>
+</html>

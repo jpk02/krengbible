@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f1eb" id="theme-color-meta">
+<title>매일 / Daily — krengbible</title>
+<link rel="icon" href="/favicon-32.png" sizes="32x32">
+<link rel="icon" href="/favicon-16.png" sizes="16x16">
+<link rel="icon" href="/favicon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#f4f1eb;--card:#fff;--text:#1c1c1c;--muted:#9a9488;--border:#ede9e3;--accent:#1b2a4a;--accent-text:#fff;--success:#16a34a;--pending:#d1cec8}
+body.dark{--bg:#1a1a1a;--card:#242424;--text:#e8e5e0;--muted:#7a7468;--border:#333;--accent:#3a4d75;--accent-text:#e8e5e0;--success:#22c55e;--pending:#3a3a3a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'DM Sans','Noto Sans KR',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;min-height:100dvh}
+button{font-family:inherit;-webkit-appearance:none;border:none;cursor:pointer}
+input,textarea{font-family:inherit;-webkit-appearance:none}
+.hidden{display:none!important}
+
+/* Top bar */
+.top-bar{position:sticky;top:0;background:var(--bg);z-index:10;display:flex;align-items:center;padding:14px 16px;gap:12px;border-bottom:.5px solid var(--border)}
+.top-back{background:none;color:var(--text);display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;flex-shrink:0;text-decoration:none}
+.top-back:hover{background:rgba(0,0,0,.04)}
+body.dark .top-back:hover{background:rgba(255,255,255,.06)}
+.page-title{flex:1;font-size:15px;font-weight:600;color:var(--text);margin:0;letter-spacing:-.01em}
+.icon-btn{background:none;color:var(--muted);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.icon-btn:hover{background:rgba(0,0,0,.04)}
+body.dark .icon-btn:hover{background:rgba(255,255,255,.06)}
+
+/* Main container */
+.container{max-width:720px;margin:0 auto;padding:18px 16px 80px}
+
+/* Today section */
+.today-section{margin-bottom:32px}
+.today-date{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:24px}
+
+/* Cards */
+.card{background:var(--card);border:.5px solid var(--border);border-radius:18px;padding:20px 18px;margin-bottom:14px;position:relative}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.card-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;background:var(--pending);color:var(--muted);letter-spacing:.02em}
+.card-status.done{background:var(--success);color:#fff}
+
+/* QT card body */
+.qt-card .card-body{display:flex;flex-direction:column;gap:12px}
+.qt-preview{background:rgba(0,0,0,.025);border-radius:12px;padding:12px 14px;margin-top:8px}
+body.dark .qt-preview{background:rgba(255,255,255,.03)}
+.preview-ref{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.02em;margin-bottom:6px}
+body.dark .preview-ref{color:#7a8eaa}
+.preview-text{font-size:13px;line-height:1.5;color:var(--text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;opacity:.85}
+.bible-link{display:block;margin-top:14px;font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;text-align:center;padding:8px;border-top:.5px solid var(--border);letter-spacing:.01em}
+.bible-link:hover{color:var(--accent)}
+body.dark .bible-link:hover{color:#8ba3d4}
+
+/* Prayer card */
+.stopwatch-display{font-family:'DM Sans',monospace;font-size:54px;font-weight:600;letter-spacing:-.02em;text-align:center;margin:8px 0 18px;color:var(--text);font-variant-numeric:tabular-nums}
+.stopwatch-display.running{color:var(--accent)}
+body.dark .stopwatch-display.running{color:#8ba3d4}
+.stopwatch-actions{display:flex;gap:8px;justify-content:center;margin-bottom:14px}
+.stopwatch-actions button{padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;letter-spacing:.02em;transition:opacity .15s,transform .1s}
+.stopwatch-actions button:active{transform:scale(.96)}
+.btn-primary{background:var(--accent);color:var(--accent-text)}
+.btn-secondary{background:var(--card);border:.5px solid var(--border);color:var(--text)}
+.btn-tertiary{background:transparent;color:var(--muted);font-weight:500}
+.prayer-total{font-size:12px;color:var(--muted);text-align:center;letter-spacing:.02em}
+
+/* Primary buttons */
+.primary-btn{background:var(--accent);color:var(--accent-text);padding:12px 16px;border-radius:12px;font-size:14px;font-weight:600;letter-spacing:.01em;width:100%;transition:opacity .15s,transform .1s}
+.primary-btn:active{transform:scale(.98)}
+.primary-btn.secondary{background:var(--card);border:.5px solid var(--border);color:var(--text)}
+
+/* Section heading */
+.section-title{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:36px 0 12px}
+
+/* Calendar */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px}
+.cal-title{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-.015em}
+.cal-nav-btn{background:var(--card);border:.5px solid var(--border);width:36px;height:36px;border-radius:10px;color:var(--text);font-size:16px;display:flex;align-items:center;justify-content:center}
+.cal-nav-btn:hover{background:rgba(0,0,0,.02)}
+body.dark .cal-nav-btn:hover{background:rgba(255,255,255,.03)}
+.cal-year-select{background:var(--card);border:.5px solid var(--border);padding:6px 10px;border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer}
+.weekday-row{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+.weekday-cell{font-size:11px;font-weight:600;color:var(--muted);text-align:center;letter-spacing:.04em;padding:6px 0}
+.weekday-cell.sun{color:#dc2626}
+.weekday-cell.sat{color:#2563eb}
+body.dark .weekday-cell.sun{color:#f87171}
+body.dark .weekday-cell.sat{color:#60a5fa}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day-cell{background:var(--card);border:.5px solid var(--border);border-radius:10px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:6px 4px;cursor:pointer;transition:background .15s,border-color .15s;position:relative;min-height:54px}
+.day-cell.empty{background:transparent;border:none;cursor:default}
+.day-cell.future{opacity:.4;cursor:default}
+.day-cell.today{border:1.5px solid var(--accent);border-color:var(--accent)}
+body.dark .day-cell.today{border-color:#8ba3d4}
+.day-cell:hover:not(.empty):not(.future){background:rgba(0,0,0,.02)}
+body.dark .day-cell:hover:not(.empty):not(.future){background:rgba(255,255,255,.04)}
+.day-num{font-size:13px;font-weight:600;color:var(--text);line-height:1.1}
+.day-num.sun{color:#dc2626}
+.day-num.sat{color:#2563eb}
+body.dark .day-num.sun{color:#f87171}
+body.dark .day-num.sat{color:#60a5fa}
+.day-dots{display:flex;gap:3px;margin-top:auto;margin-bottom:2px}
+.day-dot{width:6px;height:6px;border-radius:50%;background:var(--pending)}
+.day-dot.qt{background:#f59e0b}
+.day-dot.prayed{background:#16a34a}
+body.dark .day-dot.qt{background:#fbbf24}
+body.dark .day-dot.prayed{background:#22c55e}
+.day-mins{font-size:9px;color:var(--muted);line-height:1;margin-top:1px;font-weight:600}
+
+/* Modal */
+.modal{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;flex-direction:column;animation:slideUp .25s ease-out}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:.5px solid var(--border)}
+.modal-back{background:none;color:var(--text);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.modal-back:hover{background:rgba(0,0,0,.04)}
+body.dark .modal-back:hover{background:rgba(255,255,255,.06)}
+.modal-title{flex:1;font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.modal-save{background:var(--accent);color:var(--accent-text);padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;flex-shrink:0}
+.modal-save.disabled{opacity:.4;cursor:not-allowed}
+.modal-body{flex:1;overflow-y:auto;padding:24px 20px}
+.modal-date{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:14px}
+.passage-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);padding:10px 0;font-size:18px;font-weight:600;color:var(--text);outline:none;margin-bottom:22px;letter-spacing:-.01em}
+.passage-input::placeholder{color:var(--muted);font-weight:500}
+/* The QT body is a contenteditable so Enter creates a real paragraph block.
+   Within a paragraph: normal line-height.  Between paragraphs: margin-bottom
+   for breathing room.  Auto-grows with content. */
+.qt-textarea{width:100%;background:transparent;border:none;font-size:15px;line-height:1.6;color:var(--text);min-height:240px;outline:none;letter-spacing:-.005em;word-break:break-word;-webkit-user-select:text;user-select:text}
+.qt-textarea p{margin:0 0 .5em 0}
+.qt-textarea p:last-child{margin-bottom:0}
+.qt-textarea div{margin:0 0 .5em 0}
+.qt-textarea div:last-child{margin-bottom:0}
+.qt-textarea br + br{display:none}
+.qt-textarea:empty:before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
+.modal-readonly-banner{background:rgba(0,0,0,.04);color:var(--muted);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;letter-spacing:.02em;margin-bottom:18px;text-align:center}
+body.dark .modal-readonly-banner{background:rgba(255,255,255,.06)}
+
+/* Swipe-to-delete row in QT history */
+.qt-row{position:relative;margin-bottom:10px;border-radius:14px;overflow:hidden;background:#dc2626}
+body.dark .qt-row{background:#b91c1c}
+.qt-row-delete-area{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;padding-right:24px}
+.qt-row-delete-label{color:#fff;font-size:13px;font-weight:700;letter-spacing:.04em}
+.qt-row-card{position:relative;background:var(--card);border:.5px solid var(--border);padding:14px 16px;cursor:pointer;transition:transform .22s cubic-bezier(0.25,0.46,0.45,0.94);will-change:transform;-webkit-user-select:none;user-select:none;border-radius:14px}
+.qt-row.dragging .qt-row-card{transition:none}
+
+/* Bottom action row in the QT editor: minimal Cancel + Save buttons */
+.qt-editor-actions{margin-top:28px;display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.qt-editor-cancel{background:transparent;color:var(--muted);padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;letter-spacing:.01em;transition:background .15s,color .15s}
+.qt-editor-cancel:hover{background:rgba(0,0,0,.04);color:var(--text)}
+body.dark .qt-editor-cancel:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.qt-editor-save{background:var(--accent);color:var(--accent-text);padding:8px 20px;border-radius:8px;font-size:14px;font-weight:600;letter-spacing:.01em;transition:opacity .15s,transform .1s}
+.qt-editor-save:active{transform:scale(.97)}
+
+/* Top header icon buttons (undo, share, trash) — match the back arrow style */
+.qt-editor-icon{background:none;color:var(--muted);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s}
+.qt-editor-icon:hover{background:rgba(0,0,0,.04);color:var(--text)}
+body.dark .qt-editor-icon:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.qt-editor-icon.danger{color:#dc2626}
+.qt-editor-icon.danger:hover{background:rgba(220,38,38,.1);color:#dc2626}
+body.dark .qt-editor-icon.danger{color:#f87171}
+body.dark .qt-editor-icon.danger:hover{background:rgba(248,113,113,.12);color:#f87171}
+.qt-editor-header-actions{display:flex;align-items:center;gap:2px}
+
+/* Confirmation dialog */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .15s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.confirm-box{background:var(--card);border-radius:18px;padding:24px 22px 18px;max-width:340px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.18);border:.5px solid var(--border)}
+.confirm-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-.01em}
+.confirm-msg{font-size:14px;line-height:1.5;color:var(--muted);margin-bottom:20px}
+.confirm-actions{display:flex;gap:8px;justify-content:flex-end}
+.confirm-actions button{padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;letter-spacing:.02em}
+.btn-cancel{background:var(--card);border:.5px solid var(--border);color:var(--text)}
+.btn-danger{background:#dc2626;color:#fff}
+body.dark .btn-danger{background:#b91c1c}
+
+/* Sync status */
+.sync-status{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--card);border:.5px solid var(--border);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.02em;opacity:0;transition:opacity .3s;pointer-events:none;z-index:50}
+.sync-status.visible{opacity:1}
+.sync-status.error{color:#dc2626}
+
+/* QT history button at bottom */
+.qt-history-btn{display:block;width:100%;padding:14px;text-align:center;background:transparent;color:var(--accent);font-size:13px;font-weight:600;letter-spacing:.02em;margin-top:8px}
+body.dark .qt-history-btn{color:#8ba3d4}
+
+@media (max-width: 480px){
+  .container{padding:14px 14px 80px}
+  .stopwatch-display{font-size:46px}
+  .day-cell{min-height:48px;padding:5px 3px}
+  .day-num{font-size:12px}
+  .day-dot{width:5px;height:5px}
+  .day-mins{font-size:8px}
+}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<header class="top-bar">
+  <h1 class="page-title" id="page-title" style="padding-left:4px">매일</h1>
+  <button class="icon-btn" onclick="toggleLang()" id="lang-btn" aria-label="Language">한</button>
+  <button class="icon-btn" onclick="toggleDark()" id="dark-btn" aria-label="Dark mode">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
+  </button>
+</header>
+
+<div class="container">
+
+  <!-- Today section -->
+  <section class="today-section">
+    <div class="today-date" id="today-date"></div>
+
+    <!-- QT card -->
+    <div class="card qt-card">
+      <div class="card-header">
+        <span class="card-title" id="qt-title">QT</span>
+        <span class="card-status" id="qt-status">대기 중</span>
+      </div>
+      <button class="primary-btn" onclick="openTodayQt()" id="qt-btn">오늘의 QT 시작하기</button>
+      <div class="qt-preview hidden" id="qt-preview">
+        <div class="preview-ref" id="preview-ref"></div>
+        <div class="preview-text" id="preview-text"></div>
+      </div>
+      <a href="/" class="bible-link" id="bible-link">본문 읽기 →</a>
+    </div>
+
+    <!-- Prayer card -->
+    <div class="card prayer-card">
+      <div class="card-header">
+        <span class="card-title" id="prayer-title">기도</span>
+        <span class="card-status" id="prayer-status">대기 중</span>
+      </div>
+      <div class="stopwatch-display" id="stopwatch-display">00:00</div>
+      <div class="stopwatch-actions">
+        <button class="btn-primary" onclick="prayerStart()" id="prayer-start-btn">시작</button>
+        <button class="btn-secondary hidden" onclick="prayerPause()" id="prayer-pause-btn">일시정지</button>
+        <button class="btn-secondary hidden" onclick="prayerSave()" id="prayer-save-btn">기록</button>
+      </div>
+      <div class="prayer-total" id="prayer-total">오늘 총 기도 시간: 0분</div>
+    </div>
+  </section>
+
+  <!-- Monthly calendar -->
+  <section class="calendar-section">
+    <div class="section-title" id="cal-section-title">기록</div>
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calPrev()" aria-label="Previous month">‹</button>
+      <span class="cal-title" id="cal-title">2026년 6월</span>
+      <button class="cal-nav-btn" onclick="calNext()" aria-label="Next month">›</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <select class="cal-year-select" id="cal-year" onchange="calYearChange()"></select>
+    </div>
+    <div class="weekday-row" id="weekday-row"></div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+    <button class="qt-history-btn" onclick="openQtHistory()" id="qt-history-btn">QT 기록 전체 보기 →</button>
+  </section>
+
+</div>
+
+<!-- QT Editor Modal -->
+<div class="modal hidden" id="qt-editor">
+  <div class="modal-header">
+    <button class="modal-back" onclick="closeQtEditor()" aria-label="Back">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <span class="modal-title" id="qt-editor-title">오늘의 QT</span>
+    <div class="qt-editor-header-actions">
+      <button class="qt-editor-icon" onclick="qtEditorUndo()" id="qt-editor-undo-btn" aria-label="Undo">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 0 1 14-7l4 4"/></svg>
+      </button>
+      <button class="qt-editor-icon" onclick="qtEditorShare()" id="qt-editor-share-btn" aria-label="Share">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
+      </button>
+      <button class="qt-editor-icon danger hidden" onclick="qtEditorDelete()" id="qt-editor-delete-btn" aria-label="Delete">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="modal-body">
+    <div class="modal-date" id="qt-editor-date"></div>
+    <div class="modal-readonly-banner hidden" id="qt-readonly-banner">읽기 전용</div>
+    <input type="text" class="passage-input" id="qt-passage" placeholder="요한복음 3:16-21" autocomplete="off" spellcheck="false">
+    <div class="qt-textarea" id="qt-text" contenteditable="true" data-placeholder="오늘의 QT를 작성하세요..." spellcheck="false"></div>
+    <div class="qt-editor-actions" id="qt-editor-actions">
+      <button class="qt-editor-cancel" onclick="closeQtEditor()" id="qt-cancel-btn">취소</button>
+      <button class="qt-editor-save" onclick="saveQt()" id="qt-save-btn">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- QT History Modal -->
+<div class="modal hidden" id="qt-history-modal">
+  <div class="modal-header">
+    <button class="modal-back" onclick="closeQtHistory()" aria-label="Back">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <span class="modal-title" id="qt-history-title">QT 기록</span>
+    <span style="width:36px"></span>
+  </div>
+  <div class="modal-body" id="qt-history-list">
+  </div>
+</div>
+
+<!-- Confirm delete dialog -->
+<div class="confirm-overlay hidden" id="qt-confirm">
+  <div class="confirm-box">
+    <div class="confirm-title" id="qt-confirm-title">QT 삭제</div>
+    <div class="confirm-msg" id="qt-confirm-msg">이 QT 기록을 삭제하시겠습니까?  되돌릴 수 없습니다.</div>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="qtCancelDelete()" id="qt-confirm-cancel">취소</button>
+      <button class="btn-danger" onclick="qtConfirmDelete()" id="qt-confirm-ok">삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sync status toast -->
+<div class="sync-status" id="sync-status"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, setDoc, deleteDoc, getDocs, onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCrIbFW4Yt_AVid0Zw3JEDgJYI_G2w6JOM",
+  authDomain: "krengbible.firebaseapp.com",
+  projectId: "krengbible",
+  storageBucket: "krengbible.firebasestorage.app",
+  messagingSenderId: "871488415040",
+  appId: "1:871488415040:web:9ec46e06b12741ae2346a5"
+};
+const fbApp = initializeApp(firebaseConfig);
+const fbAuth = getAuth(fbApp);
+const fbDB = getFirestore(fbApp);
+setPersistence(fbAuth, browserLocalPersistence).catch(()=>{});
+
+window.fbAuth = fbAuth;
+window.fbDB = fbDB;
+window.fbUser = null;
+window._fbDailyUnsub = null;
+window._fbQtUnsub = null;
+
+window._fb = {
+  doc, setDoc, deleteDoc, collection, getDocs, onSnapshot
+};
+
+onAuthStateChanged(fbAuth, async (user) => {
+  window.fbUser = user || null;
+  if (typeof onAuthChange === 'function') onAuthChange(user);
+});
+</script>
+
+<script>
+// ===== State =====
+var LANG_KEY = 'krengbible_daily_lang';
+var DARK_KEY = 'krengbible_dark';
+var DAILY_KEY = 'krengbible_daily_data';
+var QT_KEY = 'krengbible_qt_journal';
+var TIMER_KEY = 'krengbible_daily_timer';
+
+var lang = (function(){
+  try { var v = localStorage.getItem(LANG_KEY); return (v==='ko'||v==='en') ? v : 'ko'; } catch(e){ return 'ko'; }
+})();
+var darkMode = (function(){
+  try { return localStorage.getItem(DARK_KEY) === '1'; } catch(e){ return false; }
+})();
+
+var calView = { year: 0, month: 0 }; // populated in init
+
+var prayerTimer = null;             // setInterval id when running
+var prayerState = { running: false, startedAt: null, accumulated: 0 };
+var PRAYED_THRESHOLD_SEC = 600;     // 10 minutes
+
+// ===== Helpers =====
+function todayKey(){
+  // YYYY-MM-DD in local time
+  return new Date().toLocaleDateString('en-CA');
+}
+function dateKey(d){
+  return d.toLocaleDateString('en-CA');
+}
+function parseKey(k){
+  var p = k.split('-');
+  return { year: +p[0], month: +p[1], day: +p[2] };
+}
+function formatSec(sec){
+  sec = Math.max(0, Math.floor(sec));
+  var h = Math.floor(sec/3600);
+  var m = Math.floor((sec%3600)/60);
+  var s = sec%60;
+  if(h>0) return h+':'+pad2(m)+':'+pad2(s);
+  return pad2(m)+':'+pad2(s);
+}
+function pad2(n){ return (n<10?'0':'')+n; }
+function formatMin(sec){
+  return Math.floor(sec/60);
+}
+
+// ===== Storage =====
+function loadDaily(){
+  try { return JSON.parse(localStorage.getItem(DAILY_KEY)||'{}'); } catch(e){ return {}; }
+}
+function saveDaily(d){
+  try { localStorage.setItem(DAILY_KEY, JSON.stringify(d)); } catch(e){}
+}
+function loadQt(){
+  try { return JSON.parse(localStorage.getItem(QT_KEY)||'{}'); } catch(e){ return {}; }
+}
+function saveQtStore(d){
+  try { localStorage.setItem(QT_KEY, JSON.stringify(d)); } catch(e){}
+}
+function getDay(k){
+  var d = loadDaily();
+  return d[k] || { qt:false, prayed:false, prayerSeconds:0 };
+}
+function setDay(k, patch){
+  var d = loadDaily();
+  var cur = d[k] || { qt:false, prayed:false, prayerSeconds:0 };
+  Object.keys(patch).forEach(function(p){ cur[p] = patch[p]; });
+  cur.prayed = (cur.prayerSeconds||0) >= PRAYED_THRESHOLD_SEC ? true : !!cur.prayed;
+  cur.updatedAt = Date.now();
+  d[k] = cur;
+  saveDaily(d);
+  syncDayToFirestore(k, cur);
+  return cur;
+}
+function getQtEntry(k){
+  var d = loadQt();
+  return d[k] || null;
+}
+function setQtEntry(k, entry){
+  var d = loadQt();
+  var existing = d[k] || {};
+  entry.createdAt = existing.createdAt || Date.now();
+  entry.updatedAt = Date.now();
+  d[k] = entry;
+  saveQtStore(d);
+  syncQtToFirestore(k, entry);
+  // Mark day as QT done
+  setDay(k, { qt: true });
+}
+
+// ===== Firestore sync =====
+function syncDayToFirestore(k, data){
+  if(!window.fbUser || !window._fb) return;
+  try {
+    var ref = window._fb.doc(window.fbDB, 'users', window.fbUser.uid, 'daily', k);
+    window._fb.setDoc(ref, data, { merge: true }).catch(function(e){ flashSync('error', e.message); });
+  } catch(e){}
+}
+function syncQtToFirestore(k, data){
+  if(!window.fbUser || !window._fb) return;
+  try {
+    var ref = window._fb.doc(window.fbDB, 'users', window.fbUser.uid, 'qt', k);
+    window._fb.setDoc(ref, data, { merge: true }).catch(function(e){ flashSync('error', e.message); });
+  } catch(e){}
+}
+window.onAuthChange = function(user){
+  if(user){
+    flashSync('ok', lang==='ko'?'동기화됨':'Synced');
+    // Pull on sign-in
+    pullDailyFromFirestore();
+    pullQtFromFirestore();
+  } else {
+    flashSync('ok', lang==='ko'?'로컬 저장':'Local only');
+  }
+};
+async function pullDailyFromFirestore(){
+  if(!window.fbUser) return;
+  try {
+    var col = window._fb.collection(window.fbDB, 'users', window.fbUser.uid, 'daily');
+    var snap = await window._fb.getDocs(col);
+    var local = loadDaily();
+    var dirty = false;
+    snap.forEach(function(s){
+      var k = s.id;
+      var remote = s.data();
+      var loc = local[k];
+      if(!loc || (remote.updatedAt||0) > (loc.updatedAt||0)){
+        local[k] = remote;
+        dirty = true;
+      }
+    });
+    if(dirty) saveDaily(local);
+    render();
+  } catch(e){
+    flashSync('error', e.message);
+  }
+}
+async function pullQtFromFirestore(){
+  if(!window.fbUser) return;
+  try {
+    var col = window._fb.collection(window.fbDB, 'users', window.fbUser.uid, 'qt');
+    var snap = await window._fb.getDocs(col);
+    var local = loadQt();
+    var dirty = false;
+    snap.forEach(function(s){
+      var k = s.id;
+      var remote = s.data();
+      var loc = local[k];
+      if(!loc || (remote.updatedAt||0) > (loc.updatedAt||0)){
+        local[k] = remote;
+        dirty = true;
+      }
+    });
+    if(dirty) saveQtStore(local);
+    render();
+  } catch(e){
+    flashSync('error', e.message);
+  }
+}
+function flashSync(kind, msg){
+  var el = document.getElementById('sync-status');
+  if(!el) return;
+  el.textContent = msg;
+  el.className = 'sync-status visible' + (kind==='error'?' error':'');
+  setTimeout(function(){ el.classList.remove('visible'); }, 2500);
+}
+
+// ===== Labels =====
+var LABELS = {
+  page: { ko:'매일', en:'Daily' },
+  qtCard: { ko:'QT', en:'QT' },
+  prayerCard: { ko:'기도', en:'Prayer' },
+  pending: { ko:'대기 중', en:'Pending' },
+  done: { ko:'완료', en:'Done' },
+  qtStartBtn: { ko:'오늘의 QT 시작하기', en:'Start today\'s QT' },
+  qtContinueBtn: { ko:'QT 이어 쓰기', en:'Continue QT' },
+  qtViewBtn: { ko:'QT 보기', en:'View QT' },
+  start: { ko:'시작', en:'Start' },
+  pause: { ko:'일시정지', en:'Pause' },
+  save: { ko:'기록', en:'Save' },
+  resume: { ko:'재개', en:'Resume' },
+  prayerTotal: { ko:'오늘 총 기도 시간', en:'Today total' },
+  history: { ko:'기록', en:'History' },
+  qtHistoryBtn: { ko:'QT 기록 전체 보기', en:'View all QT entries' },
+  qtModalToday: { ko:'오늘의 QT', en:'Today\'s QT' },
+  qtModalPast: { ko:'지난 QT', en:'Past QT' },
+  saveBtn: { ko:'저장', en:'Save' },
+  qtPlaceholder: { ko:'오늘의 QT를 작성하세요...', en:'Write today\'s reflection...' },
+  passagePlaceholder: { ko:'요한복음 3:16-21', en:'John 3:16-21' },
+  readonly: { ko:'읽기 전용', en:'Read only' },
+  qtHistoryTitle: { ko:'QT 기록', en:'QT History' },
+  noEntries: { ko:'아직 작성된 QT가 없습니다', en:'No QT entries yet' }
+};
+function L(key){
+  var v = LABELS[key];
+  return v ? v[lang] : key;
+}
+
+// ===== Date formatting =====
+function formatTodayDate(){
+  var d = new Date();
+  if(lang==='ko'){
+    var months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    var days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+    return d.getFullYear()+'년 '+months[d.getMonth()]+' '+d.getDate()+'일 '+days[d.getDay()];
+  }
+  return d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+function formatMonthHeader(year, month){
+  if(lang==='ko'){
+    return year+'년 '+(month+1)+'월';
+  }
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return months[month]+' '+year;
+}
+
+// ===== Theme =====
+function applyTheme(){
+  if(darkMode) document.body.classList.add('dark');
+  else document.body.classList.remove('dark');
+  var meta = document.getElementById('theme-color-meta');
+  if(meta) meta.setAttribute('content', darkMode ? '#1a1a1a' : '#f4f1eb');
+}
+function toggleDark(){
+  darkMode = !darkMode;
+  try { localStorage.setItem(DARK_KEY, darkMode?'1':'0'); } catch(e){}
+  applyTheme();
+}
+function toggleLang(){
+  lang = (lang==='ko') ? 'en' : 'ko';
+  try { localStorage.setItem(LANG_KEY, lang); } catch(e){}
+  render();
+}
+
+// ===== Render: top section =====
+function renderToday(){
+  document.getElementById('today-date').textContent = formatTodayDate();
+  document.getElementById('page-title').textContent = lang==='ko' ? '매일' : 'Daily';
+  document.getElementById('lang-btn').textContent = lang==='ko' ? '한' : 'Eng';
+  var bibleLinkEl = document.getElementById('bible-link');
+  if(bibleLinkEl) bibleLinkEl.textContent = (lang==='ko' ? '본문 읽기' : 'Read passage') + ' →';
+
+  var k = todayKey();
+  var day = getDay(k);
+  var qt = getQtEntry(k);
+
+  // QT card
+  document.getElementById('qt-title').textContent = L('qtCard');
+  var qtStatusEl = document.getElementById('qt-status');
+  if(day.qt){
+    qtStatusEl.textContent = L('done');
+    qtStatusEl.classList.add('done');
+  } else {
+    qtStatusEl.textContent = L('pending');
+    qtStatusEl.classList.remove('done');
+  }
+  var qtBtn = document.getElementById('qt-btn');
+  var qtPreview = document.getElementById('qt-preview');
+  if(qt && (qt.text || qt.passageRef)){
+    qtBtn.textContent = lang==='ko' ? 'QT 이어 쓰기' : 'Continue QT';
+    qtPreview.classList.remove('hidden');
+    document.getElementById('preview-ref').textContent = qt.passageRef || '';
+    document.getElementById('preview-text').textContent = qt.text || '';
+  } else {
+    qtBtn.textContent = lang==='ko' ? '오늘의 QT 시작하기' : 'Start today\'s QT';
+    qtPreview.classList.add('hidden');
+  }
+
+  // Prayer card
+  document.getElementById('prayer-title').textContent = L('prayerCard');
+  var prStatusEl = document.getElementById('prayer-status');
+  if(day.prayed){
+    prStatusEl.textContent = L('done');
+    prStatusEl.classList.add('done');
+  } else {
+    prStatusEl.textContent = L('pending');
+    prStatusEl.classList.remove('done');
+  }
+  // Stopwatch display reflects current session live time
+  updateStopwatchDisplay();
+  // Today total
+  var totalSec = day.prayerSeconds || 0;
+  var totalMin = formatMin(totalSec);
+  document.getElementById('prayer-total').textContent =
+    (lang==='ko' ? '오늘 총 기도 시간: '+totalMin+'분' : 'Today: '+totalMin+' min');
+}
+
+function updateStopwatchDisplay(){
+  var sec = 0;
+  if(prayerState.running && prayerState.startedAt){
+    sec = (Date.now() - prayerState.startedAt)/1000 + (prayerState.accumulated||0);
+  } else {
+    sec = prayerState.accumulated || 0;
+  }
+  var el = document.getElementById('stopwatch-display');
+  if(el){
+    el.textContent = formatSec(sec);
+    if(prayerState.running) el.classList.add('running');
+    else el.classList.remove('running');
+  }
+  // Button visibility based on state
+  var startBtn = document.getElementById('prayer-start-btn');
+  var pauseBtn = document.getElementById('prayer-pause-btn');
+  var saveBtn = document.getElementById('prayer-save-btn');
+  if(prayerState.running){
+    startBtn.classList.add('hidden');
+    pauseBtn.classList.remove('hidden');
+    saveBtn.classList.add('hidden');
+    pauseBtn.textContent = lang==='ko' ? '일시정지' : 'Pause';
+  } else if((prayerState.accumulated||0) > 0){
+    startBtn.classList.remove('hidden');
+    pauseBtn.classList.add('hidden');
+    saveBtn.classList.remove('hidden');
+    startBtn.textContent = lang==='ko' ? '재개' : 'Resume';
+    saveBtn.textContent = lang==='ko' ? '기록' : 'Save';
+  } else {
+    startBtn.classList.remove('hidden');
+    pauseBtn.classList.add('hidden');
+    saveBtn.classList.add('hidden');
+    startBtn.textContent = lang==='ko' ? '시작' : 'Start';
+  }
+}
+
+// ===== Prayer stopwatch =====
+function persistTimer(){
+  try {
+    if(prayerState.running || (prayerState.accumulated||0) > 0){
+      localStorage.setItem(TIMER_KEY, JSON.stringify({
+        running: prayerState.running,
+        startedAt: prayerState.startedAt,
+        accumulated: prayerState.accumulated,
+        dayKey: prayerState._dayKey || todayKey()
+      }));
+    } else {
+      localStorage.removeItem(TIMER_KEY);
+    }
+  } catch(e){}
+}
+function restoreTimer(){
+  try {
+    var raw = localStorage.getItem(TIMER_KEY);
+    if(!raw) return;
+    var t = JSON.parse(raw);
+    // If timer was started yesterday or earlier, commit the saved-but-uncommitted time
+    // to that day and clear out.
+    if(t.dayKey && t.dayKey !== todayKey()){
+      var elapsed = (t.accumulated||0);
+      if(t.running && t.startedAt){
+        // Cross-midnight: commit elapsed up to midnight as best effort
+        elapsed += (Date.now() - t.startedAt)/1000;
+      }
+      if(elapsed > 0){
+        var prev = getDay(t.dayKey);
+        setDay(t.dayKey, { prayerSeconds: (prev.prayerSeconds||0) + Math.floor(elapsed) });
+      }
+      localStorage.removeItem(TIMER_KEY);
+      return;
+    }
+    prayerState.accumulated = t.accumulated || 0;
+    prayerState.running = !!t.running;
+    prayerState.startedAt = t.running ? t.startedAt : null;
+    prayerState._dayKey = t.dayKey;
+    if(prayerState.running) startTick();
+  } catch(e){}
+}
+function startTick(){
+  if(prayerTimer) clearInterval(prayerTimer);
+  prayerTimer = setInterval(updateStopwatchDisplay, 1000);
+}
+function stopTick(){
+  if(prayerTimer){ clearInterval(prayerTimer); prayerTimer = null; }
+}
+function prayerStart(){
+  prayerState.startedAt = Date.now();
+  prayerState.running = true;
+  prayerState._dayKey = todayKey();
+  persistTimer();
+  startTick();
+  updateStopwatchDisplay();
+}
+function prayerPause(){
+  if(!prayerState.running) return;
+  var elapsed = (Date.now() - prayerState.startedAt)/1000;
+  prayerState.accumulated = (prayerState.accumulated||0) + elapsed;
+  prayerState.running = false;
+  prayerState.startedAt = null;
+  stopTick();
+  persistTimer();
+  updateStopwatchDisplay();
+}
+function prayerSave(){
+  // Commit the accumulated time to today's record, reset the timer.
+  var sec = Math.floor(prayerState.accumulated || 0);
+  if(prayerState.running && prayerState.startedAt){
+    sec += Math.floor((Date.now() - prayerState.startedAt)/1000);
+  }
+  if(sec > 0){
+    var k = todayKey();
+    var prev = getDay(k);
+    setDay(k, { prayerSeconds: (prev.prayerSeconds||0) + sec });
+  }
+  prayerState = { running:false, startedAt:null, accumulated:0 };
+  stopTick();
+  persistTimer();
+  render();
+}
+
+// ===== QT editor =====
+var qtEditorContext = { date: null, readonly: false };
+// Set when the editor was opened from the history list, so closing the editor
+// returns the user to that list rather than dropping them on the calendar.
+var _qtEditorFromHistory = false;
+
+// Body scroll lock — prevents the main page from scrolling behind the modal
+// when the contenteditable is focused and iOS tries to bring it into view.
+var _bodyLockY = 0;
+function bodyLock(){
+  if(document.body.dataset.locked === '1') return;
+  _bodyLockY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  document.body.style.position = 'fixed';
+  document.body.style.top = '-' + _bodyLockY + 'px';
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.dataset.locked = '1';
+}
+function bodyUnlock(){
+  if(document.body.dataset.locked !== '1') return;
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  window.scrollTo(0, _bodyLockY);
+  document.body.dataset.locked = '0';
+}
+
+// Get / set the contenteditable QT body, treating double-newline as paragraph
+// breaks and single-newline as line breaks within a paragraph.
+function qtTextGet(){
+  var el = document.getElementById('qt-text');
+  if(!el) return '';
+  // innerText preserves visual line breaks across paragraphs and <br> tags,
+  // which is what we want.  Collapse runs of 3+ newlines down to 2.
+  return (el.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+}
+function qtTextSet(text){
+  var el = document.getElementById('qt-text');
+  if(!el) return;
+  text = String(text || '');
+  if(!text){ el.innerHTML = ''; return; }
+  // Split on blank lines into paragraphs, then split each paragraph on \n into
+  // <br>-joined inner content.  Each paragraph is its own <p> so margin-bottom
+  // CSS gives the breathing room the user wanted.
+  var paras = text.split(/\n{2,}/);
+  el.innerHTML = paras.map(function(p){
+    var inner = p.split('\n').map(escHTML).join('<br>');
+    return '<p>' + inner + '</p>';
+  }).join('');
+}
+function openTodayQt(){
+  _qtEditorFromHistory = false;
+  openQtEditorFor(todayKey(), false);
+}
+function openQtEditorFor(dateKey_, readonly){
+  qtEditorContext.date = dateKey_;
+  qtEditorContext.readonly = !!readonly;
+  var entry = getQtEntry(dateKey_) || { passageRef:'', text:'' };
+  var modal = document.getElementById('qt-editor');
+  document.getElementById('qt-passage').value = entry.passageRef || '';
+  qtTextSet(entry.text || '');
+  document.getElementById('qt-passage').readOnly = readonly;
+  document.getElementById('qt-text').setAttribute('contenteditable', readonly ? 'false' : 'true');
+  // Save + Cancel buttons (bottom row) — hidden in read-only mode.
+  var saveBtn = document.getElementById('qt-save-btn');
+  var cancelBtn = document.getElementById('qt-cancel-btn');
+  var actionsRow = document.getElementById('qt-editor-actions');
+  if(saveBtn) saveBtn.textContent = lang==='ko' ? '저장' : 'Save';
+  if(cancelBtn) cancelBtn.textContent = lang==='ko' ? '취소' : 'Cancel';
+  if(actionsRow) actionsRow.classList.toggle('hidden', readonly);
+  // Undo button (header) — only useful while editing.
+  var undoBtn = document.getElementById('qt-editor-undo-btn');
+  if(undoBtn) undoBtn.classList.toggle('hidden', readonly);
+  document.getElementById('qt-readonly-banner').classList.toggle('hidden', !readonly);
+  // Date label
+  var p = parseKey(dateKey_);
+  var d = new Date(p.year, p.month-1, p.day);
+  var dateLabel = '';
+  if(lang==='ko'){
+    var days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+    dateLabel = p.year+'년 '+p.month+'월 '+p.day+'일 '+days[d.getDay()];
+  } else {
+    dateLabel = d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  }
+  document.getElementById('qt-editor-date').textContent = dateLabel;
+  // Title: today or past
+  var isToday = (dateKey_ === todayKey());
+  document.getElementById('qt-editor-title').textContent =
+    isToday ? L('qtModalToday') : L('qtModalPast');
+  // Placeholders
+  document.getElementById('qt-passage').placeholder = lang==='ko'
+    ? '요한복음 3:16-21'
+    : 'John 3:16-21';
+  document.getElementById('qt-text').placeholder = lang==='ko'
+    ? '오늘의 QT를 작성하세요...'
+    : 'Write today\'s reflection...';
+  document.getElementById('qt-readonly-banner').textContent = L('readonly');
+  // Trash icon: visible whenever an existing entry has content (whether the
+  // editor is editable or read-only).  Hidden for fresh new entries.
+  var delBtn = document.getElementById('qt-editor-delete-btn');
+  if(delBtn){
+    if(entry && (entry.text || entry.passageRef)){
+      delBtn.classList.remove('hidden');
+    } else {
+      delBtn.classList.add('hidden');
+    }
+  }
+  modal.classList.remove('hidden');
+  bodyLock();
+  if(!readonly) setTimeout(function(){ document.getElementById('qt-passage').focus(); }, 200);
+}
+function closeQtEditor(){
+  // Blur any focused contenteditable / input first so the iOS keyboard starts
+  // dismissing before the modal hides.  Otherwise the back-tap feels laggy.
+  if(document.activeElement && document.activeElement.blur && document.activeElement !== document.body){
+    try { document.activeElement.blur(); } catch(e){}
+  }
+  if(_qtEditorFromHistory){
+    _qtEditorFromHistory = false;
+    // Open history first so it's already covering the area when the editor
+    // hides — no main-page flicker between the two.
+    openQtHistory();
+    document.getElementById('qt-editor').classList.add('hidden');
+  } else {
+    document.getElementById('qt-editor').classList.add('hidden');
+    maybeUnlockBody();
+  }
+}
+function maybeUnlockBody(){
+  var qe = document.getElementById('qt-editor');
+  var qh = document.getElementById('qt-history-modal');
+  var qc = document.getElementById('qt-confirm');
+  if((!qe || qe.classList.contains('hidden')) &&
+     (!qh || qh.classList.contains('hidden')) &&
+     (!qc || qc.classList.contains('hidden'))){
+    bodyUnlock();
+  }
+}
+function saveQt(){
+  if(qtEditorContext.readonly) return;
+  var ref = document.getElementById('qt-passage').value.trim();
+  var text = qtTextGet();
+  if(!ref && !text){
+    closeQtEditor();
+    return;
+  }
+  setQtEntry(qtEditorContext.date, { passageRef: ref, text: text });
+  closeQtEditor();
+  render();
+}
+
+// ===== QT history =====
+function openQtHistory(){
+  var all = loadQt();
+  var keys = Object.keys(all).filter(function(k){ return all[k] && (all[k].text || all[k].passageRef); });
+  keys.sort(function(a,b){ return a < b ? 1 : -1; }); // newest first
+  var listEl = document.getElementById('qt-history-list');
+  document.getElementById('qt-history-title').textContent = L('qtHistoryTitle');
+  if(keys.length === 0){
+    listEl.innerHTML = '<div style="color:var(--muted);text-align:center;padding:60px 20px;font-size:14px">'+(lang==='ko'?'아직 작성된 QT가 없습니다':'No QT entries yet')+'</div>';
+  } else {
+    var html = '';
+    var deleteLabel = (lang==='ko' ? '삭제' : 'Delete');
+    keys.forEach(function(k){
+      var e = all[k];
+      var p = parseKey(k);
+      var d = new Date(p.year, p.month-1, p.day);
+      var dateLabel;
+      if(lang==='ko'){
+        dateLabel = p.year+'년 '+p.month+'월 '+p.day+'일';
+      } else {
+        dateLabel = d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+      }
+      var preview = (e.text||'').slice(0,120) + ((e.text||'').length>120?'…':'');
+      html += '<div class="qt-row" data-date="'+k+'">';
+      html += '<div class="qt-row-delete-area"><span class="qt-row-delete-label">'+deleteLabel+'</span></div>';
+      html += '<div class="qt-row-card" onclick="qtRowClick(\''+k+'\',event)">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em">'+escHTML(dateLabel)+'</span></div>';
+      if(e.passageRef) html += '<div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:6px">'+escHTML(e.passageRef)+'</div>';
+      if(preview) html += '<div style="font-size:13px;line-height:1.5;color:var(--text);opacity:.85">'+escHTML(preview)+'</div>';
+      html += '</div></div>';
+    });
+    listEl.innerHTML = html;
+    attachSwipeHandlers();
+  }
+  document.getElementById('qt-history-modal').classList.remove('hidden');
+  bodyLock();
+}
+
+function qtRowClick(k, ev){
+  // Simple click — open the entry editor.  Swipe logic is in touchend.
+  historyOpenEntry(k);
+}
+function attachSwipeHandlers(){
+  var rows = document.querySelectorAll('#qt-history-list .qt-row');
+  rows.forEach(function(row){
+    var card = row.querySelector('.qt-row-card');
+    if(!card || card._swipeBound) return;
+    card._swipeBound = true;
+    var sx=0, sy=0, currentX=0, dragging=false, decided=false, cardWidth=0;
+    card.addEventListener('touchstart', function(e){
+      var t = e.touches[0]; sx = t.clientX; sy = t.clientY;
+      cardWidth = card.offsetWidth || 320;
+      currentX = 0;
+      dragging = false; decided = false;
+      row.classList.add('dragging');
+    }, { passive: true });
+    card.addEventListener('touchmove', function(e){
+      var t = e.touches[0];
+      var dx = t.clientX - sx;
+      var dy = t.clientY - sy;
+      if(!decided){
+        if(Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        decided = true;
+        if(Math.abs(dy) > Math.abs(dx)){
+          dragging = false;
+          row.classList.remove('dragging');
+          card.style.transform = '';
+          return;
+        }
+        dragging = true;
+      }
+      if(!dragging) return;
+      // Allow swiping all the way to the left edge.  Clamp at -cardWidth.
+      currentX = Math.max(-cardWidth, Math.min(0, dx));
+      card.style.transform = 'translateX(' + currentX + 'px)';
+    }, { passive: true });
+    card.addEventListener('touchend', function(){
+      row.classList.remove('dragging');
+      if(!dragging){ card.style.transform = ''; return; }
+      // Swipe past 50% of card width → fire delete confirmation directly.
+      // Less than that → spring back to 0.
+      var threshold = cardWidth * 0.5;
+      if(currentX < -threshold){
+        // Animate card off-screen briefly, then prompt for confirmation.
+        card.style.transform = 'translateX(-' + cardWidth + 'px)';
+        var dateKey = row.getAttribute('data-date');
+        // Once the user dismisses or confirms, the card will be re-rendered.
+        // Springing back here is implicit because qtAskDelete will pop the modal.
+        setTimeout(function(){
+          card.style.transform = '';
+          qtAskDelete(dateKey);
+        }, 180);
+      } else {
+        card.style.transform = '';
+      }
+    });
+  });
+}
+
+// ===== QT delete with confirmation =====
+var _qtDeletePending = null;
+function qtAskDelete(k){
+  _qtDeletePending = k;
+  // Localize confirmation text
+  document.getElementById('qt-confirm-title').textContent = lang==='ko' ? 'QT 삭제' : 'Delete QT';
+  document.getElementById('qt-confirm-msg').textContent = lang==='ko'
+    ? '이 QT 기록을 삭제하시겠습니까?  되돌릴 수 없습니다.'
+    : 'Delete this QT entry?  This cannot be undone.';
+  document.getElementById('qt-confirm-cancel').textContent = lang==='ko' ? '취소' : 'Cancel';
+  document.getElementById('qt-confirm-ok').textContent = lang==='ko' ? '삭제' : 'Delete';
+  document.getElementById('qt-confirm').classList.remove('hidden');
+}
+function qtCancelDelete(){
+  _qtDeletePending = null;
+  document.getElementById('qt-confirm').classList.add('hidden');
+}
+function qtEditorDelete(){
+  // Triggered by the header trash icon.  Show the confirmation modal on top
+  // of the editor — the editor stays open in the background.  Closes only
+  // if the user confirms; if they cancel, the editor is right there.
+  var k = qtEditorContext.date;
+  if(!k) return;
+  qtAskDelete(k);
+}
+function qtEditorUndo(){
+  // Undo only if a QT field is already focused — otherwise calling focus()
+  // would pop the keyboard for no reason.  No-op if the user isn't actively
+  // typing.
+  var focused = document.activeElement;
+  if(!focused || (focused.id !== 'qt-passage' && focused.id !== 'qt-text')) return;
+  try { document.execCommand('undo'); } catch(e){}
+}
+function qtEditorShare(){
+  // Open native share sheet with the QT entry's passage + text.  Web Share
+  // API is supported on iOS Safari, Android Chrome.  Falls back to a copy-
+  // to-clipboard message on desktop where share isn't available.
+  var passage = document.getElementById('qt-passage').value.trim();
+  var text = qtTextGet();
+  var k = qtEditorContext.date;
+  var parts = [];
+  if(passage) parts.push(passage);
+  if(text) parts.push(text);
+  var body = parts.join('\n\n');
+  if(!body){
+    flashSync('error', lang==='ko' ? '공유할 내용이 없습니다' : 'Nothing to share');
+    return;
+  }
+  // Title is the date.
+  var p = parseKey(k || todayKey());
+  var d = new Date(p.year, p.month-1, p.day);
+  var dateLabel;
+  if(lang==='ko'){
+    dateLabel = p.year+'년 '+p.month+'월 '+p.day+'일 QT';
+  } else {
+    dateLabel = d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) + ' QT';
+  }
+  if(navigator.share){
+    navigator.share({ title: dateLabel, text: body })
+      .catch(function(e){
+        // User cancelled — silent.  Real error — flash.
+        if(e && e.name !== 'AbortError') flashSync('error', e.message || 'Share failed');
+      });
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(dateLabel + '\n\n' + body)
+      .then(function(){ flashSync('ok', lang==='ko' ? '클립보드에 복사됨' : 'Copied to clipboard'); })
+      .catch(function(){ flashSync('error', lang==='ko' ? '복사 실패' : 'Copy failed'); });
+  } else {
+    flashSync('error', lang==='ko' ? '공유 미지원' : 'Share not supported');
+  }
+}
+function qtConfirmDelete(){
+  var k = _qtDeletePending;
+  if(!k){ document.getElementById('qt-confirm').classList.add('hidden'); return; }
+  // Remove from local QT journal
+  var qts = loadQt();
+  delete qts[k];
+  saveQtStore(qts);
+  // Un-mark day's QT checkbox (entry was the proof)
+  setDay(k, { qt: false });
+  // Delete from Firestore if signed in
+  if(window.fbUser && window._fb && window._fb.deleteDoc){
+    try {
+      var ref = window._fb.doc(window.fbDB, 'users', window.fbUser.uid, 'qt', k);
+      window._fb.deleteDoc(ref).catch(function(e){ flashSync('error', e.message); });
+    } catch(e){}
+  }
+  _qtDeletePending = null;
+  document.getElementById('qt-confirm').classList.add('hidden');
+  // If the editor was open (because trash was tapped from inside it), close
+  // it now that the entry is gone.  closeQtEditor will handle returning to
+  // the history list if we came from there.
+  var editor = document.getElementById('qt-editor');
+  if(editor && !editor.classList.contains('hidden')){
+    closeQtEditor();
+  } else {
+    // Trash was tapped from the history list directly — refresh that view.
+    openQtHistory();
+  }
+  render();        // refresh calendar dots + today section
+}
+function closeQtHistory(){
+  document.getElementById('qt-history-modal').classList.add('hidden');
+  maybeUnlockBody();
+}
+function historyOpenEntry(k){
+  // Close history modal first so the editor (same z-index) is actually visible.
+  // Mark that we came from history so closing the editor returns there.
+  _qtEditorFromHistory = true;
+  document.getElementById('qt-history-modal').classList.add('hidden');
+  var isToday = (k === todayKey());
+  openQtEditorFor(k, !isToday);
+}
+function escHTML(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ===== Calendar =====
+function calRender(){
+  document.getElementById('cal-title').textContent = formatMonthHeader(calView.year, calView.month);
+  document.getElementById('cal-section-title').textContent = L('history');
+  document.getElementById('qt-history-btn').textContent =
+    (lang==='ko' ? 'QT 기록 전체 보기' : 'View all QT entries') + ' →';
+
+  // Year picker (current year ± 5 years back, 1 year forward as needed)
+  var sel = document.getElementById('cal-year');
+  var thisYear = new Date().getFullYear();
+  var minYear = Math.min(thisYear - 5, calView.year);
+  var maxYear = Math.max(thisYear, calView.year);
+  sel.innerHTML = '';
+  for(var y=maxYear; y>=minYear; y--){
+    var opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = (lang==='ko' ? y+'년' : y);
+    if(y === calView.year) opt.selected = true;
+    sel.appendChild(opt);
+  }
+
+  // Weekday row
+  var wkRow = document.getElementById('weekday-row');
+  var labels = (lang==='ko')
+    ? ['일','월','화','수','목','금','토']
+    : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  wkRow.innerHTML = labels.map(function(l, i){
+    var cls = i===0 ? 'sun' : (i===6 ? 'sat' : '');
+    return '<div class="weekday-cell '+cls+'">'+l+'</div>';
+  }).join('');
+
+  // Calendar grid
+  var grid = document.getElementById('calendar-grid');
+  var firstDay = new Date(calView.year, calView.month, 1);
+  var firstWeekday = firstDay.getDay();
+  var daysInMonth = new Date(calView.year, calView.month+1, 0).getDate();
+  var todayK = todayKey();
+  var daily = loadDaily();
+  var qtData = loadQt();
+  var html = '';
+  for(var i=0;i<firstWeekday;i++){
+    html += '<div class="day-cell empty"></div>';
+  }
+  for(var day=1; day<=daysInMonth; day++){
+    var d = new Date(calView.year, calView.month, day);
+    var k = dateKey(d);
+    var dayData = daily[k] || { qt:false, prayed:false, prayerSeconds:0 };
+    var hasQt = !!(qtData[k] && (qtData[k].text || qtData[k].passageRef));
+    var isFuture = k > todayK;
+    var isToday = k === todayK;
+    var dayOfWeek = (firstWeekday + day - 1) % 7;
+    var classes = ['day-cell'];
+    if(isFuture) classes.push('future');
+    if(isToday) classes.push('today');
+    var numClass = dayOfWeek===0 ? 'sun' : (dayOfWeek===6 ? 'sat' : '');
+    var dotsHtml = '';
+    if(hasQt || dayData.qt) dotsHtml += '<div class="day-dot qt"></div>';
+    if(dayData.prayed) dotsHtml += '<div class="day-dot prayed"></div>';
+    var minsHtml = dayData.prayerSeconds ? '<div class="day-mins">'+formatMin(dayData.prayerSeconds)+'m</div>' : '';
+    html += '<div class="'+classes.join(' ')+'" onclick="calDayClick(\''+k+'\','+(isFuture?'true':'false')+')">';
+    html += '<div class="day-num '+numClass+'">'+day+'</div>';
+    if(dotsHtml) html += '<div class="day-dots">'+dotsHtml+'</div>';
+    html += minsHtml;
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+function calPrev(){
+  if(calView.month === 0){ calView.month = 11; calView.year--; }
+  else calView.month--;
+  calRender();
+}
+function calNext(){
+  if(calView.month === 11){ calView.month = 0; calView.year++; }
+  else calView.month++;
+  calRender();
+}
+function calYearChange(){
+  var y = parseInt(document.getElementById('cal-year').value);
+  if(!isNaN(y)) calView.year = y;
+  calRender();
+}
+function calDayClick(k, isFuture){
+  if(isFuture) return;
+  var entry = getQtEntry(k);
+  var isToday = (k === todayKey());
+  if(isToday){
+    openQtEditorFor(k, false);
+  } else if(entry && (entry.text || entry.passageRef)){
+    openQtEditorFor(k, true);
+  }
+  // Past days without entries: do nothing for now (no retroactive entry)
+}
+
+// ===== Render all =====
+function render(){
+  renderToday();
+  calRender();
+}
+
+// ===== Init =====
+function init(){
+  applyTheme();
+  // Calendar starts at current month
+  var now = new Date();
+  calView.year = now.getFullYear();
+  calView.month = now.getMonth();
+  restoreTimer();
+  render();
+  // Update stopwatch display continuously even when stopped (so the displayed
+  // value reflects edits) — but tick only when running
+  setInterval(function(){
+    // Re-check if midnight crossed: if running prayer's day differs from today, commit yesterday
+    if(prayerState.running && prayerState._dayKey && prayerState._dayKey !== todayKey()){
+      // Commit elapsed to original day, then re-render
+      prayerSave();
+    }
+  }, 30000);
+}
+
+// Expose to onclick handlers
+window.toggleLang = toggleLang;
+window.toggleDark = toggleDark;
+window.openTodayQt = openTodayQt;
+window.openQtEditorFor = openQtEditorFor;
+window.closeQtEditor = closeQtEditor;
+window.saveQt = saveQt;
+window.openQtHistory = openQtHistory;
+window.closeQtHistory = closeQtHistory;
+window.historyOpenEntry = historyOpenEntry;
+window.prayerStart = prayerStart;
+window.prayerPause = prayerPause;
+window.prayerSave = prayerSave;
+window.calPrev = calPrev;
+window.calNext = calNext;
+window.calYearChange = calYearChange;
+window.calDayClick = calDayClick;
+window.qtRowClick = qtRowClick;
+window.qtAskDelete = qtAskDelete;
+window.qtCancelDelete = qtCancelDelete;
+window.qtConfirmDelete = qtConfirmDelete;
+window.qtEditorDelete = qtEditorDelete;
+window.qtEditorUndo = qtEditorUndo;
+window.qtEditorShare = qtEditorShare;
+
+init();
+
+// Persist pending timer on unload so we don't lose in-progress time.
+window.addEventListener('beforeunload', persistTimer);
+</script>
+
+</body>
+</html>
+</content>
+</invoke>
