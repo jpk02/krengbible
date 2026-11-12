@@ -1,0 +1,4 @@
+# Raw Databento data is licensed and must not be committed (this repo is public)
+*.dbn.zst
+*.pkl
+q/
