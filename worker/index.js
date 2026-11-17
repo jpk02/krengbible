@@ -206,6 +206,10 @@ async function getKoSearchIndexByPrefix(env, prefix) {
     const raw = await env.COMMENTARY_KV.get(`${prefix}_search_index`);
     let idx = null;
     if (raw) { try { idx = JSON.parse(raw); } catch (e) { idx = null; } }
+    // Built before the note marks were dropped; see dropWooriNoteMarks.
+    if (idx && prefix === 'woori') {
+      for (const row of idx) if (typeof row[3] === 'string') row[3] = dropWooriNoteMarks(row[3]);
+    }
     if (idx) KO_INDEX_CACHE.set(prefix, idx);
     KO_INDEX_PROMISE.delete(prefix);
     return idx;
@@ -886,9 +890,20 @@ const WOORI_STRAY_BY_VERSE = {
 // them, and the other hits ("제7일", the seventh day) are real numerals.
 const WOORI_WET = /마3(?!\d)/g;
 
+// The import marks 54 words in Job with "*" ("*하나님의 아들들", "*충성심"),
+// one for each footnote in the printed Bible.  The footnote text is not in
+// the publisher's files we hold, so the mark points at nothing:  it goes,
+// here and in the search index.  The stored import keeps it, for matching
+// the notes once the publisher sends them.  Every "*" in the text is one of
+// these:  46 verses, all in Job, found by searching the index for "*" on
+// 17 November 2026.
+function dropWooriNoteMarks(text) {
+  return text.indexOf('*') === -1 ? text : text.split('*').join('');
+}
+
 function cleanWooriVerse(text, fixes) {
   if (typeof text !== 'string' || !text) return text;
-  let t = text;
+  let t = dropWooriNoteMarks(text);
   if (fixes) for (const [from, to] of fixes) t = t.split(from).join(to);
   t = t.replace(WOORI_WET, '마웻');
   if (t.indexOf('?') === -1) return t;
