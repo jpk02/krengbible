@@ -2134,15 +2134,17 @@ async function handleEnglishSearch(env, url, cors) {
 // Google's keys, as an account whose uid's SHA-256 is listed in KV at
 // RESTORE_ALLOWED_KEY.  That list is put there by hand and deleted when the
 // refill is done, which closes the route.  A verified account not on it is
-// turned away, and its uid is left at RESTORE_REQUEST_KEY for a day, so the
-// owner can be let in by uid without anyone typing an address or an id.
+// turned away, and its uid is left under RESTORE_REQUEST_PREFIX for a day, so
+// the owner can be let in by uid without anyone typing an address or an id.
+// A body of { check: true } asks only whether the account is let in:  the
+// app shows its restore row to nobody else.
 // Only the translations in API_BIBLE_RESCUABLE, and only chapters the store
 // does not have, so a stored copy is never overwritten.  Rescued copies sit under their own key
 // and expire on their own, after the monthly refresh has had time to refetch
 // the real one:  the chapter route prefers the real copy whenever it exists.
 const RESTORE_OPEN_KEY = 'restore_open';
 const RESTORE_ALLOWED_KEY = 'restore_allowed_uid_sha256';
-const RESTORE_REQUEST_KEY = 'restore_request_uid';
+const RESTORE_REQUEST_PREFIX = 'restore_request_';
 const FIREBASE_PROJECT_ID = 'krengbible';
 const SECURETOKEN_JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 let securetokenKeys = null;
@@ -2204,12 +2206,14 @@ async function handleRestoreApiBible(env, request, cors) {
   const claims = await verifyFirebaseIdToken(auth.replace(/^Bearer\s+/i, ''));
   if (!claims) return fail(401, 'not_signed_in');
   const allowed = ((await env.COMMENTARY_KV.get(RESTORE_ALLOWED_KEY)) || '').split(/\s+/).filter(Boolean);
-  if (!allowed.includes(await sha256Hex(String(claims.sub)))) {
-    await env.COMMENTARY_KV.put(RESTORE_REQUEST_KEY, String(claims.sub), { expirationTtl: 86400 });
-    return fail(403, 'not_allowed_yet');
-  }
+  const isAllowed = allowed.includes(await sha256Hex(String(claims.sub)));
   let body;
   try { body = await request.json(); } catch (e) { return fail(400, 'bad_json'); }
+  if (!isAllowed) {
+    await env.COMMENTARY_KV.put(RESTORE_REQUEST_PREFIX + claims.sub, String(Date.now()), { expirationTtl: 86400 });
+    return fail(403, 'not_allowed_yet');
+  }
+  if (body && body.check) return new Response(JSON.stringify({ allowed: true }), { headers });
 
   const id = body.translationId;
   const copyright = API_BIBLE_RESCUABLE[id];
