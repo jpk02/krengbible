@@ -2119,6 +2119,135 @@ async function handleEnglishSearch(env, url, cors) {
   }), {headers:{...cors,'Content-Type':'application/json'}});
 }
 
+// ---- /restore/apibible ----
+//
+// api.bible's monthly limit ran out on 8 November 2026, and the 30-day expiry
+// then took 1,026 NLT chapters out of the store with nothing able to replace
+// them.  A reader's phone still held the whole of NLT from a download, so
+// this takes it back, one book per POST:
+//   { translationId, book, chapters: { "<n>": { content, headings? } } }
+// The content is the text this route's own readers parse ("[1] ... [2] ..."),
+// rebuilt on the phone from the parsed chapter.
+//
+// Guarded three ways:  the sender must be signed in to the app, shown by a
+// Firebase ID token in the Authorization header that verifies against
+// Google's keys, as an account whose uid's SHA-256 is listed in KV at
+// RESTORE_ALLOWED_KEY.  That list is put there by hand and deleted when the
+// refill is done, which closes the route.  A verified account not on it is
+// turned away, and its uid is left at RESTORE_REQUEST_KEY for a day, so the
+// owner can be let in by uid without anyone typing an address or an id.
+// Only the translations in API_BIBLE_RESCUABLE, and only chapters the store
+// does not have, so a stored copy is never overwritten.  Rescued copies sit under their own key
+// and expire on their own, after the monthly refresh has had time to refetch
+// the real one:  the chapter route prefers the real copy whenever it exists.
+const RESTORE_OPEN_KEY = 'restore_open';
+const RESTORE_ALLOWED_KEY = 'restore_allowed_uid_sha256';
+const RESTORE_REQUEST_KEY = 'restore_request_uid';
+const FIREBASE_PROJECT_ID = 'krengbible';
+const SECURETOKEN_JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+let securetokenKeys = null;
+let securetokenKeysAt = 0;
+
+function b64urlBytes(s) {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4);
+  return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+}
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** A Firebase Auth ID token's claims if it is genuine, current and for this
+ *  app's project;  null otherwise.  Google's signing keys are cached an hour. */
+async function verifyFirebaseIdToken(token) {
+  try {
+    const parts = String(token || '').split('.');
+    if (parts.length !== 3) return null;
+    const dec = new TextDecoder();
+    const header = JSON.parse(dec.decode(b64urlBytes(parts[0])));
+    const claims = JSON.parse(dec.decode(b64urlBytes(parts[1])));
+    if (header.alg !== 'RS256' || !header.kid) return null;
+    if (!securetokenKeys || Date.now() - securetokenKeysAt > 3600 * 1000) {
+      const r = await fetch(SECURETOKEN_JWKS_URL);
+      if (!r.ok) return null;
+      securetokenKeys = (await r.json()).keys || [];
+      securetokenKeysAt = Date.now();
+    }
+    const jwk = securetokenKeys.find((k) => k.kid === header.kid);
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlBytes(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
+    const now = Date.now() / 1000;
+    if (!ok || claims.aud !== FIREBASE_PROJECT_ID || claims.iss !== `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`
+        || !(claims.exp > now) || !(claims.iat <= now + 300) || !claims.sub) return null;
+    return claims;
+  } catch (e) {
+    return null;
+  }
+}
+const API_BIBLE_RESCUE_TTL = 45 * 24 * 60 * 60;
+const API_BIBLE_RESCUABLE = {
+  'd6e14a625393b4da-01': 'Holy Bible, New Living Translation, copyright © 1996, 2004, 2015 by Tyndale House Foundation. All rights reserved. Used by permission of Tyndale House Publishers, Carol Stream, Illinois 60188. All rights reserved.',
+};
+function apiBibleRescueKey(translationId, chapterId) {
+  return `apibible_rescue_${translationId}_${chapterId}`;
+}
+
+async function handleRestoreApiBible(env, request, cors) {
+  const headers = { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+  const fail = (status, error) => new Response(JSON.stringify({ error }), { status, headers });
+  if (request.method !== 'POST') return fail(405, 'post_only');
+  if (!env.COMMENTARY_KV) return fail(503, 'no_kv');
+  if (!(await env.COMMENTARY_KV.get(RESTORE_OPEN_KEY))) return fail(403, 'closed');
+  const auth = request.headers.get('Authorization') || '';
+  const claims = await verifyFirebaseIdToken(auth.replace(/^Bearer\s+/i, ''));
+  if (!claims) return fail(401, 'not_signed_in');
+  const allowed = ((await env.COMMENTARY_KV.get(RESTORE_ALLOWED_KEY)) || '').split(/\s+/).filter(Boolean);
+  if (!allowed.includes(await sha256Hex(String(claims.sub)))) {
+    await env.COMMENTARY_KV.put(RESTORE_REQUEST_KEY, String(claims.sub), { expirationTtl: 86400 });
+    return fail(403, 'not_allowed_yet');
+  }
+  let body;
+  try { body = await request.json(); } catch (e) { return fail(400, 'bad_json'); }
+
+  const id = body.translationId;
+  const copyright = API_BIBLE_RESCUABLE[id];
+  if (!copyright) return fail(400, 'translation_not_rescuable');
+  const bookNum = parseInt(body.book, 10);
+  if (!(bookNum >= 1 && bookNum <= 66) || !body.chapters || typeof body.chapters !== 'object') return fail(400, 'bad_book');
+  const usfm = USFM_CODES[bookNum - 1];
+
+  let stored = 0, skipped = 0, rejected = 0;
+  for (const [n, ch] of Object.entries(body.chapters)) {
+    const c = parseInt(n, 10);
+    const content = ch && ch.content;
+    if (!(c >= 1 && c <= BOOK_CHAPTERS[bookNum - 1]) || typeof content !== 'string'
+        || content.length < 20 || content.length > 300000 || !/^\s*\[\d+(?:-\d+)?\]/.test(content)) {
+      rejected++;
+      continue;
+    }
+    const chapterId = `${usfm}.${c}`;
+    if (await env.COMMENTARY_KV.get(`apibible_raw_v2_${id}_${chapterId}`)) { skipped++; continue; }
+    if (await env.COMMENTARY_KV.get(apiBibleRescueKey(id, chapterId))) { skipped++; continue; }
+    const data = {
+      id: chapterId,
+      bibleId: id,
+      number: String(c),
+      bookId: usfm,
+      reference: `${BOOK_NAMES_EN[bookNum - 1]} ${c}`,
+      copyright,
+      content,
+      ...(Array.isArray(ch.headings) && ch.headings.length ? { headings: ch.headings } : {}),
+    };
+    await env.COMMENTARY_KV.put(apiBibleRescueKey(id, chapterId), JSON.stringify({ data, restoredAt: Date.now() }),
+      { expirationTtl: API_BIBLE_RESCUE_TTL });
+    stored++;
+  }
+  console.log(`restore: ${id} book ${bookNum} stored ${stored}, skipped ${skipped}, rejected ${rejected}`);
+  return new Response(JSON.stringify({ stored, skipped, rejected }), { headers });
+}
+
 // ---- /bundle/{translation}/{bookNum} ----
 //
 // Every chapter of one book in one response, for offline downloads.  A
@@ -2149,6 +2278,7 @@ for (const [id, t] of Object.entries(API_BIBLE_TRANSLATIONS)) {
   BUNDLE_SOURCES[t.abbreviation] = (b, c) => ({
     path: `/apibible/${id}/${b}/${c}`,
     kv: `apibible_raw_v2_${id}_${USFM_CODES[b - 1]}.${c}`,
+    alt: apiBibleRescueKey(id, `${USFM_CODES[b - 1]}.${c}`),
   });
 }
 
@@ -2162,9 +2292,12 @@ async function handleBundle(env, cors, tr, bookNum) {
   const missing = [];
   const queue = Array.from({ length: BOOK_CHAPTERS[bookNum - 1] }, (_, i) => i + 1);
   async function one(c) {
-    const { path, kv } = source(bookNum, c);
+    const { path, kv, alt } = source(bookNum, c);
     try {
-      if (kv && !(await env.COMMENTARY_KV.get(kv))) { missing.push(c); return; }
+      if (kv && !(await env.COMMENTARY_KV.get(kv)) && !(alt && (await env.COMMENTARY_KV.get(alt)))) {
+        missing.push(c);
+        return;
+      }
       const r = await worker.fetch(new Request('https://bundle.internal' + path), env);
       const j = r.ok ? await r.json() : null;
       // The Korean routes answer a failure with 200 and an `error` field.
@@ -3085,6 +3218,18 @@ async function handleApiBibleChapter(env, url, cors, translationId, bookNum, cha
         data: sanitizeApiBibleContent(cached.data, translationId, bookNum, chapter),
         meta: cached.meta || {},
         fumsToken: null, // never reuse a stored FUMS token; cached reads fire FUMS without one
+        cached: true,
+        translation
+      }), { headers: respHeaders });
+    }
+    // A copy restored from a reader's own download while api.bible refused us
+    // (see handleRestoreApiBible).  Already text, so served as stored.
+    const rescued = await env.COMMENTARY_KV.get(apiBibleRescueKey(translationId, chapterId), 'json');
+    if (rescued && rescued.data) {
+      return new Response(JSON.stringify({
+        data: rescued.data,
+        meta: {},
+        fumsToken: null,
         cached: true,
         translation
       }), { headers: respHeaders });
@@ -5717,6 +5862,9 @@ Only output valid JSON, no markdown, no preamble.`;
 
     // ---- /search/kjv (fast in-memory index, public-domain KJV) ----
     if (path.startsWith('/search/kjv')) return handleKjvSearch(env, url, cors);
+
+    // ---- /restore/apibible — one-time refill from a reader's download ----
+    if (path === '/restore/apibible') return handleRestoreApiBible(env, request, cors);
 
     // ---- /bundle/{translation}/{bookNum} — a whole book, for downloads ----
     const bundleMatch = path.match(/^\/bundle\/([A-Z]+)\/(\d+)\/?$/);
