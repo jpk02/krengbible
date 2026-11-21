@@ -20,9 +20,10 @@ miss is a bug to fix in KV, not a reason to fetch upstream.
 The one exception is by contract:  **NLT, NIV and The Message (api.bible)
 must be refreshed every 30 days** under api.bible's terms, so their KV
 entries carry a 30-day TTL and an hourly cron (`refreshApiBibleStore`)
-re-fetches each chapter at 29 days, at most 8 an hour.  The plan allows
-**5,000 api.bible calls a month**;  the 3,567 chapters at 29 days come to
-~3,700, every call is counted per month in KV (`apibible_calls_YYYY-MM`),
+re-fetches each chapter at 28 days, at most 20 an hour, chapters about to
+lapse before ones still served from a restored copy.  The plan allows
+**5,000 api.bible calls a month**;  the 3,567 chapters at 28 days come to
+~3,820, every call is counted per month in KV (`apibible_calls_YYYY-MM`),
 and the cron stops at 4,500.  Anything that would add bulk api.bible calls
 (index builds, refetches, a shorter refresh age) has to fit inside that.
 

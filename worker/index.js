@@ -3387,13 +3387,23 @@ async function fetchChapterFromApiBible(translationId, usfmCode, chapter, env) {
 // job is nearly all of them.  At 20 days it refreshed all 3,567 chapters every
 // 20 days -- about 5,350 calls a month -- and hit the limit on 8 November 2026.
 // Now:
-//   - 29 days, a day before the 30-day expiry:  3,567 every 29 days is about
-//     3,700 a month.
-//   - Staggered:  at most REFRESH_PER_RUN an hour, 192 a day against the ~123
-//     a day needed, so the refreshes run steadily through the month instead of
-//     in bursts, and chapters that come due together spread out on their own.
-//     A chapter the window misses expires and is refetched as missing, first,
-//     on a later run -- one call either way, never two.
+//   - 28 days, two days before the 30-day expiry:  3,567 every 28 days is
+//     about 3,820 a month.  Two days, not one:  with a one-day window a day
+//     on which 480 chapters expire (NIV on 4 December 2026) needed every run
+//     of the day before, and anything that slipped lapsed.
+//   - Staggered:  at most REFRESH_PER_RUN an hour, 480 a day against the ~127
+//     a day needed, so a backlog clears in days and the refreshes then run
+//     steadily, chapters that came due together spreading out on their own.
+//     Simulated hour by hour on the real expiry dates from 21 November 2026,
+//     cap included, through February:  after the December 1 reset nothing
+//     lapses, and only the 20 NIV chapters expiring 30 November are out, for
+//     the hours before it.
+//   - In order:  a chapter with no copy at all first;  then the soonest to
+//     expire;  last, a chapter missing from the store but still served from a
+//     restored copy (apiBibleRescueKey), since a reader sees nothing wrong
+//     there until that copy expires.  The 1,026 NLT chapters restored on
+//     21 November 2026 counted as missing and would otherwise have gone first,
+//     five days of runs while NIV and The Message expired behind them.
 //   - Capped:  every api.bible call is counted per month (countApiBibleCall),
 //     and this job stops for the month at CRON_MONTHLY_BUDGET, leaving the
 //     rest of the 5,000 for readers' own requests.
@@ -3401,8 +3411,8 @@ async function fetchChapterFromApiBible(translationId, usfmCode, chapter, env) {
 // KLB is left out:  no longer offered, only builds from before The Message
 // came back still read it, and those reads cache it as they always did.
 const API_BIBLE_KEEP_STORED = ['d6e14a625393b4da-01', '78a9f6124f344018-01', '6f11a7de016f942e-01'];
-const REFRESH_PER_RUN = 8;
-const STALE_AFTER_DAYS = 29;
+const REFRESH_PER_RUN = 20;
+const STALE_AFTER_DAYS = 28;
 const CRON_MONTHLY_BUDGET = 4500;
 
 /** This calendar month's api.bible call count, by UTC month. */
@@ -3431,8 +3441,7 @@ async function refreshApiBibleStore(env) {
   const now = Date.now() / 1000;
   const staleBefore = now + (30 - STALE_AFTER_DAYS) * 86400; // expiry earlier than this = old enough
   const due = [];
-  for (const id of API_BIBLE_KEEP_STORED) {
-    const prefix = `apibible_raw_v2_${id}_`;
+  async function expiries(prefix) {
     const expiry = new Map();
     let cursor;
     for (let page = 0; page < 5; page++) {
@@ -3441,12 +3450,21 @@ async function refreshApiBibleStore(env) {
       if (list.list_complete || !list.cursor) break;
       cursor = list.cursor;
     }
+    return expiry;
+  }
+  for (const id of API_BIBLE_KEEP_STORED) {
+    const expiry = await expiries(`apibible_raw_v2_${id}_`);
+    const rescued = await expiries(apiBibleRescueKey(id, ''));
     for (let ord = 0; ord < TOTAL_CHAPTERS; ord++) {
       const [bookIdx, chapter] = ordinalToBookChapter(ord);
       const usfm = USFM_CODES[bookIdx];
       const exp = expiry.get(`${usfm}.${chapter}`);
-      if (exp === undefined) due.push({ id, usfm, chapter, at: 0 });
-      else if (exp && exp < staleBefore) due.push({ id, usfm, chapter, at: exp });
+      if (exp === undefined) {
+        // Missing.  Served from a restored copy until that expires, so it
+        // waits behind everything about to lapse;  with no copy, it is first.
+        const copy = rescued.get(`${usfm}.${chapter}`);
+        due.push({ id, usfm, chapter, at: copy === undefined ? 0 : (copy || Infinity) });
+      } else if (exp && exp < staleBefore) due.push({ id, usfm, chapter, at: exp });
     }
   }
   due.sort((a, b) => a.at - b.at);
