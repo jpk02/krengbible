@@ -646,7 +646,7 @@
     align-items: center;
     gap: 0.35em;
     max-width: 60vw;
-    padding: 0.18em 0.75em 0.18em 0.5em;
+    padding: 0.18em 0.7em;
     border-radius: 999px;
     background: var(--tc);
     color: var(--team-ink);
@@ -657,14 +657,6 @@
     box-shadow: 0 14px 30px -14px var(--tc);
   }
   .turnbanner .who .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .turnbanner .who .dot {
-    flex: none;
-    width: 0.38em;
-    height: 0.38em;
-    border-radius: 50%;
-    background: var(--team-ink);
-    animation: pulse 1.6s ease-in-out infinite;
-  }
   .turnbanner.pop .who { animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
   @keyframes pop { from { transform: scale(0.82); opacity: 0.3; } }
 
@@ -709,7 +701,7 @@
     .inner, .pic, .team, .fill, .front { transition: none; }
     .card.found .pic, .card.odd .pic, .card.found .front, .card.miss .inner,
     .team.active .dot, .mini.face, dialog[open], #finish .trophy,
-    .turnbanner .who, .turnbanner .who .dot { animation: none; }
+    .turnbanner .who { animation: none; }
   }
 </style>
 </head>
@@ -780,7 +772,7 @@
     </div>
     <div class="turnbanner" id="banner" aria-hidden="true" hidden>
       <span class="now">Now playing</span>
-      <span class="who"><span class="dot"></span><span class="name" id="bannerName"></span></span>
+      <span class="who"><span class="name" id="bannerName"></span></span>
       <span class="next" id="bannerNext"></span>
     </div>
     <div class="board" id="board">
