@@ -15,56 +15,81 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Memory">
+<!-- The design before 22 November 2026 is kept at v1/. -->
 <style>
   :root {
     color-scheme: light dark;
     --bg: #f4f1eb;
-    --ink: #1a1a1a;
+    --bg-glow: rgba(255, 255, 255, 0.75);
+    --ink: #1c1b19;
     --dim: #6b6660;
     --panel: #ffffff;
-    --line: #e3ddd2;
-    --face: #ffffff;
-    --face-edge: #e3ddd2;
+    --line: #e5dfd4;
+    --shadow: rgba(70, 50, 20, 0.14);
+    --face-top: #ffffff;
+    --face-bottom: #f5f0e6;
+    --face-edge: #e5dfd4;
     --back: #1b2a4a;
-    --back-edge: #2c3f66;
     --back-mark: rgba(255, 255, 255, 0.14);
     --accent: #1b2a4a;
     --accent-ink: #ffffff;
     --found: #2f8f4e;
     --odd: #d9a21b;
+    --miss: rgba(214, 74, 52, 0.6);
+    /* One colour per team, for its chip, its name box and the cards it wins. */
+    --team0: #2f6fd6;
+    --team1: #e0573a;
+    --team2: #2b9a5a;
+    --team3: #8b52d6;
+    --team4: #cf8a0c;
+    --team5: #14919f;
+    --team-ink: #ffffff;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1a1a1a;
+      --bg: #161616;
+      --bg-glow: rgba(255, 255, 255, 0.05);
       --ink: #eeeeee;
       --dim: #9a948c;
-      --panel: #242424;
-      --line: #3a3a3a;
-      --face: #2a2a2a;
+      --panel: #222222;
+      --line: #363636;
+      --shadow: rgba(0, 0, 0, 0.5);
+      --face-top: #2e2e2e;
+      --face-bottom: #242424;
       --face-edge: #3a3a3a;
-      --back: #34466e;
-      --back-edge: #4a5d88;
+      --back: #2c3d63;
       --back-mark: rgba(255, 255, 255, 0.16);
       --accent: #e9e4da;
       --accent-ink: #1a1a1a;
       --found: #5cc47f;
       --odd: #f0bd3c;
+      --miss: rgba(240, 124, 98, 0.7);
+      --team0: #6a9cf0;
+      --team1: #f07c62;
+      --team2: #5cc47f;
+      --team3: #b088f0;
+      --team4: #f2b648;
+      --team5: #4cc3cf;
+      --team-ink: #141414;
     }
   }
+  .t0 { --tc: var(--team0); } .t1 { --tc: var(--team1); } .t2 { --tc: var(--team2); }
+  .t3 { --tc: var(--team3); } .t4 { --tc: var(--team4); } .t5 { --tc: var(--team5); }
+
   * { box-sizing: border-box; }
   html, body { margin: 0; }
   body {
     min-height: 100vh;
     min-height: 100dvh;
-    background: var(--bg);
+    background: radial-gradient(900px 520px at 50% -160px, var(--bg-glow), transparent 70%) no-repeat, var(--bg);
     color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Helvetica, Arial, sans-serif;
     display: flex;
     justify-content: center;
     padding: 28px 16px 40px;
+    -webkit-font-smoothing: antialiased;
   }
-  main { width: 100%; max-width: 520px; }
-  h1 { font-size: 28px; line-height: 34px; margin: 0 0 18px; letter-spacing: -0.3px; }
+  main { width: 100%; max-width: 480px; }
   [hidden] { display: none !important; }
 
   /* Playing:  the board takes the whole screen, a slim bar above it. */
@@ -76,60 +101,146 @@
       max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   }
   body.playing main { max-width: none; height: 100%; display: flex; flex-direction: column; }
-  body.playing h1 { display: none; }
+  body.playing .hero { display: none; }
 
   button { font: inherit; }
   button.primary, button.secondary {
     font-size: 14px;
     font-weight: 600;
     padding: 8px 14px;
-    border-radius: 10px;
+    border-radius: 11px;
     cursor: pointer;
     white-space: nowrap;
+    transition: transform 0.12s, box-shadow 0.2s, background 0.2s;
   }
-  button.primary { border: none; background: var(--accent); color: var(--accent-ink); }
+  button.primary {
+    border: none;
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: 0 6px 16px -8px var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
   button.secondary { border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  button.primary:active, button.secondary:active { transform: scale(0.97); }
   button:disabled { opacity: 0.4; cursor: default; }
-  button:focus-visible, select:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
+  button:disabled:active { transform: none; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
+
+  /* ---- Title ---- */
+  .hero { text-align: center; margin: 6px 0 22px; }
+  /* Three small cards fanned out:  two backs in the chosen design and one
+     face up, a different picture on every visit. */
+  .fan { position: relative; height: 96px; margin: 0 auto 14px; width: 190px; }
+  .mini {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 64px;
+    height: 84px;
+    margin-left: -32px;
+    border-radius: 11px;
+    box-shadow: 0 10px 22px -10px var(--shadow), 0 2px 4px var(--shadow);
+    transform-origin: 50% 110%;
+  }
+  .mini.back { background: var(--bk); }
+  .mini.back::after {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border-radius: 7px;
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+  }
+  .mini.l { transform: translateX(-36px) rotate(-14deg); }
+  .mini.r { transform: translateX(36px) rotate(14deg); }
+  .mini.face {
+    z-index: 1;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(165deg, var(--face-top), var(--face-bottom));
+    border: 1px solid var(--face-edge);
+    animation: float 4s ease-in-out infinite;
+  }
+  .mini.face img { width: 46px; height: 46px; filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.2)); }
+  @keyframes float { 50% { transform: translateY(-5px); } }
+  h1 { font-size: 30px; line-height: 36px; margin: 0; letter-spacing: -0.4px; }
+  .sub { margin: 6px 0 0; color: var(--dim); font-size: 15px; }
 
   /* ---- Setup ---- */
   .setup {
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 18px;
-    display: grid;
-    gap: 14px;
+    border-radius: 20px;
+    padding: 8px 18px 18px;
+    box-shadow: 0 18px 40px -24px var(--shadow);
   }
-  .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; }
-  .field select {
-    font: inherit;
+  .stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
     font-size: 16px;
-    min-width: 96px;
-    padding: 8px 10px;
-    border-radius: 10px;
+  }
+  .ctl { display: flex; align-items: center; gap: 4px; }
+  .ctl output {
+    min-width: 40px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .step {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
     border: 1px solid var(--line);
     background: var(--bg);
     color: var(--ink);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.12s, opacity 0.2s;
   }
-  .setup button.primary { padding: 12px; font-size: 16px; }
-  .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-  .names[hidden] { display: none; }
+  .step:active { transform: scale(0.9); }
+  .step:disabled { opacity: 0.3; cursor: default; }
+  .step:disabled:active { transform: none; }
+  .summary { margin: 12px 0 0; color: var(--dim); font-size: 14px; text-align: center; }
+  .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 14px; }
+  .name { position: relative; display: block; }
+  .name .dot {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin-top: -5px;
+    border-radius: 50%;
+    background: var(--tc);
+  }
   .names input, #renameInput {
     font: inherit;
     font-size: 16px;
     width: 100%;
     min-width: 0;
-    padding: 8px 10px;
-    border-radius: 10px;
+    padding: 9px 10px;
+    border-radius: 11px;
     border: 1px solid var(--line);
     background: var(--bg);
     color: var(--ink);
   }
+  .names input { padding-left: 28px; }
+  .row2 { display: flex; gap: 10px; margin-top: 16px; }
+  .row2 button { padding: 13px; font-size: 16px; }
+  .row2 .secondary { flex: 1; }
+  .row2 .primary { flex: 2; }
   #renameInput { margin-bottom: 14px; }
   .rename-actions { display: flex; gap: 10px; }
   .rename-actions button { flex: 1; padding: 11px; font-size: 16px; }
-  .names input:focus-visible, #renameInput:focus-visible { outline: 3px solid var(--found); outline-offset: 2px; }
 
   /* ---- Game ---- */
   #game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -138,14 +249,22 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 8px 12px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    padding: 7px 8px 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
+    box-shadow: 0 10px 24px -18px var(--shadow);
     font-size: 14px;
     color: var(--dim);
   }
-  .bar strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .progress { display: flex; flex-direction: column; gap: 4px; min-width: 92px; }
+  .progress strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .track { display: block; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .fill { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--found); transition: width 0.4s ease; }
   /* The buttons wrap as one group, so on a narrow screen they drop to their
      own line together rather than splitting. */
-  .bar .tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .bar .tools { display: flex; align-items: center; gap: 6px; margin-left: auto; }
   .result { color: var(--ink); font-weight: 600; }
   .result strong { color: var(--found); }
 
@@ -154,19 +273,27 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    padding: 5px 11px;
+    padding: 5px 12px 5px 9px;
     border-radius: 999px;
     border: 1px solid var(--line);
-    background: var(--panel);
+    background: var(--bg);
     color: var(--ink);
     font: inherit;
     font-size: 14px;
     cursor: pointer;
-    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    transition: background 0.25s, color 0.25s, border-color 0.25s, box-shadow 0.25s;
   }
+  .team .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tc); flex: none; }
   .team .score { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .team.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .team.winner { border-color: var(--found); box-shadow: inset 0 0 0 1px var(--found); }
+  .team.active {
+    background: var(--tc);
+    border-color: var(--tc);
+    color: var(--team-ink);
+    box-shadow: 0 6px 14px -6px var(--tc);
+  }
+  .team.active .dot { background: var(--team-ink); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  .team.winner { border-color: var(--tc); box-shadow: inset 0 0 0 1px var(--tc); }
 
   /* The board fills what is left;  each square is sized in script to the
      largest that fits both across and down. */
@@ -180,7 +307,7 @@
     border: none;
     background: none;
     cursor: pointer;
-    perspective: 800px;
+    perspective: 900px;
     -webkit-tap-highlight-color: transparent;
   }
   .card:focus-visible { border-radius: var(--radius, 14px); }
@@ -188,9 +315,13 @@
     position: absolute;
     inset: 0;
     transform-style: preserve-3d;
-    transition: transform 0.38s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition: transform 0.42s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .card.up .inner { transform: rotateY(180deg); }
+  @media (hover: hover) {
+    .card:not(.up):hover .inner { transform: translateY(-3px); }
+  }
+  .card:not(.up):active .inner { transform: scale(0.95); }
   .side {
     position: absolute;
     inset: 0;
@@ -203,15 +334,26 @@
   }
   .back {
     background: var(--bk);
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 6px 14px -8px var(--shadow), 0 1px 3px var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  /* A thin inset frame, as on a playing card. */
+  .back::after, .design .sample::after {
+    content: "";
+    position: absolute;
+    inset: 7%;
+    border-radius: calc(var(--radius, 14px) * 0.6);
+    border: 1.5px solid rgba(255, 255, 255, 0.32);
+    pointer-events: none;
   }
 
   /* Row letter and column number, for calling a card out across the room.
      A dark pill under the text, so it reads on every design. */
   .tag {
     display: none;
-    padding: 0.12em 0.4em;
-    border-radius: 0.4em;
+    position: relative;
+    z-index: 1;
+    padding: 0.12em 0.42em;
+    border-radius: 0.45em;
     background: rgba(0, 0, 0, 0.42);
     color: #fff;
     font-size: var(--tag, 18px);
@@ -248,12 +390,14 @@
   /* ---- Card backs ----
      Each design is one background, drawn by the page itself, with its tile
      sizes in percent so a pattern reads the same on a 2 by 2 board as on a
-     12 by 12.  The board and the swatches in Options both take a d-* class. */
+     12 by 12.  The board, the title cards and the swatches in Options all
+     take a d-* class. */
+  /* Navy with a gold frame, and the middle left clear for the labels. */
   .d-classic {
-    --bk: radial-gradient(circle, var(--back-mark) 0 18%, transparent 19%),
-          radial-gradient(circle, transparent 0 30%, var(--back-mark) 31% 33%, transparent 34%),
-          var(--back);
+    --bk: radial-gradient(circle, var(--back-mark) 0 14%, transparent 15%) 0 0 / 20% 20%,
+          linear-gradient(160deg, #25385f, var(--back));
   }
+  .d-classic .back::after, .mini.d-classic::after, .sample.d-classic::after { border-color: rgba(227, 192, 122, 0.7); }
   .d-diamonds {
     --bk: conic-gradient(from 45deg, #8e2536 25%, #ad3446 0 50%, #8e2536 0 75%, #ad3446 0) 50% 50% / 33.34% 33.34%;
   }
@@ -278,30 +422,72 @@
   .d-night {
     --bk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cpolygon points='15,8 16.8,13 22,13 17.8,16.2 19.4,21 15,18 10.6,21 12.2,16.2 8,13 13.2,13' fill='%23f3d27a' fill-opacity='.9'/%3E%3Ccircle cx='4' cy='5' r='.9' fill='white' fill-opacity='.7'/%3E%3Ccircle cx='26' cy='25' r='.7' fill='white' fill-opacity='.6'/%3E%3Ccircle cx='25' cy='4' r='.5' fill='white' fill-opacity='.5'/%3E%3C/svg%3E") 0 0 / 33.34% 33.34%, #1a2142;
   }
+  .d-blossom {
+    --bk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cg fill='white' fill-opacity='.5'%3E%3Ccircle cx='10' cy='6.6' r='2.6'/%3E%3Ccircle cx='13.4' cy='10' r='2.6'/%3E%3Ccircle cx='10' cy='13.4' r='2.6'/%3E%3Ccircle cx='6.6' cy='10' r='2.6'/%3E%3C/g%3E%3Ccircle cx='10' cy='10' r='1.7' fill='%23ffe08a'/%3E%3C/svg%3E") 0 0 / 33.34% 33.34%,
+          linear-gradient(160deg, #f08aa5, #d9577d);
+  }
+  .d-forest {
+    --bk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 3 L15 11 H12.5 L16 16 H4 L7.5 11 H5 Z' fill='white' fill-opacity='.28'/%3E%3C/svg%3E") 0 0 / 33.34% 33.34%,
+          linear-gradient(170deg, #2e7d5b, #1d5a40);
+  }
+  .d-gold {
+    --bk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 1 L19 10 L10 19 L1 10 Z' fill='none' stroke='%23e3c07a' stroke-opacity='.75' stroke-width='1.1'/%3E%3Ccircle cx='10' cy='10' r='1.6' fill='%23e3c07a' fill-opacity='.8'/%3E%3C/svg%3E") 0 0 / 25% 25%,
+          linear-gradient(160deg, #2a2a2a, #111111);
+  }
+
   .front {
-    background: var(--face);
+    background: linear-gradient(165deg, var(--face-top), var(--face-bottom));
     border: 1px solid var(--face-edge);
+    box-shadow: 0 6px 14px -8px var(--shadow), 0 1px 3px var(--shadow);
     transform: rotateY(180deg);
-    container-type: size;
+    transition: box-shadow 0.3s;
   }
   .card.found { cursor: default; }
-  .card.found .front { border-color: var(--found); box-shadow: inset 0 0 0 2px var(--found); }
+  /* A pair found by a team is ringed in that team's colour, so the board
+     shows at a glance who won what.  --tc is set on the card in script. */
+  .card.found .front {
+    box-shadow: inset 0 0 0 3px var(--tc, var(--found)), 0 6px 14px -8px var(--shadow);
+    animation: glow 0.8s ease-out;
+  }
+  @keyframes glow {
+    0% { box-shadow: inset 0 0 0 3px var(--tc, var(--found)), 0 0 0 0 var(--tc, var(--found)); }
+    100% { box-shadow: inset 0 0 0 3px var(--tc, var(--found)), 0 0 0 12px transparent; }
+  }
   /* The card with no pair, turned up at the end. */
-  .card.odd .front { border-color: var(--odd); box-shadow: inset 0 0 0 2px var(--odd); }
+  .card.odd .front { box-shadow: inset 0 0 0 3px var(--odd), 0 6px 14px -8px var(--shadow); }
+  /* Two that do not match:  a small shake once they are both showing. */
+  .card.miss .front { box-shadow: inset 0 0 0 2px var(--miss), 0 6px 14px -8px var(--shadow); }
+  .card.miss .inner { animation: shake 0.42s ease-in-out 0.36s; }
+  @keyframes shake {
+    0%, 100% { transform: rotateY(180deg); }
+    25% { transform: rotateY(180deg) translateX(5%); }
+    50% { transform: rotateY(180deg) translateX(-5%); }
+    75% { transform: rotateY(180deg) translateX(2.5%); }
+  }
 
-  /* The picture is the device's own colour emoji, drawn at card size:  on an
-     iPhone or a Mac that is Apple's glossy 3D set.  A soft shadow lifts it off
-     the card;  it pops in as the card turns and bounces when it is matched. */
+  /* The picture:  one of Microsoft's 3D Fluent Emoji (img/LICENSE.txt), the
+     same on every device.  It pops in as the card turns and bounces when it
+     is matched.  If an image cannot load, the device's own emoji stands in. */
   .pic {
+    width: 72%;
+    height: 72%;
+    object-fit: contain;
+    filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.2));
+    transform: scale(0.5);
+    transition: transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1) 0.16s;
+    -webkit-user-drag: none;
+    user-select: none;
+    pointer-events: none;
+  }
+  span.pic {
+    width: auto;
+    height: auto;
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    font-size: 60cqh;
+    font-size: var(--emoji, 40px);
     line-height: 1;
-    filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.22));
-    transform: scale(0.55);
-    transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) 0.14s;
   }
   .card.up .pic { transform: scale(1); }
-  .card.found .pic, .card.odd .pic { animation: bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .card.found .pic, .card.odd .pic { animation: bounce 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
   @keyframes bounce {
     0% { transform: scale(1); }
     40% { transform: scale(1.22) rotate(-6deg); }
@@ -309,7 +495,7 @@
     100% { transform: scale(1); }
   }
 
-  /* ---- Options ---- */
+  /* ---- Dialogs ---- */
   button.icon {
     width: 38px;
     height: 36px;
@@ -318,24 +504,27 @@
     align-items: center;
     justify-content: center;
   }
-  button.icon svg { width: 20px; height: 20px; }
+  button.icon svg { width: 19px; height: 19px; }
+  button.withicon { display: inline-flex; align-items: center; gap: 5px; }
+  button.withicon svg { width: 16px; height: 16px; }
   #fullscreen .exit, #fullscreen.on .enter { display: none; }
   #fullscreen.on .exit { display: block; }
-  .setup .row2 { display: flex; gap: 10px; }
-  .setup .row2 button { flex: 1; padding: 12px; font-size: 16px; }
   dialog {
     width: min(92vw, 440px);
     max-height: 88vh;
-    padding: 18px;
+    padding: 20px;
     border: 1px solid var(--line);
-    border-radius: 18px;
+    border-radius: 22px;
     background: var(--panel);
     color: var(--ink);
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.45);
   }
-  dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
-  dialog h2 { font-size: 20px; margin: 0 0 14px; }
-  dialog h3 { font-size: 14px; font-weight: 600; color: var(--dim); margin: 0 0 10px; }
-  .designs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+  dialog[open] { animation: rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(0.97); } }
+  dialog::backdrop { background: rgba(20, 16, 10, 0.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+  dialog h2 { font-size: 20px; margin: 0 0 16px; }
+  dialog h3 { font-size: 13px; font-weight: 700; color: var(--dim); margin: 0 0 10px; letter-spacing: 0.2px; }
+  .designs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 10px; margin-bottom: 20px; }
   .design {
     display: flex;
     flex-direction: column;
@@ -345,51 +534,116 @@
     border: none;
     background: none;
     color: var(--ink);
-    font-size: 13px;
+    font-size: 12px;
     cursor: pointer;
   }
   .design .sample {
+    --radius: 12px;
+    position: relative;
     width: 100%;
-    aspect-ratio: 1;
-    border-radius: 12px;
+    aspect-ratio: 3 / 4;
+    border-radius: 11px;
     background: var(--bk);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: 0 0 0 2px transparent;
-    transition: box-shadow 0.15s;
+    box-shadow: 0 0 0 2px transparent, 0 4px 10px -6px var(--shadow);
+    transition: box-shadow 0.15s, transform 0.15s;
   }
-  .design[aria-checked="true"] .sample { box-shadow: 0 0 0 3px var(--found); }
+  .design[aria-checked="true"] .sample {
+    box-shadow: 0 0 0 2px var(--panel), 0 0 0 4.5px var(--found), 0 4px 10px -6px var(--shadow);
+    transform: translateY(-2px);
+  }
   .design[aria-checked="true"] { font-weight: 700; }
-  dialog .done { width: 100%; padding: 11px; font-size: 16px; }
-  .choice { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
+  dialog .done { width: 100%; padding: 12px; font-size: 16px; }
+  .choice {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    background: var(--bg);
+  }
   .choice button {
-    padding: 10px 6px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
+    padding: 9px 6px;
+    border: none;
+    border-radius: 9px;
     background: none;
-    color: var(--ink);
+    color: var(--dim);
     font-size: 14px;
     cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
   }
   .choice button[aria-checked="true"] {
-    border-color: var(--found);
-    box-shadow: inset 0 0 0 1px var(--found);
+    background: var(--panel);
+    color: var(--ink);
     font-weight: 700;
+    box-shadow: 0 2px 6px -2px var(--shadow);
   }
 
+  /* ---- End of the game ---- */
+  #finish { text-align: center; width: min(92vw, 380px); }
+  #finish .trophy { width: 96px; height: 96px; margin: 4px auto 8px; display: block; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.2)); animation: bounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s; }
+  #finish h2 { font-size: 24px; margin: 0 0 4px; }
+  #finish .line { margin: 0 0 16px; color: var(--dim); font-size: 15px; }
+  .ranks { list-style: none; margin: 0 0 18px; padding: 0; text-align: left; }
+  .ranks li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+  .ranks li + li { margin-top: 4px; }
+  .ranks li.top { background: var(--bg); font-weight: 700; }
+  .ranks .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--tc); flex: none; }
+  .ranks .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ranks .pts { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .finish-actions { display: flex; gap: 10px; }
+  .finish-actions button { flex: 1; padding: 12px; font-size: 16px; }
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+
   @media (prefers-reduced-motion: reduce) {
-    .inner, .pic, .team { transition: none; }
-    .card.found .pic, .card.odd .pic { animation: none; }
+    .inner, .pic, .team, .fill, .front { transition: none; }
+    .card.found .pic, .card.odd .pic, .card.found .front, .card.miss .inner,
+    .team.active .dot, .mini.face, dialog[open], #finish .trophy { animation: none; }
   }
 </style>
 </head>
 <body>
 <main>
-  <h1>Memory Game</h1>
+  <header class="hero">
+    <div class="fan" aria-hidden="true">
+      <span class="mini back l" id="fanL"></span>
+      <span class="mini back r" id="fanR"></span>
+      <span class="mini face"><img id="fanPic" alt=""></span>
+    </div>
+    <h1>Memory Game</h1>
+    <p class="sub">Turn two cards.  Find the pairs.</p>
+  </header>
 
   <form class="setup" id="setup">
-    <label class="field">Rows <select id="rows"></select></label>
-    <label class="field">Columns <select id="cols"></select></label>
-    <label class="field">Teams <select id="teamCount"></select></label>
+    <div class="stepper"><span id="rowsLabel">Rows</span>
+      <div class="ctl" data-key="rows">
+        <button type="button" class="step" data-d="-1" aria-label="Fewer rows">&minus;</button>
+        <output id="rows" aria-labelledby="rowsLabel">4</output>
+        <button type="button" class="step" data-d="1" aria-label="More rows">+</button>
+      </div>
+    </div>
+    <div class="stepper"><span id="colsLabel">Columns</span>
+      <div class="ctl" data-key="cols">
+        <button type="button" class="step" data-d="-1" aria-label="Fewer columns">&minus;</button>
+        <output id="cols" aria-labelledby="colsLabel">4</output>
+        <button type="button" class="step" data-d="1" aria-label="More columns">+</button>
+      </div>
+    </div>
+    <div class="stepper"><span id="teamsLabel">Teams</span>
+      <div class="ctl" data-key="teams">
+        <button type="button" class="step" data-d="-1" aria-label="Fewer teams">&minus;</button>
+        <output id="teamCount" aria-labelledby="teamsLabel">2</output>
+        <button type="button" class="step" data-d="1" aria-label="More teams">+</button>
+      </div>
+    </div>
+    <p class="summary" id="summary" aria-live="polite"></p>
     <div class="names" id="names"></div>
     <div class="row2">
       <button type="button" class="secondary" id="optionsSetup">Options</button>
@@ -399,11 +653,17 @@
 
   <section id="game" hidden>
     <div class="bar">
-      <span>Pairs <strong id="pairs">0</strong> / <span id="pairTotal">0</span></span>
+      <div class="progress">
+        <span>Pairs <strong id="pairs">0</strong> / <span id="pairTotal">0</span></span>
+        <span class="track" aria-hidden="true"><span class="fill" id="fill"></span></span>
+      </div>
       <div class="teams" id="teams" aria-live="polite"></div>
       <span class="result" id="result" aria-live="polite"></span>
       <div class="tools">
-      <button type="button" class="secondary" id="undo" disabled>Undo</button>
+      <button type="button" class="secondary withicon" id="undo" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+        Undo
+      </button>
       <button type="button" class="secondary icon" id="fullscreen" aria-label="Full screen" hidden>
         <svg class="enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
         <svg class="exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
@@ -448,11 +708,25 @@
   </form>
 </dialog>
 
+<dialog id="finish" aria-labelledby="finishTitle">
+  <img class="trophy" id="finishPic" src="img/trophy.webp" alt="">
+  <h2 id="finishTitle"></h2>
+  <p class="line" id="finishLine"></p>
+  <ol class="ranks" id="ranks"></ol>
+  <div class="finish-actions">
+    <button type="button" class="secondary" id="finishClose">See Board</button>
+    <button type="button" class="primary" id="again">Play Again</button>
+  </div>
+</dialog>
+<canvas id="confetti" hidden></canvas>
+
 <script>
 (() => {
   // Seventy-six objects;  each game picks as many as its board needs, up to
-  // seventy-two pairs for 12 by 12.  Code points rather than the characters
-  // themselves, so this file stays plain ASCII.
+  // seventy-two pairs for 12 by 12.  Each picture is img/<name>.webp, the
+  // name in lower case with dashes for spaces.  The code point is the
+  // device's own emoji, used only if the picture fails to load.  Code points
+  // rather than the characters themselves, so this file stays plain ASCII.
   const OBJECTS = [
     ['Apple', '\u{1F34E}'], ['Watermelon', '\u{1F349}'], ['Pineapple', '\u{1F34D}'], ['Strawberry', '\u{1F353}'],
     ['Grapes', '\u{1F347}'], ['Cherries', '\u{1F352}'], ['Lemon', '\u{1F34B}'], ['Peach', '\u{1F351}'],
@@ -474,24 +748,48 @@
     ['Maple leaf', '\u{1F341}'], ['Bus', '\u{1F68C}'], ['Helicopter', '\u{1F681}'], ['Baseball', '\u{26BE}'],
     ['Violin', '\u{1F3BB}'], ['Crab', '\u{1F980}'], ['Bee', '\u{1F41D}'], ['Ladybug', '\u{1F41E}'],
     ['Rabbit', '\u{1F430}'], ['Hamburger', '\u{1F354}'],
-  ].map(([name, pic]) => ({ name, pic }));
+  ].map(([name, emoji]) => ({ name, emoji, src: 'img/' + name.toLowerCase().replace(/ /g, '-') + '.webp' }));
   const DESIGNS = [
-    ['classic', 'Classic'], ['diamonds', 'Diamonds'], ['stripes', 'Stripes'],
-    ['dots', 'Dots'], ['checker', 'Checker'], ['sunburst', 'Sunburst'],
-    ['aurora', 'Aurora'], ['waves', 'Waves'], ['night', 'Night Sky'],
+    ['classic', 'Classic'], ['diamonds', 'Diamonds'], ['stripes', 'Stripes'], ['dots', 'Dots'],
+    ['checker', 'Checker'], ['sunburst', 'Sunburst'], ['aurora', 'Aurora'], ['waves', 'Waves'],
+    ['night', 'Night Sky'], ['blossom', 'Blossom'], ['forest', 'Forest'], ['gold', 'Gold'],
   ];
   const BACK_STORE = 'memorygame.back';
   const LABELS_STORE = 'memorygame.labels';
   const MIN = 2, MAX = 12, MAX_TEAMS = 6;
-  const MISMATCH_MS = 850;
+  const MISMATCH_MS = 1000;
   const STORE = 'memorygame.setup';
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const $ = (id) => document.getElementById(id);
   const setupEl = $('setup'), gameEl = $('game'), board = $('board'), grid = $('grid');
-  const rowsEl = $('rows'), colsEl = $('cols'), teamCountEl = $('teamCount');
-  const pairsEl = $('pairs'), pairTotalEl = $('pairTotal'), teamsEl = $('teams'), resultEl = $('result');
+  const pairsEl = $('pairs'), pairTotalEl = $('pairTotal'), fillEl = $('fill'), teamsEl = $('teams'), resultEl = $('result');
   const undoEl = $('undo');
   const optionsEl = $('options'), designsEl = $('designs');
+
+  // The picture on a card:  the image, or the emoji if the image will not load.
+  function picEl(obj) {
+    const img = document.createElement('img');
+    img.className = 'pic';
+    img.alt = '';
+    img.draggable = false;
+    img.decoding = 'async';
+    img.src = obj.src;
+    img.addEventListener('error', () => {
+      const s = document.createElement('span');
+      s.className = 'pic';
+      s.setAttribute('aria-hidden', 'true');
+      s.textContent = obj.emoji;
+      img.replaceWith(s);
+    }, { once: true });
+    return img;
+  }
+
+  // ---- Title cards ----
+  const fanPic = $('fanPic');
+  const fanObj = OBJECTS[Math.floor(Math.random() * OBJECTS.length)];
+  fanPic.src = fanObj.src;
+  fanPic.addEventListener('error', () => { fanPic.replaceWith(Object.assign(document.createElement('span'), { textContent: fanObj.emoji })); }, { once: true });
 
   // ---- Card back ----
   let design = 'classic';
@@ -521,6 +819,8 @@
   });
   function applyDesign() {
     grid.className = 'grid d-' + design + (labels === 'cards' ? ' labels' : '');
+    $('fanL').className = 'mini back l d-' + design;
+    $('fanR').className = 'mini back r d-' + design;
     frame.classList.toggle('edges', labels === 'edges');
     labelsEl.querySelectorAll('button').forEach((b) => {
       b.setAttribute('aria-checked', String(b.dataset.mode === labels));
@@ -548,32 +848,55 @@
   $('optionsSetup').addEventListener('click', openOptions);
   $('optionsGame').addEventListener('click', openOptions);
   $('optionsDone').addEventListener('click', () => optionsEl.close());
-  // A tap outside the panel closes it, as Escape does.
-  // By position, not target:  the panel's own padding is the dialog too.
-  optionsEl.addEventListener('click', (e) => {
-    const r = optionsEl.getBoundingClientRect();
-    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-    if (!inside) optionsEl.close();
-  });
-
-  function fillSelect(el, from, to, value) {
-    for (let v = from; v <= to; v++) {
-      const o = document.createElement('option');
-      o.value = String(v);
-      o.textContent = String(v);
-      el.appendChild(o);
-    }
-    el.value = String(Math.min(to, Math.max(from, value)));
+  // A tap outside a panel closes it, as Escape does.  By position, not
+  // target:  the panel's own padding is the dialog too.  Only a tap on the
+  // dialog itself counts:  Enter in a box "clicks" its button at 0,0, which by
+  // position alone would read as a tap outside.
+  function closeOnBackdrop(d) {
+    d.addEventListener('click', (e) => {
+      if (e.target !== d) return;
+      const r = d.getBoundingClientRect();
+      const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      if (!inside) d.close();
+    });
   }
+  closeOnBackdrop(optionsEl);
 
+  // ---- Setup ----
   let saved = { rows: 4, cols: 4, teams: 2 };
   try {
     const s = JSON.parse(localStorage.getItem(STORE) || 'null');
     if (s && s.rows && s.cols && s.teams) saved = s;
   } catch (e) { /* storage unavailable:  defaults */ }
-  fillSelect(rowsEl, MIN, MAX, saved.rows);
-  fillSelect(colsEl, MIN, MAX, saved.cols);
-  fillSelect(teamCountEl, 1, MAX_TEAMS, saved.teams);
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Number(v) || lo));
+  const pick = {
+    rows: clamp(saved.rows, MIN, MAX),
+    cols: clamp(saved.cols, MIN, MAX),
+    teams: clamp(saved.teams, 1, MAX_TEAMS),
+  };
+  const LIMITS = { rows: [MIN, MAX], cols: [MIN, MAX], teams: [1, MAX_TEAMS] };
+  const OUT = { rows: $('rows'), cols: $('cols'), teams: $('teamCount') };
+  function showPick() {
+    for (const k of Object.keys(pick)) {
+      OUT[k].textContent = String(pick[k]);
+      const ctl = OUT[k].parentElement;
+      ctl.querySelector('[data-d="-1"]').disabled = pick[k] <= LIMITS[k][0];
+      ctl.querySelector('[data-d="1"]').disabled = pick[k] >= LIMITS[k][1];
+    }
+    const n = pick.rows * pick.cols;
+    $('summary').textContent = n + ' cards, ' + Math.floor(n / 2) + ' pairs' + (n % 2 ? ', and one card with no pair' : '');
+  }
+  document.querySelectorAll('.ctl').forEach((ctl) => {
+    const k = ctl.dataset.key;
+    ctl.querySelectorAll('.step').forEach((b) => {
+      b.addEventListener('click', () => {
+        pick[k] = clamp(pick[k] + Number(b.dataset.d), LIMITS[k][0], LIMITS[k][1]);
+        showPick();
+        if (k === 'teams') renderNameInputs();
+      });
+    });
+  });
+  showPick();
 
   // Team names, one box per team, blank meaning "Team 1" and so on.  Kept
   // for every slot even when fewer teams are playing, so dropping to two
@@ -584,10 +907,14 @@
     if (typeof n === 'string') nameDraft[i] = n;
   });
   function renderNameInputs() {
-    const t = Number(teamCountEl.value);
+    const t = pick.teams;
     namesEl.hidden = t < 2;
     namesEl.innerHTML = '';
     for (let i = 0; i < t; i++) {
+      const wrap = document.createElement('label');
+      wrap.className = 'name t' + i;
+      const dot = document.createElement('span');
+      dot.className = 'dot';
       const input = document.createElement('input');
       input.type = 'text';
       input.maxLength = 20;
@@ -596,14 +923,14 @@
       input.autocomplete = 'off';
       input.value = nameDraft[i];
       input.addEventListener('input', () => { nameDraft[i] = input.value; });
-      namesEl.appendChild(input);
+      wrap.append(dot, input);
+      namesEl.appendChild(wrap);
     }
   }
-  teamCountEl.addEventListener('change', renderNameInputs);
   renderNameInputs();
 
-  let deck = [], first = null, locked = false, pending = null, oddTimer = null;
-  let rows = 4, cols = 4, pairTotal = 0, pairsFound = 0, teamCount = 1, turn = 0, scores = [];
+  let deck = [], first = null, locked = false, pending = null, oddTimer = null, finishTimer = null;
+  let rows = 4, cols = 4, pairTotal = 0, pairsFound = 0, teamCount = 1, turn = 0, scores = [], moves = 0;
   let teamNames = [];
   const teamName = (t) => teamNames[t] || 'Team ' + (t + 1);
   let history = [];
@@ -619,7 +946,7 @@
 
   setupEl.addEventListener('submit', (e) => {
     e.preventDefault();
-    const r = Number(rowsEl.value), c = Number(colsEl.value), t = Number(teamCountEl.value);
+    const { rows: r, cols: c, teams: t } = pick;
     try { localStorage.setItem(STORE, JSON.stringify({ rows: r, cols: c, teams: t, names: nameDraft })); } catch (err) { /* fine */ }
     teamNames = nameDraft.slice(0, t).map((n) => n.trim());
     start(r, c, t);
@@ -663,14 +990,7 @@
   });
   $('renameCancel').addEventListener('click', () => renameEl.close());
   renameEl.addEventListener('close', () => { renaming = -1; });
-  renameEl.addEventListener('click', (e) => {
-    // Only a tap on the backdrop itself.  Enter in the box "clicks" Save at
-    // 0,0, which by position alone would read as a tap outside.
-    if (e.target !== renameEl) return;
-    const r = renameEl.getBoundingClientRect();
-    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-    if (!inside) renameEl.close();
-  });
+  closeOnBackdrop(renameEl);
 
   // ---- Full screen ----
   // Hides the browser's tab and address bars.  Shown only where the browser
@@ -701,25 +1021,31 @@
   function clearTimers() {
     if (pending) { clearTimeout(pending.timer); pending = null; }
     if (oddTimer) { clearTimeout(oddTimer); oddTimer = null; }
+    if (finishTimer) { clearTimeout(finishTimer); finishTimer = null; }
   }
 
   function start(r, c, teams) {
     clearTimers();
+    if (finishEl.open) finishEl.close();
     rows = r;
     cols = c;
     const n = rows * cols;
     pairTotal = Math.floor(n / 2);
     const picked = shuffle(OBJECTS).slice(0, pairTotal + (n % 2));
+    // Fetched now, while the cards are still face down, so a picture is
+    // already there the first time its card turns.
+    picked.forEach((o) => { new Image().src = o.src; });
     const pairs = picked.slice(0, pairTotal);
     const cards = pairs.concat(pairs).map((obj) => ({ obj, odd: false }));
     if (n % 2) cards.push({ obj: picked[pairTotal], odd: true });
-    deck = shuffle(cards).map((card) => ({ ...card, up: false, found: false, shownOdd: false }));
+    deck = shuffle(cards).map((card) => ({ ...card, up: false, found: false, shownOdd: false, by: -1 }));
 
     first = null;
     locked = false;
     pairsFound = 0;
     teamCount = teams;
     turn = 0;
+    moves = 0;
     scores = new Array(teams).fill(0);
     history = [];
 
@@ -734,8 +1060,9 @@
       el.innerHTML =
         '<span class="inner">' +
           '<span class="side back"><span class="tag">' + card.tag + '</span></span>' +
-          '<span class="side front"><span class="pic" aria-hidden="true">' + card.obj.pic + '</span></span>' +
+          '<span class="side front"></span>' +
         '</span>';
+      el.querySelector('.front').appendChild(picEl(card.obj));
       el.addEventListener('click', () => flip(card));
       card.el = el;
       grid.appendChild(el);
@@ -768,7 +1095,7 @@
     let gap = 8, size = 0, band = edges ? 20 : 0;
     for (let pass = 0; pass < 3; pass++) {
       size = Math.floor(Math.min((w - band - gap * (cols - 1)) / cols, (h - band - gap * (rows - 1)) / rows));
-      gap = Math.max(3, Math.min(10, Math.round(size * 0.06)));
+      gap = Math.max(4, Math.min(12, Math.round(size * 0.07)));
       if (edges) band = Math.max(16, Math.min(40, Math.round(size * 0.36)));
     }
     grid.style.gridTemplateColumns = 'repeat(' + cols + ', ' + size + 'px)';
@@ -781,8 +1108,9 @@
     rowhead.style.rowGap = gap + 'px';
     frame.style.setProperty('--band', band + 'px');
     frame.style.setProperty('--edge', Math.max(11, Math.min(30, Math.round(band * 0.62))) + 'px');
-    grid.style.setProperty('--radius', Math.max(6, Math.min(16, Math.round(size * 0.13))) + 'px');
+    grid.style.setProperty('--radius', Math.max(6, Math.min(18, Math.round(size * 0.14))) + 'px');
     grid.style.setProperty('--tag', Math.max(10, Math.min(44, Math.round(size * 0.26))) + 'px');
+    grid.style.setProperty('--emoji', Math.round(size * 0.58) + 'px');
   }
   new ResizeObserver(layout).observe(board);
 
@@ -790,10 +1118,11 @@
 
   function snapshot() {
     return {
-      cards: deck.map((c) => ({ up: c.up, found: c.found, shownOdd: c.shownOdd })),
+      cards: deck.map((c) => ({ up: c.up, found: c.found, shownOdd: c.shownOdd, by: c.by })),
       first: first ? deck.indexOf(first) : -1,
       pairsFound,
       turn,
+      moves,
       scores: scores.slice(),
     };
   }
@@ -803,8 +1132,10 @@
     first = s.first >= 0 ? deck[s.first] : null;
     pairsFound = s.pairsFound;
     turn = s.turn;
+    moves = s.moves;
     scores = s.scores.slice();
     locked = false;
+    deck.forEach((c) => c.el.classList.remove('miss'));
     render();
   }
 
@@ -823,10 +1154,14 @@
       c.el.classList.toggle('up', c.up);
       c.el.classList.toggle('found', c.found);
       c.el.classList.toggle('odd', c.shownOdd);
+      // The ring of the team that found the pair;  one team keeps the green.
+      if (c.found && teamCount > 1 && c.by >= 0) c.el.style.setProperty('--tc', 'var(--team' + c.by + ')');
+      else c.el.style.removeProperty('--tc');
       c.el.setAttribute('aria-label',
         !c.up ? 'Face-down card ' + c.tag : c.found ? c.obj.name + ', matched' : c.shownOdd ? c.obj.name + ', no pair' : c.obj.name);
     });
     pairsEl.textContent = String(pairsFound);
+    fillEl.style.width = (pairTotal ? (100 * pairsFound) / pairTotal : 0) + '%';
     undoEl.disabled = history.length === 0;
 
     const done = pairsFound === pairTotal;
@@ -837,15 +1172,17 @@
       const el = document.createElement('button');
       el.type = 'button';
       el.addEventListener('click', () => openRename(t));
-      el.className = 'team' +
+      el.className = 'team t' + t +
         (!done && t === turn ? ' active' : '') +
         (done && winners.includes(t) ? ' winner' : '');
+      const dot = document.createElement('span');
+      dot.className = 'dot';
       const name = document.createElement('span');
       name.textContent = teamName(t);
       const score = document.createElement('span');
       score.className = 'score';
       score.textContent = String(scores[t]);
-      el.append(name, score);
+      el.append(dot, name, score);
       el.setAttribute('aria-label', teamName(t) + ', ' + scores[t] + ', rename');
       if (!done && t === turn) el.setAttribute('aria-current', 'true');
       teamsEl.appendChild(el);
@@ -853,6 +1190,7 @@
 
     if (!done) {
       resultEl.textContent = '';
+      if (finishEl.open) finishEl.close();
     } else if (teamCount < 2) {
       resultEl.innerHTML = '<strong>All pairs found.</strong>';
     } else {
@@ -875,6 +1213,101 @@
     return scores.map((s, t) => (s === best ? t : -1)).filter((t) => t >= 0);
   }
 
+  // ---- The end ----
+  // A panel with the result once the last pair is found (and the card with
+  // no pair has turned):  the winner, every team's score in order, and Play
+  // Again for the same board and teams.  See Board closes it to look at the
+  // cards;  the result stays in the bar above them.
+  const finishEl = $('finish');
+  function showFinish() {
+    const ranks = $('ranks');
+    ranks.innerHTML = '';
+    if (teamCount < 2) {
+      $('finishPic').src = 'img/party-popper.webp';
+      $('finishTitle').textContent = 'All Pairs Found';
+      $('finishLine').textContent = pairTotal + ' pairs in ' + moves + (moves === 1 ? ' turn.' : ' turns.');
+      ranks.hidden = true;
+    } else {
+      const winners = winnersOf();
+      $('finishPic').src = 'img/trophy.webp';
+      $('finishTitle').textContent = winners.length === 1 ? teamName(winners[0]) + ' Wins' : 'A Tie';
+      $('finishLine').textContent = winners.length === 1
+        ? scores[winners[0]] + ' of ' + pairTotal + ' pairs.'
+        : winners.map(teamName).join(' and ') + ', ' + scores[winners[0]] + ' each.';
+      ranks.hidden = false;
+      const order = scores.map((s, t) => t).sort((a, b) => scores[b] - scores[a] || a - b);
+      order.forEach((t) => {
+        const li = document.createElement('li');
+        li.className = 't' + t + (winners.includes(t) ? ' top' : '');
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        const who = document.createElement('span');
+        who.className = 'who';
+        who.textContent = teamName(t);
+        const pts = document.createElement('span');
+        pts.className = 'pts';
+        pts.textContent = String(scores[t]);
+        li.append(dot, who, pts);
+        ranks.appendChild(li);
+      });
+    }
+    finishEl.showModal();
+    confetti();
+  }
+  $('finishClose').addEventListener('click', () => finishEl.close());
+  $('again').addEventListener('click', () => { finishEl.close(); start(rows, cols, teamCount); });
+  closeOnBackdrop(finishEl);
+
+  // A short burst of confetti in the teams' colours.  Skipped for anyone who
+  // has asked their device for less motion.
+  const canvas = $('confetti');
+  function confetti() {
+    if (reduceMotion) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const W = innerWidth, H = innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    canvas.hidden = false;
+    const css = getComputedStyle(root);
+    const colours = [0, 1, 2, 3, 4, 5].map((i) => css.getPropertyValue('--team' + i).trim()).concat(['#f3d27a']);
+    const bits = Array.from({ length: 140 }, () => ({
+      x: W / 2 + (Math.random() - 0.5) * W * 0.3,
+      y: H * 0.35,
+      vx: (Math.random() - 0.5) * 13,
+      vy: -Math.random() * 13 - 4,
+      r: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 0.35,
+      w: 6 + Math.random() * 6,
+      h: 4 + Math.random() * 4,
+      c: colours[Math.floor(Math.random() * colours.length)],
+    }));
+    const t0 = performance.now();
+    function frameStep(now) {
+      const t = now - t0;
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalAlpha = Math.max(0, 1 - Math.max(0, t - 1800) / 900);
+      for (const b of bits) {
+        b.vy += 0.32;
+        b.vx *= 0.99;
+        b.x += b.vx;
+        b.y += b.vy;
+        b.r += b.vr;
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(b.r);
+        ctx.fillStyle = b.c;
+        ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h * Math.abs(Math.cos(b.r * 2)));
+        ctx.restore();
+      }
+      if (t < 2700) requestAnimationFrame(frameStep);
+      else { ctx.clearRect(0, 0, W, H); canvas.hidden = true; }
+    }
+    requestAnimationFrame(frameStep);
+  }
+
   function flip(card) {
     if (locked || card.up || card.found || pairsFound === pairTotal) return;
     // Saved at the start of each turn only -- what Undo returns to.
@@ -887,11 +1320,13 @@
     }
     const a = first, b = card;
     first = null;
+    moves += 1;
 
     if (a.obj === b.obj) {
       // A match stays face up, scores for the team whose turn it is, and that
       // team goes again.
       a.found = b.found = true;
+      a.by = b.by = turn;
       pairsFound += 1;
       scores[turn] += 1;
       render();
@@ -905,6 +1340,7 @@
             render();
           }, 450);
         }
+        finishTimer = setTimeout(() => { finishTimer = null; showFinish(); }, odd ? 1300 : 850);
       }
       return;
     }
@@ -912,10 +1348,14 @@
     // Not a match:  both stay showing long enough to remember, turn back over,
     // and the turn passes to the next team.
     render();
+    a.el.classList.add('miss');
+    b.el.classList.add('miss');
     locked = true;
     pending = {
       timer: setTimeout(() => {
         pending = null;
+        a.el.classList.remove('miss');
+        b.el.classList.remove('miss');
         a.up = b.up = false;
         locked = false;
         turn = (turn + 1) % teamCount;
