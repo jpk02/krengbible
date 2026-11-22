@@ -331,14 +331,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Each face is also hidden outright once the turn passes halfway, the
-       moment it goes edge-on.  backface-visibility alone is not enough on
-       iPhone Safari:  anything inside a face with a layer of its own (the
-       label, which sits above the frame) is drawn through the turned card,
-       mirrored. */
-    transition: visibility 0s linear 0.2s;
+    /* Each face is also hidden outright once it has turned away.
+       backface-visibility alone is not enough on iPhone Safari:  anything
+       inside a face with a layer of its own (the label, which sits above
+       the frame) is drawn through the turned card, mirrored.  A face coming
+       round shows at once;  only the one turning away waits, until it is
+       edge-on.  The turn's easing gets there at about 61 ms of its 420. */
+    transition: visibility 0s;
   }
-  .card.up .back, .card:not(.up) .front { visibility: hidden; }
+  .card.up .back, .card:not(.up) .front { visibility: hidden; transition: visibility 0s linear 0.07s; }
   .back {
     background: var(--bk);
     box-shadow: 0 6px 14px -8px var(--shadow), 0 1px 3px var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
@@ -609,6 +610,43 @@
   .finish-actions button { flex: 1; padding: 12px; font-size: 16px; }
   #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
 
+  /* ---- A phone held upright ----
+     Two lines instead of four:  pairs and the buttons along the top, the
+     teams beneath in one row that scrolls sideways when they do not all
+     fit.  The board gets the room back. */
+  @media (max-width: 600px) {
+    .bar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 7px 8px;
+      padding: 6px 6px 6px 10px;
+      margin-bottom: 8px;
+      border-radius: 14px;
+      font-size: 13px;
+    }
+    .progress { flex-direction: row; align-items: center; gap: 8px; min-width: 0; }
+    .progress > span:first-child { white-space: nowrap; }
+    .track { flex: 1; min-width: 24px; max-width: 120px; }
+    .bar .tools { grid-column: 2; grid-row: 1; gap: 5px; margin: 0; }
+    .teams {
+      grid-column: 1 / -1;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      margin: 0 -2px;
+      padding: 0 2px 2px;
+    }
+    .teams::-webkit-scrollbar { display: none; }
+    .team { flex: none; font-size: 13px; padding: 4px 10px 4px 8px; gap: 6px; }
+    .team.active { box-shadow: 0 4px 10px -6px var(--tc); }
+    .result { grid-column: 1 / -1; font-size: 14px; }
+    .result:empty { display: none; }
+    button.icon, #undo { width: 34px; height: 32px; padding: 0; justify-content: center; }
+    #undo .lbl { display: none; }
+    button.icon svg, #undo svg { width: 18px; height: 18px; }
+    #new { font-size: 13px; padding: 7px 11px; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .inner, .pic, .team, .fill, .front { transition: none; }
     .card.found .pic, .card.odd .pic, .card.found .front, .card.miss .inner,
@@ -667,9 +705,9 @@
       <div class="teams" id="teams" aria-live="polite"></div>
       <span class="result" id="result" aria-live="polite"></span>
       <div class="tools">
-      <button type="button" class="secondary withicon" id="undo" disabled>
+      <button type="button" class="secondary withicon" id="undo" aria-label="Undo" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
-        Undo
+        <span class="lbl">Undo</span>
       </button>
       <button type="button" class="secondary icon" id="fullscreen" aria-label="Full screen" hidden>
         <svg class="enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
@@ -1193,6 +1231,14 @@
       el.setAttribute('aria-label', teamName(t) + ', ' + scores[t] + ', rename');
       if (!done && t === turn) el.setAttribute('aria-current', 'true');
       teamsEl.appendChild(el);
+    }
+    // On a phone the chips can run past the edge:  keep the team whose turn
+    // it is in view.
+    const now = teamsEl.querySelector('.active');
+    if (now && teamsEl.scrollWidth > teamsEl.clientWidth) {
+      const l = now.offsetLeft - teamsEl.offsetLeft, r = l + now.offsetWidth;
+      if (l < teamsEl.scrollLeft) teamsEl.scrollLeft = l - 8;
+      else if (r > teamsEl.scrollLeft + teamsEl.clientWidth) teamsEl.scrollLeft = r - teamsEl.clientWidth + 8;
     }
 
     if (!done) {
