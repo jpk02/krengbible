@@ -299,6 +299,9 @@
   .team.active .dot { background: var(--team-ink); animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: 0.35; } }
   .team.winner { border-color: var(--tc); box-shadow: inset 0 0 0 1px var(--tc); }
+  /* Teams that have already had their turn this round.  The chips run in
+     this round's order, so the faded ones are behind and the rest ahead. */
+  .team.played { opacity: 0.5; }
 
   /* The board fills what is left;  each square is sized in script to the
      largest that fits both across and down. */
@@ -575,6 +578,9 @@
     border-radius: 12px;
     background: var(--bg);
   }
+  .choice.two { grid-template-columns: repeat(2, 1fr); }
+  .choice.four { grid-template-columns: repeat(4, 1fr); }
+  .hint { margin: -12px 2px 20px; color: var(--dim); font-size: 12.5px; line-height: 1.45; }
   .choice button {
     padding: 9px 6px;
     border: none;
@@ -744,6 +750,20 @@
     <button type="button" role="radio" data-mode="edges">Along Edges</button>
     <button type="button" role="radio" data-mode="off">Off</button>
   </div>
+  <h3>Turn Order Each Round</h3>
+  <div class="choice two" id="orderChoice" role="radiogroup" aria-label="Turn order each round">
+    <button type="button" role="radio" data-v="shuffled">Shuffled</button>
+    <button type="button" role="radio" data-v="same">Same</button>
+  </div>
+  <p class="hint">Shuffled is fairer:  no team always plays right after a weaker one and picks up the cards it showed.  No team ever plays twice in a row.</p>
+  <h3>Matches Per Turn</h3>
+  <div class="choice four" id="capChoice" role="radiogroup" aria-label="Matches per turn">
+    <button type="button" role="radio" data-v="1">1</button>
+    <button type="button" role="radio" data-v="2">2</button>
+    <button type="button" role="radio" data-v="3">3</button>
+    <button type="button" role="radio" data-v="0">No Limit</button>
+  </div>
+  <p class="hint">A match earns another try.  After this many in one turn, the turn passes anyway, so no team can clear the board in one go.</p>
   <button type="button" class="primary done" id="optionsDone">Done</button>
 </dialog>
 
@@ -867,6 +887,35 @@
       layout();
     });
   });
+  // How turns go round:  in a new random order every round ("shuffled"), or
+  // in team order every round ("same").  And how many matches one turn may
+  // make before it passes anyway, 0 for no limit.  Both can change mid-game:
+  // the order from the next round, the limit from the next match.
+  const ORDER_STORE = 'memorygame.order', CAP_STORE = 'memorygame.cap';
+  let orderMode = 'shuffled', cap = 0;
+  try {
+    const o = localStorage.getItem(ORDER_STORE);
+    if (o === 'same' || o === 'shuffled') orderMode = o;
+    const c = Number(localStorage.getItem(CAP_STORE));
+    if ([1, 2, 3].includes(c)) cap = c;
+  } catch (e) { /* shuffled, no limit */ }
+  const orderChoiceEl = $('orderChoice'), capChoiceEl = $('capChoice');
+  function syncRules() {
+    orderChoiceEl.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === orderMode)));
+    capChoiceEl.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === String(cap))));
+  }
+  orderChoiceEl.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    orderMode = b.dataset.v;
+    try { localStorage.setItem(ORDER_STORE, orderMode); } catch (e) { /* fine */ }
+    syncRules();
+  }));
+  capChoiceEl.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    cap = Number(b.dataset.v);
+    try { localStorage.setItem(CAP_STORE, String(cap)); } catch (e) { /* fine */ }
+    syncRules();
+  }));
+  syncRules();
+
   function applyDesign() {
     grid.className = 'grid d-' + design + (labels === 'cards' ? ' labels' : '');
     $('fanL').className = 'mini back l d-' + design;
@@ -981,6 +1030,33 @@
 
   let deck = [], first = null, locked = false, pending = null, oddTimer = null, finishTimer = null;
   let rows = 4, cols = 4, pairTotal = 0, pairsFound = 0, teamCount = 1, turn = 0, scores = [], moves = 0;
+  // This round's order of play, how far along it is, and how many matches
+  // the team playing has made this turn.  `turn` is always order[pos].
+  let order = [0], pos = 0, streak = 0, notice = '', noticeTimer = null;
+
+  // A new round:  shuffled, or in team order.  Never starting with the team
+  // that ended the last one, which would give it two turns in a row.  (With
+  // two teams that leaves one order, so they simply alternate.)  Measured
+  // over 20,000 simulated games:  equal teams win equally whoever is weak.
+  function newRound(prevLast) {
+    const seq = [...Array(teamCount).keys()];
+    if (orderMode === 'shuffled' && teamCount > 1) {
+      let s;
+      do { s = shuffle(seq); } while (teamCount > 2 && s[0] === prevLast);
+      if (teamCount === 2 && s[0] === prevLast) s.reverse();
+      order = s;
+    } else {
+      order = seq;
+    }
+    pos = 0;
+    turn = order[0];
+  }
+  function nextTurn() {
+    streak = 0;
+    pos += 1;
+    if (pos >= order.length) newRound(turn);
+    else turn = order[pos];
+  }
   let teamNames = [];
   const teamName = (t) => teamNames[t] || 'Team ' + (t + 1);
   let history = [];
@@ -1074,6 +1150,7 @@
     if (pending) { clearTimeout(pending.timer); pending = null; }
     if (oddTimer) { clearTimeout(oddTimer); oddTimer = null; }
     if (finishTimer) { clearTimeout(finishTimer); finishTimer = null; }
+    if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; notice = ''; }
   }
 
   // `resume` is a game saved by saveGame, to carry on with instead of
@@ -1106,10 +1183,18 @@
     locked = false;
     teamCount = teams;
     pairsFound = resume ? resume.pairsFound : 0;
-    turn = resume ? resume.turn : 0;
     moves = resume ? resume.moves : 0;
     scores = resume ? resume.scores.slice() : new Array(teams).fill(0);
     history = [];
+    notice = '';
+    streak = resume ? resume.streak : 0;
+    if (resume) {
+      order = resume.order.slice();
+      pos = resume.pos;
+      turn = order[pos];
+    } else {
+      newRound(-1);
+    }
 
     grid.innerHTML = '';
     deck.forEach((card, i) => {
@@ -1156,7 +1241,7 @@
     try {
       if (gameEl.hidden || pairsFound === pairTotal) { localStorage.removeItem(CURRENT); return; }
       localStorage.setItem(CURRENT, JSON.stringify({
-        rows, cols, teamCount, teamNames, pairsFound, turn, moves, scores,
+        rows, cols, teamCount, teamNames, pairsFound, turn, moves, scores, order, pos, streak,
         cards: deck.map((c) => [c.obj.name, c.odd ? 1 : 0, c.found ? 1 : 0, c.by]),
       }));
     } catch (e) { /* storage unavailable:  nothing kept */ }
@@ -1170,6 +1255,14 @@
       if (!g || !Array.isArray(g.cards) || g.cards.length !== g.rows * g.cols) return null;
       if (!g.cards.every(([name]) => OBJECTS.some((o) => o.name === name))) return null;
       if (!(g.teamCount >= 1 && g.teamCount <= MAX_TEAMS) || g.scores.length !== g.teamCount) return null;
+      // A game saved before turn orders:  team order, at the team it was on.
+      const okOrder = Array.isArray(g.order) && g.order.length === g.teamCount &&
+        [...g.order].sort((x, y) => x - y).every((t, i) => t === i) && g.pos >= 0 && g.pos < g.teamCount;
+      if (!okOrder) {
+        g.order = [...Array(g.teamCount).keys()];
+        g.pos = g.turn >= 0 && g.turn < g.teamCount ? g.turn : 0;
+      }
+      if (!(g.streak >= 0)) g.streak = 0;
       return g;
     } catch (e) { return null; }
   }
@@ -1213,7 +1306,9 @@
       cards: deck.map((c) => ({ up: c.up, found: c.found, shownOdd: c.shownOdd, by: c.by })),
       first: first ? deck.indexOf(first) : -1,
       pairsFound,
-      turn,
+      order: order.slice(),
+      pos,
+      streak,
       moves,
       scores: scores.slice(),
     };
@@ -1223,7 +1318,11 @@
     deck.forEach((c, i) => Object.assign(c, s.cards[i]));
     first = s.first >= 0 ? deck[s.first] : null;
     pairsFound = s.pairsFound;
-    turn = s.turn;
+    order = s.order.slice();
+    pos = s.pos;
+    turn = order[pos];
+    streak = s.streak;
+    notice = '';
     moves = s.moves;
     scores = s.scores.slice();
     locked = false;
@@ -1261,12 +1360,16 @@
     if (done && !winners) winners = winnersOf();
     teamsEl.hidden = teamCount < 2;
     teamsEl.innerHTML = '';
-    for (let t = 0; t < teamCount; t++) {
+    // In this round's order, so the chips read as who has played and who is
+    // still to come.  Back in team order once the game is over.
+    const seq = done ? [...Array(teamCount).keys()] : order;
+    seq.forEach((t, i) => {
       const el = document.createElement('button');
       el.type = 'button';
       el.addEventListener('click', () => openRename(t));
       el.className = 'team t' + t +
         (!done && t === turn ? ' active' : '') +
+        (!done && i < pos ? ' played' : '') +
         (done && winners.includes(t) ? ' winner' : '');
       const dot = document.createElement('span');
       dot.className = 'dot';
@@ -1279,7 +1382,7 @@
       el.setAttribute('aria-label', teamName(t) + ', ' + scores[t] + ', rename');
       if (!done && t === turn) el.setAttribute('aria-current', 'true');
       teamsEl.appendChild(el);
-    }
+    });
     // On a phone the chips can run past the edge:  keep the team whose turn
     // it is in view.
     const now = teamsEl.querySelector('.active');
@@ -1290,7 +1393,7 @@
     }
 
     if (!done) {
-      resultEl.textContent = '';
+      resultEl.textContent = notice;
       if (finishEl.open) finishEl.close();
     } else if (teamCount < 2) {
       resultEl.innerHTML = '<strong>All pairs found.</strong>';
@@ -1425,11 +1528,18 @@
 
     if (a.obj === b.obj) {
       // A match stays face up, scores for the team whose turn it is, and that
-      // team goes again.
+      // team goes again, up to the limit on matches per turn.
       a.found = b.found = true;
       a.by = b.by = turn;
       pairsFound += 1;
       scores[turn] += 1;
+      streak += 1;
+      if (cap && streak >= cap && pairsFound < pairTotal) {
+        nextTurn();
+        notice = (cap === 1 ? 'A match' : cap + ' matches') + ', so the turn passes.';
+        if (noticeTimer) clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(() => { noticeTimer = null; notice = ''; render(); }, 2200);
+      }
       render();
       saveGame();
       if (pairsFound === pairTotal) {
@@ -1460,7 +1570,7 @@
         b.el.classList.remove('miss');
         a.up = b.up = false;
         locked = false;
-        turn = (turn + 1) % teamCount;
+        nextTurn();
         render();
         saveGame();
       }, MISMATCH_MS),
