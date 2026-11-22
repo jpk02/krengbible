@@ -331,7 +331,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Each face is also hidden outright once the turn passes halfway, the
+       moment it goes edge-on.  backface-visibility alone is not enough on
+       iPhone Safari:  anything inside a face with a layer of its own (the
+       label, which sits above the frame) is drawn through the turned card,
+       mirrored. */
+    transition: visibility 0s linear 0.2s;
   }
+  .card.up .back, .card:not(.up) .front { visibility: hidden; }
   .back {
     background: var(--bk);
     box-shadow: 0 6px 14px -8px var(--shadow), 0 1px 3px var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
