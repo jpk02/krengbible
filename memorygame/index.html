@@ -78,6 +78,11 @@
 
   * { box-sizing: border-box; }
   html, body { margin: 0; }
+  /* No bounce and no pull-to-refresh at the top of the page:  a drag down
+     the board must never reload it and lose the game.  The script below
+     also holds the drag itself, for the Safaris that ignore this. */
+  html, body { overscroll-behavior: none; }
+  body.playing { touch-action: manipulation; }
   body {
     min-height: 100vh;
     min-height: 100dvh;
@@ -998,6 +1003,7 @@
   });
   $('new').addEventListener('click', () => {
     clearTimers();
+    forgetGame();
     document.body.classList.remove('playing');
     gameEl.hidden = true;
     setupEl.hidden = false;
@@ -1030,6 +1036,7 @@
         if (s) localStorage.setItem(STORE, JSON.stringify({ ...s, names: nameDraft }));
       } catch (err) { /* fine */ }
       render();
+      saveGame();
     }
     renameEl.close();
   });
@@ -1069,29 +1076,39 @@
     if (finishTimer) { clearTimeout(finishTimer); finishTimer = null; }
   }
 
-  function start(r, c, teams) {
+  // `resume` is a game saved by saveGame, to carry on with instead of
+  // dealing a new one.
+  function start(r, c, teams, resume) {
     clearTimers();
     if (finishEl.open) finishEl.close();
     rows = r;
     cols = c;
     const n = rows * cols;
     pairTotal = Math.floor(n / 2);
-    const picked = shuffle(OBJECTS).slice(0, pairTotal + (n % 2));
-    // Fetched now, while the cards are still face down, so a picture is
-    // already there the first time its card turns.
-    picked.forEach((o) => { new Image().src = o.src; });
-    const pairs = picked.slice(0, pairTotal);
-    const cards = pairs.concat(pairs).map((obj) => ({ obj, odd: false }));
-    if (n % 2) cards.push({ obj: picked[pairTotal], odd: true });
-    deck = shuffle(cards).map((card) => ({ ...card, up: false, found: false, shownOdd: false, by: -1 }));
+    if (resume) {
+      deck = resume.cards.map(([name, odd, found, by]) => {
+        const obj = OBJECTS.find((o) => o.name === name);
+        return { obj, odd: !!odd, up: !!found, found: !!found, shownOdd: false, by };
+      });
+      deck.forEach((c) => { if (!c.found) new Image().src = c.obj.src; });
+    } else {
+      const picked = shuffle(OBJECTS).slice(0, pairTotal + (n % 2));
+      // Fetched now, while the cards are still face down, so a picture is
+      // already there the first time its card turns.
+      picked.forEach((o) => { new Image().src = o.src; });
+      const pairs = picked.slice(0, pairTotal);
+      const cards = pairs.concat(pairs).map((obj) => ({ obj, odd: false }));
+      if (n % 2) cards.push({ obj: picked[pairTotal], odd: true });
+      deck = shuffle(cards).map((card) => ({ ...card, up: false, found: false, shownOdd: false, by: -1 }));
+    }
 
     first = null;
     locked = false;
-    pairsFound = 0;
     teamCount = teams;
-    turn = 0;
-    moves = 0;
-    scores = new Array(teams).fill(0);
+    pairsFound = resume ? resume.pairsFound : 0;
+    turn = resume ? resume.turn : 0;
+    moves = resume ? resume.moves : 0;
+    scores = resume ? resume.scores.slice() : new Array(teams).fill(0);
     history = [];
 
     grid.innerHTML = '';
@@ -1125,6 +1142,36 @@
     document.body.classList.add('playing');
     render();
     layout();
+    saveGame();
+  }
+
+  // ---- Keeping the game through a reload ----
+  // Saved at the start of every turn, so a page that reloads anyway (the
+  // reload button, Safari dropping a tab it has had in the background) comes
+  // back to the same board, scores and team to play, rather than to Setup.
+  // Only between turns:  a card turned up mid-turn comes back face down.
+  // Undo starts afresh after a reload.  A finished game is not kept.
+  const CURRENT = 'memorygame.current';
+  function saveGame() {
+    try {
+      if (gameEl.hidden || pairsFound === pairTotal) { localStorage.removeItem(CURRENT); return; }
+      localStorage.setItem(CURRENT, JSON.stringify({
+        rows, cols, teamCount, teamNames, pairsFound, turn, moves, scores,
+        cards: deck.map((c) => [c.obj.name, c.odd ? 1 : 0, c.found ? 1 : 0, c.by]),
+      }));
+    } catch (e) { /* storage unavailable:  nothing kept */ }
+  }
+  function forgetGame() {
+    try { localStorage.removeItem(CURRENT); } catch (e) { /* fine */ }
+  }
+  function savedGame() {
+    try {
+      const g = JSON.parse(localStorage.getItem(CURRENT) || 'null');
+      if (!g || !Array.isArray(g.cards) || g.cards.length !== g.rows * g.cols) return null;
+      if (!g.cards.every(([name]) => OBJECTS.some((o) => o.name === name))) return null;
+      if (!(g.teamCount >= 1 && g.teamCount <= MAX_TEAMS) || g.scores.length !== g.teamCount) return null;
+      return g;
+    } catch (e) { return null; }
   }
 
   // The largest square that fits the board both across and down.  The gap
@@ -1192,6 +1239,7 @@
     if (!history.length) return;
     clearTimers();
     restore(history.pop());
+    saveGame();
   }
 
   function render(winners) {
@@ -1383,6 +1431,7 @@
       pairsFound += 1;
       scores[turn] += 1;
       render();
+      saveGame();
       if (pairsFound === pairTotal) {
         // The card without a pair turns up on its own once every pair is found.
         const odd = deck.find((c) => c.odd);
@@ -1413,8 +1462,35 @@
         locked = false;
         turn = (turn + 1) % teamCount;
         render();
+        saveGame();
       }, MISMATCH_MS),
     };
+  }
+
+  // ---- No pull-to-refresh while playing ----
+  // The board never needs the page to scroll, so while a game is on a drag
+  // is held:  Safari then has no pull to turn into a reload.  Pinching, the
+  // sideways row of teams on a phone, and the Options panel still move.
+  let touchX = 0, touchY = 0;
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!document.body.classList.contains('playing') || e.touches.length > 1) return;
+    const t = e.target.closest ? e.target : e.target.parentElement;
+    if (t && t.closest('dialog')) return;
+    if (t && t.closest('.teams')) {
+      const dx = Math.abs(e.touches[0].clientX - touchX), dy = Math.abs(e.touches[0].clientY - touchY);
+      if (dx > dy) return;
+    }
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+
+  // Back to a game the page was reloaded in the middle of.
+  const carryOn = savedGame();
+  if (carryOn) {
+    teamNames = (Array.isArray(carryOn.teamNames) ? carryOn.teamNames : []).map((n) => (typeof n === 'string' ? n : ''));
+    start(carryOn.rows, carryOn.cols, carryOn.teamCount, carryOn);
   }
 })();
 </script>
