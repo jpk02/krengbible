@@ -621,6 +621,53 @@
   .finish-actions button { flex: 1; padding: 12px; font-size: 16px; }
   #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
 
+  /* ---- Whose turn, large ----
+     On a laptop, a tablet or a screen across a room, the small chips in the
+     bar are not enough to see who is up.  A banner above the board says it
+     in the team's colour, with who plays next.  Not on a phone, where the
+     bar already sits close and the board needs the room;  nor on a screen
+     too short to spare it. */
+  .turnbanner { display: none; }
+  @media (min-width: 601px) and (min-height: 520px) {
+    .turnbanner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin: 2px 0 14px;
+      min-width: 0;
+    }
+    .turnbanner[hidden] { display: none; }
+  }
+  .turnbanner .now, .turnbanner .next { font-size: 16px; color: var(--dim); font-weight: 600; white-space: nowrap; }
+  .turnbanner .next strong { color: var(--ink); }
+  .turnbanner .who {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    max-width: 60vw;
+    padding: 0.18em 0.75em 0.18em 0.5em;
+    border-radius: 999px;
+    background: var(--tc);
+    color: var(--team-ink);
+    font-size: clamp(28px, 3.8vw, 48px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    box-shadow: 0 14px 30px -14px var(--tc);
+  }
+  .turnbanner .who .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .turnbanner .who .dot {
+    flex: none;
+    width: 0.38em;
+    height: 0.38em;
+    border-radius: 50%;
+    background: var(--team-ink);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  .turnbanner.pop .who { animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes pop { from { transform: scale(0.82); opacity: 0.3; } }
+
   /* ---- A phone held upright ----
      Two lines instead of four:  pairs and the buttons along the top, the
      teams beneath in one row that scrolls sideways when they do not all
@@ -661,7 +708,8 @@
   @media (prefers-reduced-motion: reduce) {
     .inner, .pic, .team, .fill, .front { transition: none; }
     .card.found .pic, .card.odd .pic, .card.found .front, .card.miss .inner,
-    .team.active .dot, .mini.face, dialog[open], #finish .trophy { animation: none; }
+    .team.active .dot, .mini.face, dialog[open], #finish .trophy,
+    .turnbanner .who, .turnbanner .who .dot { animation: none; }
   }
 </style>
 </head>
@@ -729,6 +777,11 @@
       </button>
       <button type="button" class="primary" id="new">New Game</button>
       </div>
+    </div>
+    <div class="turnbanner" id="banner" aria-hidden="true" hidden>
+      <span class="now">Now playing</span>
+      <span class="who"><span class="dot"></span><span class="name" id="bannerName"></span></span>
+      <span class="next" id="bannerNext"></span>
     </div>
     <div class="board" id="board">
       <div class="frame" id="frame">
@@ -1392,6 +1445,8 @@
       else if (r > teamsEl.scrollLeft + teamsEl.clientWidth) teamsEl.scrollLeft = r - teamsEl.clientWidth + 8;
     }
 
+    showBanner(done);
+
     if (!done) {
       resultEl.textContent = notice;
       if (finishEl.open) finishEl.close();
@@ -1408,6 +1463,40 @@
       } else {
         lead.textContent = 'Tie:';
         resultEl.append(lead, ' ' + names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ', ' + best + ' each.');
+      }
+    }
+  }
+
+  // The large turn banner (wide screens only;  see .turnbanner).  It pops
+  // when the turn changes hands.  "Next" is shown when it is known:  within
+  // a round, or at its end when the order stays the same.  A shuffled round
+  // is not drawn until it starts.
+  const bannerEl = $('banner');
+  let bannerTeam = -1;
+  function showBanner(done) {
+    const on = !done && teamCount > 1;
+    bannerEl.hidden = !on;
+    if (!on) { bannerTeam = -1; return; }
+    bannerEl.className = 'turnbanner t' + turn;
+    if (turn !== bannerTeam) {
+      void bannerEl.offsetWidth;
+      bannerEl.classList.add('pop');
+      bannerTeam = turn;
+    }
+    $('bannerName').textContent = teamName(turn);
+    const nextEl = $('bannerNext');
+    nextEl.textContent = '';
+    const capped = cap && streak >= cap;
+    if (streak > 0 && !capped) {
+      nextEl.textContent = 'Match, go again';
+    } else {
+      const next = pos + 1 < order.length ? order[pos + 1] : orderMode === 'same' ? order[0] : -1;
+      if (next >= 0 && next !== turn) {
+        const strong = document.createElement('strong');
+        strong.textContent = teamName(next);
+        nextEl.append('Next: ', strong);
+      } else if (next < 0) {
+        nextEl.textContent = 'Last this round';
       }
     }
   }
